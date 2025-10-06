@@ -37,7 +37,7 @@ app.post('/api/login', async (req, res) => {
 
   // Admin login
   if (
-    username.toLowerCase() === process.env.ADMIN_USERNAME.toLowerCase() &&
+    username === process.env.ADMIN_USERNAME &&
     password === process.env.ADMIN_PASSWORD
   ) {
     const token = jwt.sign(
@@ -49,7 +49,7 @@ app.post('/api/login', async (req, res) => {
   }
 
   // User login from DB
-  const user = await User.findOne({ username: username.toLowerCase() });
+  const user = await User.findOne({ username: username });
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
   const isMatch = await bcrypt.compare(password, user.password);
@@ -198,24 +198,77 @@ app.get('/api/thresholds', (req, res) => {
 // 📡 TCP Server
 const BULK_SAVE_LIMIT = 1000;
 let readingBuffer = [];
-
+let alreadyReplied = 0;
+function getFormattedDateTime() {
+  const today = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const dd = pad(today.getDate());
+  const mm = pad(today.getMonth() + 1);
+  const yy = String(today.getFullYear()).slice(-2);
+  const HH = pad(today.getHours());
+  const MM = pad(today.getMinutes());
+  const SS = pad(today.getSeconds());
+  return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
+}
+function sendX(socket) {
+  const msg = `%X000${getFormattedDateTime()}$`;
+  console.log(`⬅️ Sending back: ${msg}`);
+  const ok = socket.write(msg);
+  if (!ok) {
+    console.warn("⚠️ Backpressure: socket buffer is full, write queued");
+  }
+}
 const server = net.createServer(socket => {
   let buffer = Buffer.alloc(0);
 
-  socket.on('data', async (data) => {
+  socket.on('data', async data => {
+    console.log(`Received packet (${data.length} bytes):`, data.toString('hex'));
     buffer = Buffer.concat([buffer, data]);
 
     try {
-      while (buffer.length >= 55) {
-        const macRaw = buffer.subarray(0, 17);
-        const macRawStr = macRaw.toString('utf-8').slice(0, 17).trim();
-        const mac = /^[0-9A-Fa-f:]+$/.test(macRawStr) ? macRawStr : `INVALID_${Date.now()}`;
-        if (mac.startsWith("INVALID")) {
-          console.warn(`⚠️ Dropping malformed MAC: ${mac}`);
-          buffer = buffer.slice(55);
+      while (buffer.length >= 58) {
+        const bufStr = buffer.toString('utf-8');
+
+        // Search for first valid MAC pattern in buffer string
+        const macPattern = /[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}/;
+        const match = bufStr.match(macPattern);
+
+        if (!match) {
+          console.warn(`No MAC found in buffer, discarding ${buffer.length} bytes`);
+          buffer = Buffer.alloc(0);
+          break;
+        }
+
+        const macStartIndex = bufStr.indexOf(match[0]);
+
+        if (macStartIndex > 0) {
+          console.warn(`Discarding ${macStartIndex} bytes of junk before MAC`);
+          buffer = buffer.slice(macStartIndex);
           continue;
         }
 
+        if (buffer.length < 58) {
+          // Wait for more data for complete packet
+          break;
+        }
+
+        // Extract one full packet starting at MAC
+        const packet = buffer.slice(0, 58);
+
+        const macRaw = packet.subarray(0, 17);
+        let macRawStr = macRaw.toString('utf-8');
+        console.log(`Received MAC: [${macRawStr}], length: ${macRawStr.length}`);
+
+        // Sanitize and verify MAC
+        const sanitizedMac = macRawStr.replace(/[^0-9A-Fa-f:]/g, '');
+        const macRegex = /^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$/;
+        if (sanitizedMac.length !== 17 || !macRegex.test(sanitizedMac)) {
+          console.warn(`⚠️ Dropping malformed MAC: INVALID_${Date.now()}`);
+          buffer = buffer.slice(58);
+          continue;
+        }
+
+        const mac = sanitizedMac;
         const humidity = +buffer.readFloatLE(17).toFixed(2);
         const insideTemperature = +buffer.readFloatLE(21).toFixed(2);
         const outsideTemperature = +buffer.readFloatLE(25).toFixed(2);
@@ -231,8 +284,22 @@ const server = net.createServer(socket => {
         const fanLevel1Running = !!buffer[47];
         const fanLevel2Running = !!buffer[48];
         const fanLevel3Running = !!buffer[49];
-        const fanFailBits = buffer.readUInt32LE(50);
+        const fanLevel4Running = !!buffer[50];
+        const padding = buffer[51]; // unused
+        if ((padding === 0x31) && (!alreadyReplied)) {
+          sendX(socket);
+          alreadyReplied = 40; // Load Balancing
+        }
+        if (alreadyReplied)
+          alreadyReplied--;
+        const fanStatusBits = buffer.readUInt16LE(52);
+        const fanStatus = [];
+        for (let i = 0; i < 6; i++) {
+          fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
+        }
+        console.log("fanStatus", fanStatus);
 
+        const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset
         const floats = [
           humidity, insideTemperature, outsideTemperature,
           outputVoltage, inputVoltage, batteryBackup
@@ -240,41 +307,25 @@ const server = net.createServer(socket => {
 
         if (floats.some(val => isNaN(val) || Math.abs(val) > 100000)) {
           console.warn(`⚠️ Skipping packet from ${mac}: bad float value(s)`);
-          buffer = buffer.slice(55);
+          buffer = buffer.slice(58);
           continue;
         }
 
         if (Math.random() < 0.01) {
-          console.log(`📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V`);
+          console.log(`📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(16)}h`);
         }
 
-        const fan1Status = fanLevel1Running && !(fanFailBits & (1 << 0));
-        const fan2Status = fanLevel1Running && !(fanFailBits & (1 << 1));
-        const fan3Status = fanLevel1Running && !(fanFailBits & (1 << 2));
-        const fan4Status = fanLevel2Running && !(fanFailBits & (1 << 3));
-        const fan5Status = fanLevel2Running && !(fanFailBits & (1 << 4));
-        const fan6Status = fanLevel3Running && !(fanFailBits & (1 << 5));
-
+        // Threshold-based alarms
         const thresholdAlarms = {
-          insideTemperatureAlarm:
-            insideTemperature > thresholds.insideTemperature.max ||
-            insideTemperature < thresholds.insideTemperature.min,
-          outsideTemperatureAlarm:
-            outsideTemperature > thresholds.outsideTemperature.max ||
-            outsideTemperature < thresholds.outsideTemperature.min,
-          humidityAlarm:
-            humidity > thresholds.humidity.max ||
-            humidity < thresholds.humidity.min,
-          inputVoltageAlarm:
-            inputVoltage > thresholds.inputVoltage.max ||
-            inputVoltage < thresholds.inputVoltage.min,
-          outputVoltageAlarm:
-            outputVoltage > thresholds.outputVoltage.max ||
-            outputVoltage < thresholds.outputVoltage.min,
-          batteryBackupAlarm:
-            batteryBackup < thresholds.batteryBackup.min
+          insideTemperatureAlarm: insideTemperature > thresholds.insideTemperature.max || insideTemperature < thresholds.insideTemperature.min,
+          outsideTemperatureAlarm: outsideTemperature > thresholds.outsideTemperature.max || outsideTemperature < thresholds.outsideTemperature.min,
+          humidityAlarm: humidity > thresholds.humidity.max || humidity < thresholds.humidity.min,
+          inputVoltageAlarm: inputVoltage > thresholds.inputVoltage.max || inputVoltage < thresholds.inputVoltage.min,
+          outputVoltageAlarm: outputVoltage > thresholds.outputVoltage.max || outputVoltage < thresholds.outputVoltage.min,
+          batteryBackupAlarm: batteryBackup < thresholds.batteryBackup.min
         };
 
+        // Build and save the reading (fan status is now independent, not derived)
         const reading = new SensorReading({
           mac,
           humidity,
@@ -292,13 +343,14 @@ const server = net.createServer(socket => {
           fanLevel1Running,
           fanLevel2Running,
           fanLevel3Running,
-          fanFailBits,
-          fan1Status,
-          fan2Status,
-          fan3Status,
-          fan4Status,
-          fan5Status,
-          fan6Status,
+          fanLevel4Running,
+          fanFailBits,   // keep for legacy (optional)
+          fan1Status: fanStatus[0],
+          fan2Status: fanStatus[1],
+          fan3Status: fanStatus[2],
+          fan4Status: fanStatus[3],
+          fan5Status: fanStatus[4],
+          fan6Status: fanStatus[5],
           ...thresholdAlarms
         });
 
@@ -311,7 +363,7 @@ const server = net.createServer(socket => {
           SensorReading.insertMany(toSave).catch(err => console.error('Bulk save error:', err.message));
         }
 
-        buffer = buffer.slice(55);
+        buffer = buffer.slice(58);
       }
     } catch (err) {
       console.error('Packet parsing failed:', err.message);
