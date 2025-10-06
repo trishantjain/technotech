@@ -149,6 +149,36 @@ function DashboardView() {
       batteryBackup: r.batteryBackup
     }));
 
+  const alarmKeys = [
+    {
+      key: 'fireAlarm',
+      Name: 'Fire Alarm'
+    },
+    {
+      key: 'waterLogging',
+      Name: 'Logging'
+    },
+    {
+      key: 'waterLeakage',
+      Name: 'Leakage'
+    },
+  ]
+
+  const statusKeys = [
+    {
+      key: 'lockStatus',
+      Name: "Lock"
+    },
+    {
+      key: 'doorStatus',
+      Name: "Door"
+    },
+    {
+      key: 'fanFailBits',
+      Name: "Password"
+    },
+  ]
+
   return (
     <div className="dashboard">
       <div className="panel">
@@ -184,27 +214,95 @@ function DashboardView() {
                     </div>
                   ))}
                 </div>
-                <div className="alarm-line">
-                  <h4>Alarms</h4>
-                  {['fireAlarm', 'waterLogging', 'waterLeakage'].map((key, i) => (
-                    <div key={i} className="alarm-indicator">
-                      <div className={`alarm-led ${latestReading[key] ? 'active' : ''}`} />
-                      <div className="alarm-label">{key.replace(/([A-Z])/g, ' $1')}</div>
+              )}
+
+              {activeTab === 'status' && (
+                <div className="fan-status">
+                  <div className="fan-status-line">
+                    <h4>Fan Running Status</h4>
+                    {[...Array(6)].map((_, i) => {
+                      const statusVal = latestReading[`fan${i + 1}Status`]; // 0=off, 1=healthy, 2=faulty
+                      console.log('statusVal', statusVal);
+
+                      console.log("statusC")
+                      let statusClass = 'off';
+                      if (statusVal === 1) {
+                        statusClass = 'running';  // green
+                      } else if (statusVal === 2) {
+                        statusClass = 'faulty';   // red
+                      }
+                      console.log(statusClass);
+
+                      return (
+                        <div key={i} className="fan-light">
+                          <div className={`fan-light-circle ${statusClass}`} />
+                          <div className="fan-label">F{i + 1}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="alarm-line">
+                    <h4>Alarms</h4>
+                    {alarmKeys.map((alarm, i) => (
+                      <div key={i} className="alarm-indicator">
+                        <div className={`alarm-led ${latestReading[alarm.key] ? 'active' : ''}`} />
+                        <div className="alarm-label">{alarm.Name}</div>
+                      </div>
+                    ))}
+                    {statusKeys.map((status, i) => {
+                      if (status.key !== 'fanFailBits') {
+
+                        return (
+                          <div key={i} className="alarm-indicator">
+                            <div className={`alarm-led ${latestReading[status.key] === 'OPEN' ? 'active' : ''}`} />
+                            <div className="alarm-label">{status.Name}</div>
+                          </div>
+                        );
+                      } else {
+                        return (<div key={i} className="alarm-indicator">
+                          <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} />
+                          <div className="alarm-label">{status.Name}</div>
+                        </div>);
+                      }
+                    })}
+                  </div>
+
+                  <div className="alarm-line">
+                    <h4>HUPS</h4>
+                    {['Mains', 'Rectfier', 'Inverter'].map((key, i) => (
+                      <div key={i} className="alarm-indicator">
+                        <div className={`alarm-led ${latestReading[key] ? 'active' : ''}`} />
+                        <div className="alarm-label">{key.replace(/([A-Z])/g, ' $1')}</div>
+                      </div>
+                    ))}
+                    {['O.Load', 'MPT', 'MOSFET'].map((key, i) => (
+                      <div key={i} className="alarm-indicator">
+                        <div className={`alarm-led ${latestReading[key] === 'OPEN' ? 'active' : ''}`} />
+                        <div className="alarm-label">{key.replace('Status', '')}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <h4>🛠 Commands</h4>
+                  <div className="fan-power-buttons aligned">
+                    {[1, 2, 3, 4, 5].map(level => (
+                      <div key={level} className="fan-light">
+                        <button className={`power-btn ${activeFanBtns.includes(level) ? 'active' : ''}`} onClick={() => handleFanClick(level)} />
+                        <div className="fan-label">{level >= 1 && level <= 4 ? `FG ${level}` : 'LOAD'}</div>
+                      </div>
+                    ))}
+                    <div className="fan-light">
+                      <button className="lock-btn" onClick={handleOpenLock}>🔓</button>
+                      <div className="fan-label">Lock</div>
                     </div>
-                  ))}
-                  {['lockStatus', 'doorStatus'].map((key, i) => (
-                    <div key={i} className="alarm-indicator">
-                      <div className={`alarm-led ${latestReading[key] === 'OPEN' ? 'active' : ''}`} />
-                      <div className="alarm-label">{key.replace('Status', '')}</div>
+                    <div className="fan-light">
+                      <button className="lock-btn" onClick={handleResetLock}>🔐</button>
+                      <div className="fan-label">Reset</div>
                     </div>
-                  ))}
-                </div>
-                <h4>🛠 Commands</h4>
-                <div className="fan-power-buttons aligned">
-                  {[1, 2, 3].map(level => (
-                    <div key={level} className="fan-light">
-                      <button className={`power-btn ${activeFanBtns.includes(level) ? 'active' : ''}`} onClick={() => handleFanClick(level)} />
-                      <div className="fan-label">Level {level}</div>
+                    <div className="fan-light">
+                      <button className="lock-btn" onClick={openPassword}>🔐</button>
+                      <div className="fan-label">Open PWD</div>
                     </div>
                   ))}
                   <div className="fan-light">
