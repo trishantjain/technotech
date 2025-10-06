@@ -21,6 +21,16 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err.message));
 
+// --------------- HTTP API Endpoints (unchanged) ---------------
+app.get('/ping', async (req, res) => {
+  try {
+    await mongoose.connection.db.admin().ping();
+    res.send('pong');
+  } catch (e) {
+    console.error('⚠️ /ping DB check failed:', e.message);
+    res.status(500).send('MongoDB unreachable');
+  }
+});
 // ✅ Login route (admin hardcoded via .env)
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
