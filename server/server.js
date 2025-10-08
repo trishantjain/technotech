@@ -227,6 +227,32 @@ app.post('/api/log-command', (req, res) => {
   });
 });
 
+app.get('/api/historical-data', async (req, res) => {
+  const { mac, datetime } = req.query;
+  if (!mac || !datetime)
+    return res.status(400).json({ error: 'Missing mac or datetime' });
+  const datetimeObj = new Date(datetime);
+  if (isNaN(datetimeObj.getTime()))
+    return res.status(400).json({ error: 'Invalid datetime format' });
+  const selectedDate = new Date(datetimeObj);
+  selectedDate.setHours(0, 0, 0, 0);
+  const nextDate = new Date(selectedDate);
+  nextDate.setDate(nextDate.getDate() + 1);
+  try {
+    const readings = await SensorReading.find({
+      mac,
+      timestamp: { $gte: selectedDate, $lt: nextDate }
+    }).sort({ timestamp: 1 });
+    const atSelectedTime = await SensorReading.findOne({
+      mac,
+      timestamp: { $lte: datetimeObj }
+    }).sort({ timestamp: -1 });
+    res.json({ readings, atSelectedTime });
+  } catch (err) {
+    console.error('Historical data error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch historical data' });
+  }
+});
 
 // Serve snapshot images
 app.get('/api/snapshots/:imageName', (req, res) => {
