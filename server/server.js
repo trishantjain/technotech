@@ -191,6 +191,40 @@ app.get('/api/device/:mac', async (req, res) => {
   }
 });
 
+
+// ✅ Get logs saved in PC
+app.post('/api/log-command', (req, res) => {
+  console.log('Log API Called');
+  const { date, mac, command, status, message } = req.body;
+
+  console.log(date, mac, command, status, message);
+
+  const now = new Date();
+  const fileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.out`;
+  const logDir = path.join(require('os').homedir(), 'CommandLogs/out');
+
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+
+  const filePath = path.join(logDir, fileName);
+  const timestamp = now.toLocaleString();
+  const logEntry = `[${timestamp}] | MAC:${mac} | ${status}  | COMMAND:"${command}" | MESSAGE:"${message}"\n`;
+
+  // ✅ Send response immediately, log in background
+  res.json({ message: 'Log received' });
+
+  // File writing happens after response
+  fs.appendFile(filePath, logEntry, (err) => {
+    if (err) {
+      console.error('Failed to save log:', err);
+    } else {
+      console.log(`✅ Log saved: ${filePath}`);
+    }
+  });
+});
+
+
 app.get('/api/thresholds', (req, res) => {
   res.json(thresholds);
 });
@@ -290,6 +324,41 @@ const server = net.createServer(socket => {
           sendX(socket);
           alreadyReplied = 40; // Load Balancing
         }
+
+
+        // Logging Incoming Data from Simulator
+        const now = new Date();
+        const fileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.inc`;
+        const logDir = path.join(require('os').homedir(), 'CommandLogs/inc');
+
+        const sensorData = {
+          humidity: humidity,
+          insideTemperature: insideTemperature,
+          outsideTemperature: outsideTemperature,
+          inputVoltage: inputVoltage,
+          outputVoltage: outputVoltage,
+          batteryBackup: batteryBackup
+        };
+
+        // Checks if path exists || Creates the path
+        if (!fs.existsSync(logDir)) {
+          fs.mkdirSync(logDir, { recursive: true });
+        }
+
+        const filePath = path.join(logDir, fileName);
+        const timestamp = now.toLocaleString();
+        const logEntry = `[${timestamp}] | MAC:${mac} | Data:${JSON.stringify(sensorData)}"\n`;
+
+        // File writing happens after response
+        fs.appendFile(filePath, logEntry, (err) => {
+          if (err) {
+            console.error('Failed to save log:', err);
+          } else {
+            console.log(`✅ Log saved: ${filePath}`);
+          }
+        });
+
+
         if (alreadyReplied)
           alreadyReplied--;
         const fanStatusBits = buffer.readUInt16LE(52);
