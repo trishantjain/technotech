@@ -114,6 +114,28 @@ function DashboardView() {
 
     return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
   }
+
+  const sendToLog = async (status, message, command = '') => {
+    const logData = {
+      date: new Date().toLocaleString(),
+      mac: selectedMac,
+      command: command,
+      status: status,
+      message: message
+    }
+
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/api/log-command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData),
+      });
+
+    } catch (err) {
+      console.error("Failed to log ", err);
+    }
+  }
+
   const sendCommand = async (cmdToSend) => {
     if (!selectedMac || !cmdToSend) {
       setStatus('Please select a device and enter a command.');
@@ -137,6 +159,7 @@ function DashboardView() {
     const isActive = activeFanBtns.includes(level);
     const command = isActive ? `%R0${level}F${getFormattedDateTime()}$` : `%R0${level}N${getFormattedDateTime()}$`;
 
+    sendToLog(`Fan Group ${level} clicked ${isActive ? "off" : "on "}`, "", command);
     sendCommand(command);
 
     // Update UI immediately (optional, for instant feedback)
@@ -149,6 +172,7 @@ function DashboardView() {
   const handleOpenLock = () => {
     const pwd = window.prompt("Enter password to open lock:");
     const today = new Date();
+    sendToLog("Lock Open");
     if (pwd === 'admin123') sendCommand(`%L00O${getFormattedDateTime()}$`);
     else setStatus('Wrong password for opening lock!');
   };
@@ -159,6 +183,7 @@ function DashboardView() {
     if (pwd === 'admin123') {
       const newLock = window.prompt("Enter new lock value:");
       if (newLock && newLock.trim() !== '') {
+        sendToLog(`Lock Reset ${newLock} clicked`);
         sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
       } else {
         setStatus('New lock value cannot be empty!');
