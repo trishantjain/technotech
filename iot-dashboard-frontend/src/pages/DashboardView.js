@@ -21,6 +21,7 @@ function DashboardView() {
   const [activeFanBtns, setActiveFanBtns] = useState([]);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [snapshots, setSnapshots] = useState([]);
 
   //Map and marker refs
   const mapRef = useRef(null);
@@ -230,15 +231,23 @@ function DashboardView() {
       inputVoltage: Number(r.inputVoltage.toFixed(2)),
       outputVoltage: Number(r.outputVoltage.toFixed(2)),
       batteryBackup: Number(r.batteryBackup.toFixed(2)),
-
-      // insideTemperature: r.insideTemperature,
-      // outsideTemperature: r.outsideTemperature,
-      // humidity: r.humidity,
-      // inputVoltage: r.inputVoltage,
-      // outputVoltage: r.outputVoltage,
-      // batteryBackup: r.batteryBackup
-
     }));
+
+  // Fetch snapshots on component mount
+  useEffect(() => {
+    fetchSnapshots();
+  }, []);
+
+  const fetchSnapshots = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/snapshots`);
+      const snapshotFiles = await response.json();
+      setSnapshots(snapshotFiles);
+    } catch (err) {
+      console.error('Error fetching snapshots:', err);
+    }
+  };
+
 
   const alarmKeys = [
     {
@@ -426,9 +435,19 @@ function DashboardView() {
                 <div className="camera-tab">
                   <h4>🖼️ Last 15 Snapshots (Placeholder)</h4>
                   <div className="snapshots-grid">
-                    {[...Array(15)].map((_, i) => (
-                      <img key={i} src={`https://via.placeholder.com/120x90?text=Img+${i + 1}`} alt={`snapshot-${i + 1}`} />
-                    ))}
+                    {snapshots.length > 0 ? (
+                      snapshots.map((filename, i) => (
+                        <img
+                          key={i}
+                          src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`}
+                          alt={`snapshot-${i + 1}`}
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/120x90?text=Error';
+                          }}
+                        />
+                      )))
+                      : (<p>No snapshots available</p>
+                      )}
                   </div>
                 </div>
               )}

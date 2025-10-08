@@ -9,6 +9,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const SensorReading = require('./SensorReading');
 const thresholds = require('./thresholds');
+const fs = require('fs');
+const path = require('path');
+
 
 const app = express();
 const connectedDevices = new Map();
@@ -222,6 +225,38 @@ app.post('/api/log-command', (req, res) => {
       console.log(`✅ Log saved: ${filePath}`);
     }
   });
+});
+
+
+// Serve snapshot images
+app.get('/api/snapshots/:imageName', (req, res) => {
+  const imageName = req.params.imageName;
+  const imagePath = path.join('C:/Users/trish/cam', imageName);
+
+  // Check if file exists
+  if (!fs.existsSync(imagePath)) {
+    return res.status(404).json({ error: 'Image not found' });
+  }
+
+  // Send the image file
+  res.sendFile(imagePath);
+});
+
+// Get list of available snapshots
+app.get('/api/snapshots', (req, res) => {
+  const snapshotsDir = 'C:/Users/trish/cam';
+
+  try {
+    const files = fs.readdirSync(snapshotsDir)
+      .filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file))
+      .sort()
+      .slice(-15); // Get last 15 images
+
+    res.json(files);
+  } catch (err) {
+    console.error('Error reading snapshots:', err);
+    res.status(500).json({ error: 'Failed to read snapshots' });
+  }
 });
 
 
