@@ -313,9 +313,9 @@ function DashboardView() {
                   <Gauge label="HUPS O/P" value={latestReading.inputVoltage} max={5} color="#06d6a0" alarm={latestReading.inputVoltageAlarm} />
                   <Gauge label="LoadCurrent" value={latestReading.outputVoltage} max={5} color="#118ab2" alarm={latestReading.outputVoltageAlarm} />
                   <Gauge label="DV Current" value={latestReading.batteryBackup} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm} />
-                  <Gauge label="Battery %" value={(latestReading.batteryBackup*1.5).toFixed(2)} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm*1.3} />
+                  <Gauge label="Battery %" value={(latestReading.batteryBackup * 1.5).toFixed(2)} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm * 1.3} />
                   <Gauge label="Battery(Hours)" value={(latestReading.batteryBackup).toFixed(0)} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm} />
-                  <Gauge label="LockBat(Hours)" value={(latestReading.inputVoltage*1.1).toFixed(0)} max={5} color="#ffc107" alarm={latestReading.inputVoltageAlarm*1.2} />
+                  <Gauge label="LockBat(Hours)" value={(latestReading.inputVoltage * 1.1).toFixed(0)} max={5} color="#ffc107" alarm={latestReading.inputVoltageAlarm * 1.2} />
                 </div>
               )}
 
@@ -325,7 +325,7 @@ function DashboardView() {
                     <h4>Fan Running Status</h4>
                     {[...Array(6)].map((_, i) => {
                       const statusVal = latestReading[`fan${i + 1}Status`]; // 0=off, 1=healthy, 2=faulty
-                      console.log('statusVal', statusVal);
+                      // console.log('statusVal', statusVal);
 
                       console.log("statusC")
                       let statusClass = 'off';
@@ -412,6 +412,8 @@ function DashboardView() {
                 </div>
               )}
 
+
+              {/* Camera Feed */}
               {activeTab === 'camera-feed' && (
                 <div className="camera-feed-wrapper">
                   <div className="camera-frame">
@@ -502,7 +504,6 @@ function DashboardView() {
                 const mac = device.mac;
                 const reading = latestReadingsByMac[mac];
                 let colorClass = 'disconnected'; // default
-                console.log(reading);
 
                 if (reading && reading.timestamp) {
                   const age = Date.now() - new Date(reading.timestamp).getTime();
