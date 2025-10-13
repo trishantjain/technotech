@@ -285,6 +285,69 @@ app.get('/api/snapshots', (req, res) => {
   }
 });
 
+// Get list of Camera Videos
+app.get('/api/cam', (req, res) => {
+  const camDir = 'C:/Users/trish/eMS_videos';
+
+  try {
+    // Check if directory exists
+    if (!fs.existsSync(camDir)) {
+      return res.status(404).json({ error: 'Videos directory not found' });
+    }
+
+    const videos = fs.readdirSync(camDir)
+      .filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ['.mp4', '.avi', '.mov', '.webm', '.mkv'].includes(ext);
+      })
+      .sort(); // Sort alphabetically
+
+    res.json(videos);
+  } catch (error) {
+    console.error('Error reading Camera:', err);
+    res.status(500).json({ error: 'Failed to get Videos' });
+  }
+})
+
+app.get('/api/cam/:camid', (req, res) => {
+  try {
+    const camid = req.params.camid;
+
+    // ✅ Security: Prevent path traversal attacks
+    if (camid.includes('..') || camid.includes('/') || camid.includes('\\')) {
+      return res.status(400).json({ error: "Invalid file name" });
+    }
+
+    const camPath = path.join('C:/Users/trish/eMS_videos', camid);
+
+    if (!fs.existsSync(camPath)) {
+      res.status(404).json({ error: "Video Not Found" });
+    }
+
+    // ✅ Set content type for video
+    const ext = path.extname(camid).toLowerCase();
+    const contentTypes = {
+      '.mp4': 'video/mp4',
+      '.avi': 'video/x-msvideo',
+      '.mov': 'video/quicktime',
+      '.webm': 'video/webm',
+      '.mkv': 'video/x-matroska'
+    };
+
+    res.setHeader('Content-Type', contentTypes[ext] || 'video/mp4');
+
+    res.sendFile(camPath, (err) => {
+      if (err) {
+        console.error('Error sending file:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Error streaming video" });
+        }
+      }
+    });
+  } catch (error) {
+    res.status(404).json("Unable to fetch file: ", error);
+  }
+})
 
 app.get('/api/thresholds', (req, res) => {
   res.json(thresholds);
