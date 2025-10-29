@@ -131,7 +131,7 @@ body {
   background-color: #00ff00;
   box-shadow: 0 0 8px #00ff00;
 }
-.fan-light-circle.stopped {
+.fan-light-circle.faulty {
   background-color: #ff0000;
   box-shadow: 0 0 8px #ff0000;
 }
@@ -165,13 +165,14 @@ body {
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+  /* background-image: url("../src/images/power.png"); */
 }
 .power-btn.active {
   background-color: black;
   box-shadow: 0 0 20px limegreen;
 }
 .power-btn::before {
-  content: '\23FB';
+  content: '\1F50C';
   font-size: 24px;
   color: #444;
 }
@@ -344,4 +345,170 @@ body {
 }
 .camera-controls button:hover {
   background-color: #444;
+}
+.device-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  background-color: #111;
+  color: #eee;
+  border: 1px solid #444;
+}
+
+.device-table th,
+.device-table td {
+  padding: 8px 12px;
+  border: 1px solid #333;
+  text-align: left;
+}
+
+.device-table th {
+  background-color: #222;
+  font-weight: bold;
+}
+
+.device-table a {
+  color: #00f2ff;
+  text-decoration: underline;
+}
+.admin-dashboard {
+  display: flex;
+}
+
+.sidebar {
+  width: 220px;
+  background-color: #000;;
+  color: white;
+  height: 100vh;
+  transition: width 0.3s ease;
+  position: relative;
+  padding-top: 1rem;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+}
+
+.sidebar .collapse-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.3rem;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar ul li {
+  padding: 12px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sidebar ul li.active {
+  background-color: #343454;
+}
+
+.tab-content {
+  flex: 1;
+  padding: 1rem;
+  background-color: #111; /* or #000, depending on your original layout */
+  color: white;
+}
+.historical-data-tab .chart-box {
+  padding: 0.75rem;
+  background: #1e1e1e;
+  margin: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #333;
+  width: 90%;
+  max-width: 400px;
+}
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);  /* 3 charts in a row */
+  gap: 8px;                              /* spacing between charts */
+  padding: 5px;
+}
+
+.chart-box {
+  background-color: #000;                 /* make chart box black */
+  border-radius: 8px;
+  padding: 5px;
+  height: 180px;                          /* adjust as needed */
+  color: white;                           /* keep labels readable */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* optional: soft shadow */
+}
+.snapshot-table {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.snapshot-cell {
+  background-color: #1e1e1e;
+  color: white;
+  padding: 10px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 13px;
+  box-shadow: 0 0 4px #00000088;
+}
+
+.loader {
+  color: white;
+  font-weight: bold;
+  padding: 20px;
+  font-size: 18px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+.marker-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: gray;
+  border: 2px solid white;
+}
+
+.marker-dot.connected {
+  background-color: green;
+}
+
+.marker-dot.gauge-alarm {
+  background-color: orange;
+}
+
+.marker-dot.status-alarm {
+  background-color: yellow;
+}
+
+.marker-dot.disconnected {
+  background-color: red;
+}
+.theme-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+}
+
+.theme-form label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }

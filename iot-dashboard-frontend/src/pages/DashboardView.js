@@ -8,6 +8,7 @@ import L from 'leaflet';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import swal from 'sweetalert2'
 
 const defaultLocation = [28.6139, 77.2090];
 
@@ -22,6 +23,9 @@ function DashboardView() {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [snapshots, setSnapshots] = useState([]);
+  const [videosCaptured, setVideosCaptured] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
+
 
   //Map and marker refs
   const mapRef = useRef(null);
@@ -38,6 +42,10 @@ function DashboardView() {
 
   const selectedDeviceMeta = deviceMeta.find(d => d.mac === selectedMac);
   const latestReading = readings.find(r => r.mac === selectedMac);
+
+  // console.log("latestR", latestReading)
+  // console.log('All properties:', Object.keys(latestReading));
+
 
   useEffect(() => {
     fetchData();
@@ -88,6 +96,7 @@ function DashboardView() {
       setDevices(devicesData);
       setDeviceMeta(metadata);
       console.log(readingsData[0].fanFailBits)
+      console.log("readingData", readingsData)
     } catch (err) {
       console.error('Error fetching data:', err);
     }
@@ -170,12 +179,30 @@ function DashboardView() {
     );
   };
 
-  const handleOpenLock = () => {
-    const pwd = window.prompt("Enter password to open lock:");
-    const today = new Date();
-    sendToLog("Lock Open");
-    if (pwd === 'admin123') sendCommand(`%L00O${getFormattedDateTime()}$`);
-    else setStatus('Wrong password for opening lock!');
+  //! New code for Open Lock (using Sweetalert2)
+  const handleOpenLock = async () => {
+    const { value: password } = await swal.fire({
+      title: 'Enter password',
+      input: 'password',
+      inputLabel: 'Password',
+      inputPlaceholder: 'Enter password',
+      showCancelButton: true,
+      confirmButtonText: 'Open Lock',
+      cancelButtonText: 'Cancel',
+      background: '#292929',
+      color: '#fff',
+      confirmButtonColor: "#2f2f2fff",
+      width: "20em"
+    });
+
+    if (password) {
+      if (password === 'admin123') {
+        sendCommand(`%L00O${getFormattedDateTime()}$`);
+        setStatus('Lock opened successfully!');
+      } else {
+        setStatus('Wrong password!');
+      }
+    }
   };
 
 
@@ -236,6 +263,7 @@ function DashboardView() {
   // Fetch snapshots on component mount
   useEffect(() => {
     fetchSnapshots();
+    fetchVideos();
   }, []);
 
   const fetchSnapshots = async () => {
@@ -247,6 +275,16 @@ function DashboardView() {
       console.error('Error fetching snapshots:', err);
     }
   };
+
+  const fetchVideos = async () => {
+    try {
+      const resp = await fetch(`${process.env.REACT_APP_API_URL}/api/cam`);
+      const videos = await resp.json();
+      setVideosCaptured(videos);
+    } catch (err) {
+      console.error('Error fetching videos: ', err);
+    }
+  }
 
 
   const alarmKeys = [
@@ -297,7 +335,7 @@ function DashboardView() {
         <div className="panel">
           <h2 className="selected-heading">📟 Selected iMoni {selectedMac && <span>: {selectedMac}</span>}</h2>
           {latestReading && (
-            <>
+            <div>
               <div className="tabs">
                 <button className={activeTab === 'gauges' ? 'active' : ''} onClick={() => setActiveTab('gauges')}>Gauges</button>
                 <button className={activeTab === 'status' ? 'active' : ''} onClick={() => setActiveTab('status')}>Status</button>
@@ -391,7 +429,7 @@ function DashboardView() {
                   <div className="fan-power-buttons aligned">
                     {[1, 2, 3, 4, 5].map(level => (
                       <div key={level} className="fan-light">
-                        <button className={`power-btn ${activeFanBtns.includes(level) ? 'active' : ''}`} onClick={() => handleFanClick(level)} />
+                        <button className={`power-btn ${activeFanBtns.includes(level) || (latestReading && latestReading[`fan${level}Status`] === 1) ? 'active' : ''}`} onClick={() => handleFanClick(level)} />
                         <div className="fan-label">{level >= 1 && level <= 4 ? `FG ${level}` : 'LOAD'}</div>
                       </div>
                     ))}
@@ -417,12 +455,17 @@ function DashboardView() {
               {activeTab === 'camera-feed' && (
                 <div className="camera-feed-wrapper">
                   <div className="camera-frame">
-                    <iframe
-                      className="camera-iframe"
-                      src={selectedDeviceMeta?.ipCamera || ''}
-                      allow="autoplay"
-                      title="Live Camera"
-                    />
+                    {videosCaptured.length > 0 ? (
+                      videosCaptured.map((filename, i) => (
+                        <iframe
+                          className="camera-iframe"
+                          src={`${process.env.REACT_APP_API_URL}/api/cam/${filename}`}
+                          allow="autoplay"
+                          title="Live Camera"
+                        />
+                      ))
+                    ) : (<p>No Videos to show</p>)
+                    }
                   </div>
                   <div className="camera-controls">
                     <button onClick={toggleFullscreen}>🔳 Fullscreen</button>
@@ -433,27 +476,89 @@ function DashboardView() {
                 </div>
               )}
 
+
+              {/* Full Screen Image Modal with Navigation */}
+              {selectedImage && (
+                <div className="fullscreen-modal" onClick={() => setSelectedImage(null)}>
+                  <div className="modal-header">
+                    <button
+                      className="close-btn-fullscreen"
+                      onClick={() => setSelectedImage(null)}
+                    >
+                      ✕
+                    </button>
+                    <div className="image-title">
+                      {selectedImage.split('/').pop()} ({snapshots.findIndex(img => `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` === selectedImage) + 1} of {snapshots.length})
+                    </div>
+                  </div>
+
+                  {/* Navigation Arrows */}
+                  {snapshots.length > 1 && (
+                    <>
+                      <button
+                        className="nav-arrow left-arrow"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIndex = snapshots.findIndex(img => `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` === selectedImage);
+                          const prevIndex = (currentIndex - 1 + snapshots.length) % snapshots.length;
+                          setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[prevIndex]}`);
+                        }}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        className="nav-arrow right-arrow"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentIndex = snapshots.findIndex(img => `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` === selectedImage);
+                          const nextIndex = (currentIndex + 1) % snapshots.length;
+                          setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[nextIndex]}`);
+                        }}
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+
+                  <div className="modal-body">
+                    <img
+                      src={selectedImage}
+                      alt="Enlarged view"
+                      className="fullscreen-image"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Snapshots */}
               {activeTab === 'snapshots' && (
                 <div className="camera-tab">
-                  <h4>🖼️ Last 15 Snapshots (Placeholder)</h4>
+                  <h4>🖼️ Snapshots</h4>
                   <div className="snapshots-grid">
                     {snapshots.length > 0 ? (
                       snapshots.map((filename, i) => (
-                        <img
+                        <div
                           key={i}
-                          src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`}
-                          alt={`snapshot-${i + 1}`}
-                          onError={(e) => {
-                            e.target.src = 'https://via.placeholder.com/120x90?text=Error';
-                          }}
-                        />
+                          className='snapshot-item'
+                          onClick={() => setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`)}>
+
+                          <img
+                            key={i}
+                            src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`}
+                            alt={`snapshot-${i + 1}`}
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/120x90?text=Error';
+                            }}
+                          />
+                          <div className='snapshot-label'>{filename}</div>
+                        </div>
                       )))
                       : (<p>No snapshots available</p>
                       )}
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 

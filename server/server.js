@@ -11,6 +11,7 @@ const SensorReading = require('./SensorReading');
 const thresholds = require('./thresholds');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 
 const app = express();
@@ -91,18 +92,27 @@ app.post('/api/register-user', async (req, res) => {
 });
 
 
-// ✅ Register new device
-app.post('/api/register-device', async (req, res) => {
-  const { mac, block, panchayat, latitude, longitude, ipCamera } = req.body; // ⬅️ include ipCamera
+// API to get the list of users
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    console.error('Failed to fetch users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
 
+app.post('/api/register-device', async (req, res) => {
+  const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
     const device = new Device({
       mac,
-      block,
-      panchayat,
+      locationId,
+      address,
       latitude,
       longitude,
-      ipCamera: ipCamera || '' // ⬅️ Optional
+      ipCamera: ipCamera || ''
     });
     await device.save();
     res.json({ message: 'Device registered successfully' });
@@ -125,13 +135,25 @@ app.get('/api/devices-info', async (req, res) => {
 
 
 // ✅ Delete device by MAC
-app.delete('/api/device/:mac', async (req, res) => {
-  try {
-    await Device.deleteOne({ mac: req.params.mac });
-    res.json({ message: 'Device deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ error: 'Error deleting device' });
-  }
+app.put('/api/device/:mac', async (req, res) => {
+    try {
+        const { password, ...updateFields } = req.body;
+        if (updateFields.locationId && updateFields.locationId.length > 17)
+            return res.status(400).json({ error: 'Location ID must be 17 characters or fewer' });
+        if (password !== process.env.ADMIN_PASSWORD)
+            return res.status(403).json({ error: 'Unauthorized: Invalid admin password' });
+        const { mac } = req.params;
+        const updatedDevice = await Device.findOneAndUpdate(
+            { mac },
+            { $set: updateFields },
+            { new: true }
+        );
+        if (!updatedDevice) return res.status(404).json({ error: 'Device not found' });
+        res.json(updatedDevice);
+    } catch (error) {
+        console.error('Error updating device:', error);
+        res.status(500).json({ error: 'Server error while updating device' });
+    }
 });
 
 // ✅ Command endpoint
@@ -285,6 +307,69 @@ app.get('/api/snapshots', (req, res) => {
   }
 });
 
+// Get list of Camera Videos
+app.get('/api/cam', (req, res) => {
+  const camDir = 'C:/Users/trish/eMS_videos';
+
+  try {
+    // Check if directory exists
+    if (!fs.existsSync(camDir)) {
+      return res.status(404).json({ error: 'Videos directory not found' });
+    }
+
+    const videos = fs.readdirSync(camDir)
+      .filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ['.mp4', '.avi', '.mov', '.webm', '.mkv'].includes(ext);
+      })
+      .sort(); // Sort alphabetically
+
+    res.json(videos);
+  } catch (error) {
+    console.error('Error reading Camera:', err);
+    res.status(500).json({ error: 'Failed to get Videos' });
+  }
+})
+
+app.get('/api/cam/:camid', (req, res) => {
+  try {
+    const camid = req.params.camid;
+
+    // ✅ Security: Prevent path traversal attacks
+    if (camid.includes('..') || camid.includes('/') || camid.includes('\\')) {
+      return res.status(400).json({ error: "Invalid file name" });
+    }
+
+    const camPath = path.join('C:/Users/trish/eMS_videos', camid);
+
+    if (!fs.existsSync(camPath)) {
+      res.status(404).json({ error: "Video Not Found" });
+    }
+
+    // ✅ Set content type for video
+    const ext = path.extname(camid).toLowerCase();
+    const contentTypes = {
+      '.mp4': 'video/mp4',
+      '.avi': 'video/x-msvideo',
+      '.mov': 'video/quicktime',
+      '.webm': 'video/webm',
+      '.mkv': 'video/x-matroska'
+    };
+
+    res.setHeader('Content-Type', contentTypes[ext] || 'video/mp4');
+
+    res.sendFile(camPath, (err) => {
+      if (err) {
+        console.error('Error sending file:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Error streaming video" });
+        }
+      }
+    });
+  } catch (error) {
+    res.status(404).json("Unable to fetch file: ", error);
+  }
+})
 
 app.get('/api/thresholds', (req, res) => {
   res.json(thresholds);
@@ -381,11 +466,50 @@ const server = net.createServer(socket => {
         const fanLevel3Running = !!buffer[49];
         const fanLevel4Running = !!buffer[50];
         const padding = buffer[51]; // unused
+        // console.log("Padding value: ", padding);
         if ((padding === 0x31) && (!alreadyReplied)) {
           sendX(socket);
           alreadyReplied = 40; // Load Balancing
         }
 
+        // Checking if door is open or lock to click snapshots
+        // if ((padding === 0x43)) {
+        //   sendX(socket);
+
+        //   const args = [
+        //     '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
+        //   ]
+
+        //   const ffmpeg = spawn('ffmpeg', args);
+
+        //   ffmpeg.on('close', (code) => {
+        //     if (code === 0) {
+        //       console.log("Captured successfully...")
+        //     } else {
+        //       console.error(`ffmpeg process exited with code ${code}`)
+        //     }
+        //   })
+        // }
+
+
+        // if ((true)) {
+        //   sendX(socket);
+
+        //   const timeStamp = now.toLocaleString();
+        //   const args = [
+        //     '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
+        //   ]
+
+        //   const ffmpeg = spawn('ffmpeg', args);
+
+        //   ffmpeg.on('close', (code) => {
+        //     if (code === 0) {
+        //       console.log("Captured successfully...")
+        //     } else {
+        //       console.error(`ffmpeg process exited with code ${code}`)
+        //     }
+        //   })
+        // }
 
         // Logging Incoming Data from Simulator
         const now = new Date();
@@ -429,7 +553,7 @@ const server = net.createServer(socket => {
         }
         console.log("fanStatus", fanStatus);
 
-        const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset
+        const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset //Password
         const floats = [
           humidity, insideTemperature, outsideTemperature,
           outputVoltage, inputVoltage, batteryBackup
@@ -454,6 +578,70 @@ const server = net.createServer(socket => {
           outputVoltageAlarm: outputVoltage > thresholds.outputVoltage.max || outputVoltage < thresholds.outputVoltage.min,
           batteryBackupAlarm: batteryBackup < thresholds.batteryBackup.min
         };
+
+        const activeAlarms = [];
+
+        if (thresholdAlarms.insideTemperatureAlarm) {
+          activeAlarms.push(`Inside Temperature: ${insideTemperature}`);
+        }
+        if (thresholdAlarms.outsideTemperatureAlarm) {
+          activeAlarms.push(`Outside Temperature: ${outsideTemperature}`);
+        }
+        if (thresholdAlarms.humidityAlarm) {
+          activeAlarms.push(`Humidity: ${humidity}`);
+        }
+        if (thresholdAlarms.inputVoltageAlarm) {
+          activeAlarms.push(`Input Voltage: ${inputVoltage}`);
+        }
+        if (thresholdAlarms.outputVoltageAlarm) {
+          activeAlarms.push(`Output Voltage: ${outputVoltage}`);
+        }
+        if (thresholdAlarms.batteryBackupAlarm) {
+          activeAlarms.push(`Battery Backup: ${batteryBackup}`);
+        }
+
+        if (waterLogging) {
+          activeAlarms.push("Water Logging Alarm")
+        }
+
+        if (waterLeakage) {
+          activeAlarms.push("Water Leakage Alarm")
+        }
+
+        if (doorStatus) {
+          activeAlarms.push("Door Alarm")
+        }
+
+        if (lockStatus) {
+          activeAlarms.push("Lock Alarm")
+        }
+
+        if (fireAlarm) {
+          activeAlarms.push("Fire Alarm")
+        }
+
+
+        // Single console output
+        if (activeAlarms.length > 0) {
+          const alarmLogDir = path.join(require('os').homedir(), 'CommandLogs/alarm');
+          const alarmFileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}_Alarm.inc`
+
+          if (fanStatus.includes(2)) {
+            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}\n`
+          } else {
+            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}\n`
+          }
+
+          const alarmFilePath = path.join(alarmLogDir, alarmFileName);
+
+          fs.appendFile(alarmFilePath, logAlarm, (err) => {
+            if (err) {
+              console.error('Failed to save log:', err);
+            } else {
+              console.log(`✅ Log saved: ${alarmFilePath}`);
+            }
+          })
+        }
 
         // Build and save the reading (fan status is now independent, not derived)
         const reading = new SensorReading({
@@ -483,6 +671,8 @@ const server = net.createServer(socket => {
           fan6Status: fanStatus[5],
           ...thresholdAlarms
         });
+
+        console.log("fan1", fanLevel1Running)
 
         connectedDevices.set(mac, socket);
         readingBuffer.push(reading);
