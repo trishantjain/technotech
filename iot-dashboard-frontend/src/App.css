@@ -131,7 +131,7 @@ body {
   background-color: #00ff00;
   box-shadow: 0 0 8px #00ff00;
 }
-.fan-light-circle.faulty {
+.fan-light-circle.stopped {
   background-color: #ff0000;
   box-shadow: 0 0 8px #ff0000;
 }
@@ -165,14 +165,13 @@ body {
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
-  /* background-image: url("../src/images/power.png"); */
 }
 .power-btn.active {
   background-color: black;
   box-shadow: 0 0 20px limegreen;
 }
 .power-btn::before {
-  content: '\1F50C';
+  content: '\23FB';
   font-size: 24px;
   color: #444;
 }
@@ -257,7 +256,9 @@ body {
 }
 .marker-dot.disconnected {
   background-color: red;
-  box-shadow: 0 0 10px red;
+  border-radius: 50%;
+  width: 15px;
+  height: 15px;
 }
 
 /* Admin Dashboard */
@@ -512,3 +513,15 @@ body {
   align-items: center;
   gap: 10px;
 }
+
+.fan-light-circle.faulty {
+  width: 18px;
+  height: 18px;
+  background-color: #ff0000;
+  box-shadow: 0 0 8px #ff0000;
+}
+
+
+
+
+
