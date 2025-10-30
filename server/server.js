@@ -1,42 +1,42 @@
-require('dotenv').config();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const User = require('./models/User');
-const Device = require('./models/Device');
-const net = require('net');
-const mongoose = require('mongoose');
-const express = require('express');
-const bodyParser = require('body-parser');
-const SensorReading = require('./SensorReading');
-const thresholds = require('./thresholds');
-const fs = require('fs');
-const path = require('path');
-const { spawn } = require('child_process');
-
+require("dotenv").config();
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const User = require("./models/User");
+const Device = require("./models/Device");
+const net = require("net");
+const mongoose = require("mongoose");
+const express = require("express");
+const bodyParser = require("body-parser");
+const SensorReading = require("./SensorReading");
+const thresholds = require("./thresholds");
+const fs = require("fs");
+const path = require("path");
+const { spawn } = require("child_process");
 
 const app = express();
 const connectedDevices = new Map();
 app.use(bodyParser.json());
-const cors = require('cors');
+const cors = require("cors");
 app.use(cors());
 
 // 🔌 DB connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err.message));
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB connection error:", err.message));
 
 // --------------- HTTP API Endpoints (unchanged) ---------------
-app.get('/ping', async (req, res) => {
+app.get("/ping", async (req, res) => {
   try {
     await mongoose.connection.db.admin().ping();
-    res.send('pong');
+    res.send("pong");
   } catch (e) {
-    console.error('⚠️ /ping DB check failed:', e.message);
-    res.status(500).send('MongoDB unreachable');
+    console.error("⚠️ /ping DB check failed:", e.message);
+    res.status(500).send("MongoDB unreachable");
   }
 });
 // ✅ Login route (admin hardcoded via .env)
-app.post('/api/login', async (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   // Admin login
@@ -45,36 +45,35 @@ app.post('/api/login', async (req, res) => {
     password === process.env.ADMIN_PASSWORD
   ) {
     const token = jwt.sign(
-      { username: 'admin', role: 'admin' },
+      { username: "admin", role: "admin" },
       process.env.JWT_SECRET,
-      { expiresIn: '2h' }
+      { expiresIn: "2h" }
     );
-    return res.json({ role: 'admin', token });
+    return res.json({ role: "admin", token });
   }
 
   // User login from DB
   const user = await User.findOne({ username: username });
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
 
   const token = jwt.sign(
     { username: user.username, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: '2h' }
+    { expiresIn: "2h" }
   );
 
   res.json({ role: user.role, token }); // ✅ return role and token
 });
 
-
 // ✅ Register new user
-app.post('/api/register-user', async (req, res) => {
+app.post("/api/register-user", async (req, res) => {
   const { username, password, role } = req.body;
 
-  if (!['admin', 'block', 'gp', 'user'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
+  if (!["admin", "block", "gp", "user"].includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
   }
 
   try {
@@ -82,28 +81,27 @@ app.post('/api/register-user', async (req, res) => {
     const user = new User({
       username: username.toLowerCase(),
       password: hashedPassword,
-      role
+      role,
     });
     await user.save();
-    res.json({ message: 'User registered successfully' });
+    res.json({ message: "User registered successfully" });
   } catch (err) {
-    res.status(500).json({ error: 'Error creating user' });
+    res.status(500).json({ error: "Error creating user" });
   }
 });
 
-
 // API to get the list of users
-app.get('/api/users', async (req, res) => {
+app.get("/api/users", async (req, res) => {
   try {
     const users = await User.find();
     res.json(users);
   } catch (err) {
-    console.error('Failed to fetch users:', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    console.error("Failed to fetch users:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 });
 
-app.post('/api/register-device', async (req, res) => {
+app.post("/api/register-device", async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
     const device = new Device({
@@ -112,29 +110,52 @@ app.post('/api/register-device', async (req, res) => {
       address,
       latitude,
       longitude,
-      ipCamera: ipCamera || ''
+      ipCamera: ipCamera || "",
     });
     await device.save();
-    res.json({ message: 'Device registered successfully' });
+    res.json({ message: "Device registered successfully" });
   } catch (err) {
-    res.status(500).json({ error: 'Error registering device' });
+    res.status(500).json({ error: "Error registering device" });
   }
 });
 
-
-
 // ✅ Get registered device metadata
-app.get('/api/devices-info', async (req, res) => {
+app.get("/api/devices-info", async (req, res) => {
   try {
     const devices = await Device.find(); // includes ipCamera
     res.json(devices);
   } catch (err) {
-    res.status(500).json({ error: 'Error fetching devices' });
+    res.status(500).json({ error: "Error fetching devices" });
   }
 });
 
-
 // ✅ Delete device by MAC
+app.put("/api/device/:mac", async (req, res) => {
+  try {
+    const { password, ...updateFields } = req.body;
+    if (updateFields.locationId && updateFields.locationId.length > 17)
+      return res
+        .status(400)
+        .json({ error: "Location ID must be 17 characters or fewer" });
+    if (password !== process.env.ADMIN_PASSWORD)
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: Invalid admin password" });
+    const { mac } = req.params;
+    const updatedDevice = await Device.findOneAndUpdate(
+      { mac },
+      { $set: updateFields },
+      { new: true }
+    );
+    if (!updatedDevice)
+      return res.status(404).json({ error: "Device not found" });
+    res.json(updatedDevice);
+  } catch (error) {
+    console.error("Error updating device:", error);
+    res.status(500).json({ error: "Server error while updating device" });
+  }
+});
+
 // ✅ Edit User
 app.put("/api/user/:id", async (req, res) => {
   try {
@@ -170,7 +191,7 @@ app.put("/api/user/:id", async (req, res) => {
 });
 
 // ✅ Command endpoint
-app.post('/command', (req, res) => {
+app.post("/command", (req, res) => {
   const { mac, command } = req.body;
   const deviceSocket = connectedDevices.get(mac);
 
@@ -179,11 +200,13 @@ app.post('/command', (req, res) => {
     return res.status(404).json({ message: `Device ${mac} not connected` });
   }
 
-  const buffer = Buffer.from(command, 'utf-8');
+  const buffer = Buffer.from(command, "utf-8");
   deviceSocket.write(buffer, (err) => {
     if (err) {
       console.error(`Failed to send command to ${mac}:`, err.message);
-      return res.status(500).json({ message: `Error sending command to ${mac}` });
+      return res
+        .status(500)
+        .json({ message: `Error sending command to ${mac}` });
     }
     console.log(`Sent command "${command}" to ${mac}`);
     res.json({ message: `Command sent to ${mac}` });
@@ -191,15 +214,15 @@ app.post('/command', (req, res) => {
 });
 
 // ✅ Get connected MACs
-app.get('/api/devices', (req, res) => {
+app.get("/api/devices", (req, res) => {
   res.json(Array.from(connectedDevices.keys()));
 });
 
 // ✅ Get only registered MACs
-app.get('/api/all-devices', async (req, res) => {
+app.get("/api/all-devices", async (req, res) => {
   try {
-    const devices = await Device.find({}, 'mac');
-    res.json(devices.map(d => d.mac));
+    const devices = await Device.find({}, "mac");
+    res.json(devices.map((d) => d.mac));
   } catch (error) {
     console.error("Error fetching registered devices:", error);
     res.status(500).json({ error: "Failed to fetch devices" });
@@ -207,9 +230,11 @@ app.get('/api/all-devices', async (req, res) => {
 });
 
 // ✅ Get last 100 readings
-app.get('/api/readings', async (req, res) => {
+app.get("/api/readings", async (req, res) => {
   try {
-    const readings = await SensorReading.find().sort({ timestamp: -1 }).limit(400);
+    const readings = await SensorReading.find()
+      .sort({ timestamp: -1 })
+      .limit(400);
     res.json(readings);
   } catch (error) {
     console.error("Error fetching readings:", error);
@@ -218,28 +243,30 @@ app.get('/api/readings', async (req, res) => {
 });
 
 // ✅ Get latest reading by MAC
-app.get('/api/device/:mac', async (req, res) => {
+app.get("/api/device/:mac", async (req, res) => {
   try {
-    const latest = await SensorReading.findOne({ mac: req.params.mac }).sort({ timestamp: -1 });
-    if (!latest) return res.status(404).json({ message: 'No data found' });
+    const latest = await SensorReading.findOne({ mac: req.params.mac }).sort({
+      timestamp: -1,
+    });
+    if (!latest) return res.status(404).json({ message: "No data found" });
     res.json(latest);
   } catch (err) {
-    console.error('Error fetching device data:', err.message);
-    res.status(500).json({ error: 'Failed to fetch data' });
+    console.error("Error fetching device data:", err.message);
+    res.status(500).json({ error: "Failed to fetch data" });
   }
 });
 
-
 // ✅ Get logs saved in PC
-app.post('/api/log-command', (req, res) => {
-  console.log('Log API Called');
+app.post("/api/log-command", (req, res) => {
+  console.log("Log API Called");
   const { date, mac, command, status, message } = req.body;
 
   console.log(date, mac, command, status, message);
 
   const now = new Date();
-  const fileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.out`;
-  const logDir = path.join(require('os').homedir(), 'CommandLogs/out');
+  const fileName = `${now.getDate()}_${now.getMonth() + 1
+    }_${now.getHours()}.out`;
+  const logDir = path.join(require("os").homedir(), "CommandLogs/out");
 
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
@@ -250,25 +277,25 @@ app.post('/api/log-command', (req, res) => {
   const logEntry = `[${timestamp}] | MAC:${mac} | ${status}  | COMMAND:"${command}" | MESSAGE:"${message}"\n`;
 
   // ✅ Send response immediately, log in background
-  res.json({ message: 'Log received' });
+  res.json({ message: "Log received" });
 
   // File writing happens after response
   fs.appendFile(filePath, logEntry, (err) => {
     if (err) {
-      console.error('Failed to save log:', err);
+      console.error("Failed to save log:", err);
     } else {
       console.log(`✅ Log saved: ${filePath}`);
     }
   });
 });
 
-app.get('/api/historical-data', async (req, res) => {
+app.get("/api/historical-data", async (req, res) => {
   const { mac, datetime } = req.query;
   if (!mac || !datetime)
-    return res.status(400).json({ error: 'Missing mac or datetime' });
+    return res.status(400).json({ error: "Missing mac or datetime" });
   const datetimeObj = new Date(datetime);
   if (isNaN(datetimeObj.getTime()))
-    return res.status(400).json({ error: 'Invalid datetime format' });
+    return res.status(400).json({ error: "Invalid datetime format" });
   const selectedDate = new Date(datetimeObj);
   selectedDate.setHours(0, 0, 0, 0);
   const nextDate = new Date(selectedDate);
@@ -276,27 +303,27 @@ app.get('/api/historical-data', async (req, res) => {
   try {
     const readings = await SensorReading.find({
       mac,
-      timestamp: { $gte: selectedDate, $lt: nextDate }
+      timestamp: { $gte: selectedDate, $lt: nextDate },
     }).sort({ timestamp: 1 });
     const atSelectedTime = await SensorReading.findOne({
       mac,
-      timestamp: { $lte: datetimeObj }
+      timestamp: { $lte: datetimeObj },
     }).sort({ timestamp: -1 });
     res.json({ readings, atSelectedTime });
   } catch (err) {
-    console.error('Historical data error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch historical data' });
+    console.error("Historical data error:", err.message);
+    res.status(500).json({ error: "Failed to fetch historical data" });
   }
 });
 
 // Serve snapshot images
-app.get('/api/snapshots/:imageName', (req, res) => {
+app.get("/api/snapshots/:imageName", (req, res) => {
   const imageName = req.params.imageName;
-  const imagePath = path.join('C:/Users/trish/cam', imageName);
+  const imagePath = path.join("C:/Users/trish/cam", imageName);
 
   // Check if file exists
   if (!fs.existsSync(imagePath)) {
-    return res.status(404).json({ error: 'Image not found' });
+    return res.status(404).json({ error: "Image not found" });
   }
 
   // Send the image file
@@ -304,56 +331,58 @@ app.get('/api/snapshots/:imageName', (req, res) => {
 });
 
 // Get list of available snapshots
-app.get('/api/snapshots', (req, res) => {
-  const snapshotsDir = 'C:/Users/trish/cam';
+app.get("/api/snapshots", (req, res) => {
+  const snapshotsDir = "C:/Users/trish/cam";
 
   try {
-    const files = fs.readdirSync(snapshotsDir)
-      .filter(file => /\.(jpg|jpeg|png|gif)$/i.test(file))
+    const files = fs
+      .readdirSync(snapshotsDir)
+      .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
       .sort()
       .slice(-15); // Get last 15 images
 
     res.json(files);
   } catch (err) {
-    console.error('Error reading snapshots:', err);
-    res.status(500).json({ error: 'Failed to read snapshots' });
+    console.error("Error reading snapshots:", err);
+    res.status(500).json({ error: "Failed to read snapshots" });
   }
 });
 
 // Get list of Camera Videos
-app.get('/api/cam', (req, res) => {
-  const camDir = 'C:/Users/trish/eMS_videos';
+app.get("/api/cam", (req, res) => {
+  const camDir = "C:/Users/trish/eMS_videos";
 
   try {
     // Check if directory exists
     if (!fs.existsSync(camDir)) {
-      return res.status(404).json({ error: 'Videos directory not found' });
+      return res.status(404).json({ error: "Videos directory not found" });
     }
 
-    const videos = fs.readdirSync(camDir)
-      .filter(file => {
+    const videos = fs
+      .readdirSync(camDir)
+      .filter((file) => {
         const ext = path.extname(file).toLowerCase();
-        return ['.mp4', '.avi', '.mov', '.webm', '.mkv'].includes(ext);
+        return [".mp4", ".avi", ".mov", ".webm", ".mkv"].includes(ext);
       })
       .sort(); // Sort alphabetically
 
     res.json(videos);
   } catch (error) {
-    console.error('Error reading Camera:', err);
-    res.status(500).json({ error: 'Failed to get Videos' });
+    console.error("Error reading Camera:", err);
+    res.status(500).json({ error: "Failed to get Videos" });
   }
-})
+});
 
-app.get('/api/cam/:camid', (req, res) => {
+app.get("/api/cam/:camid", (req, res) => {
   try {
     const camid = req.params.camid;
 
     // ✅ Security: Prevent path traversal attacks
-    if (camid.includes('..') || camid.includes('/') || camid.includes('\\')) {
+    if (camid.includes("..") || camid.includes("/") || camid.includes("\\")) {
       return res.status(400).json({ error: "Invalid file name" });
     }
 
-    const camPath = path.join('C:/Users/trish/eMS_videos', camid);
+    const camPath = path.join("C:/Users/trish/eMS_videos", camid);
 
     if (!fs.existsSync(camPath)) {
       res.status(404).json({ error: "Video Not Found" });
@@ -362,18 +391,18 @@ app.get('/api/cam/:camid', (req, res) => {
     // ✅ Set content type for video
     const ext = path.extname(camid).toLowerCase();
     const contentTypes = {
-      '.mp4': 'video/mp4',
-      '.avi': 'video/x-msvideo',
-      '.mov': 'video/quicktime',
-      '.webm': 'video/webm',
-      '.mkv': 'video/x-matroska'
+      ".mp4": "video/mp4",
+      ".avi": "video/x-msvideo",
+      ".mov": "video/quicktime",
+      ".webm": "video/webm",
+      ".mkv": "video/x-matroska",
     };
 
-    res.setHeader('Content-Type', contentTypes[ext] || 'video/mp4');
+    res.setHeader("Content-Type", contentTypes[ext] || "video/mp4");
 
     res.sendFile(camPath, (err) => {
       if (err) {
-        console.error('Error sending file:', err);
+        console.error("Error sending file:", err);
         if (!res.headersSent) {
           res.status(500).json({ error: "Error streaming video" });
         }
@@ -382,9 +411,9 @@ app.get('/api/cam/:camid', (req, res) => {
   } catch (error) {
     res.status(404).json("Unable to fetch file: ", error);
   }
-})
+});
 
-app.get('/api/thresholds', (req, res) => {
+app.get("/api/thresholds", (req, res) => {
   res.json(thresholds);
 });
 
@@ -394,7 +423,7 @@ let readingBuffer = [];
 let alreadyReplied = 0;
 function getFormattedDateTime() {
   const today = new Date();
-  const pad = n => String(n).padStart(2, '0');
+  const pad = (n) => String(n).padStart(2, "0");
   const dd = pad(today.getDate());
   const mm = pad(today.getMonth() + 1);
   const yy = String(today.getFullYear()).slice(-2);
@@ -411,23 +440,29 @@ function sendX(socket) {
     console.warn("⚠️ Backpressure: socket buffer is full, write queued");
   }
 }
-const server = net.createServer(socket => {
+
+const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
 
-  socket.on('data', async data => {
-    console.log(`Received packet (${data.length} bytes):`, data.toString('hex'));
+  socket.on("data", async (data) => {
+    console.log(
+      `Received packet (${data.length} bytes):`,
+      data.toString("hex")
+    );
     buffer = Buffer.concat([buffer, data]);
 
     try {
       while (buffer.length >= 58) {
-        const bufStr = buffer.toString('utf-8');
+        const bufStr = buffer.toString("utf-8");
 
         // Search for first valid MAC pattern in buffer string
         const macPattern = /[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}/;
         const match = bufStr.match(macPattern);
 
         if (!match) {
-          console.warn(`No MAC found in buffer, discarding ${buffer.length} bytes`);
+          console.warn(
+            `No MAC found in buffer, discarding ${buffer.length} bytes`
+          );
           buffer = Buffer.alloc(0);
           break;
         }
@@ -449,11 +484,13 @@ const server = net.createServer(socket => {
         const packet = buffer.slice(0, 58);
 
         const macRaw = packet.subarray(0, 17);
-        let macRawStr = macRaw.toString('utf-8');
-        console.log(`Received MAC: [${macRawStr}], length: ${macRawStr.length}`);
+        let macRawStr = macRaw.toString("utf-8");
+        console.log(
+          `Received MAC: [${macRawStr}], length: ${macRawStr.length}`
+        );
 
         // Sanitize and verify MAC
-        const sanitizedMac = macRawStr.replace(/[^0-9A-Fa-f:]/g, '');
+        const sanitizedMac = macRawStr.replace(/[^0-9A-Fa-f:]/g, "");
         const macRegex = /^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$/;
         if (sanitizedMac.length !== 17 || !macRegex.test(sanitizedMac)) {
           console.warn(`⚠️ Dropping malformed MAC: INVALID_${Date.now()}`);
@@ -465,8 +502,8 @@ const server = net.createServer(socket => {
         const humidity = +buffer.readFloatLE(17).toFixed(2);
         const insideTemperature = +buffer.readFloatLE(21).toFixed(2);
         const outsideTemperature = +buffer.readFloatLE(25).toFixed(2);
-        const lockStatus = buffer[29] === 1 ? 'OPEN' : 'CLOSED';
-        const doorStatus = buffer[30] === 1 ? 'OPEN' : 'CLOSED';
+        const lockStatus = buffer[29] === 1 ? "OPEN" : "CLOSED";
+        const doorStatus = buffer[30] === 1 ? "OPEN" : "CLOSED";
         const waterLogging = !!buffer[31];
         const waterLeakage = !!buffer[32];
         const outputVoltage = +buffer.readFloatLE(33).toFixed(2);
@@ -480,54 +517,16 @@ const server = net.createServer(socket => {
         const fanLevel4Running = !!buffer[50];
         const padding = buffer[51]; // unused
         // console.log("Padding value: ", padding);
-        if ((padding === 0x31) && (!alreadyReplied)) {
+        if (padding === 0x31 && !alreadyReplied) {
           sendX(socket);
           alreadyReplied = 40; // Load Balancing
         }
 
-        // Checking if door is open or lock to click snapshots
-        // if ((padding === 0x43)) {
-        //   sendX(socket);
-
-        //   const args = [
-        //     '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
-        //   ]
-
-        //   const ffmpeg = spawn('ffmpeg', args);
-
-        //   ffmpeg.on('close', (code) => {
-        //     if (code === 0) {
-        //       console.log("Captured successfully...")
-        //     } else {
-        //       console.error(`ffmpeg process exited with code ${code}`)
-        //     }
-        //   })
-        // }
-
-
-        // if ((true)) {
-        //   sendX(socket);
-
-        //   const timeStamp = now.toLocaleString();
-        //   const args = [
-        //     '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
-        //   ]
-
-        //   const ffmpeg = spawn('ffmpeg', args);
-
-        //   ffmpeg.on('close', (code) => {
-        //     if (code === 0) {
-        //       console.log("Captured successfully...")
-        //     } else {
-        //       console.error(`ffmpeg process exited with code ${code}`)
-        //     }
-        //   })
-        // }
-
         // Logging Incoming Data from Simulator
         const now = new Date();
-        const fileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.inc`;
-        const logDir = path.join(require('os').homedir(), 'CommandLogs/inc');
+        const fileName = `${now.getDate()}_${now.getMonth() + 1
+          }_${now.getHours()}.inc`;
+        const logDir = path.join(require("os").homedir(), "CommandLogs/inc");
 
         const sensorData = {
           humidity: humidity,
@@ -535,7 +534,7 @@ const server = net.createServer(socket => {
           outsideTemperature: outsideTemperature,
           inputVoltage: inputVoltage,
           outputVoltage: outputVoltage,
-          batteryBackup: batteryBackup
+          batteryBackup: batteryBackup,
         };
 
         // Checks if path exists || Creates the path
@@ -545,20 +544,20 @@ const server = net.createServer(socket => {
 
         const filePath = path.join(logDir, fileName);
         const timestamp = now.toLocaleString();
-        const logEntry = `[${timestamp}] | MAC:${mac} | Data:${JSON.stringify(sensorData)}"\n`;
+        const logEntry = `[${timestamp}] | MAC:${mac} | Data:${JSON.stringify(
+          sensorData
+        )}"\n`;
 
         // File writing happens after response
         fs.appendFile(filePath, logEntry, (err) => {
           if (err) {
-            console.error('Failed to save log:', err);
+            console.error("Failed to save log:", err);
           } else {
             console.log(`✅ Log saved: ${filePath}`);
           }
         });
 
-
-        if (alreadyReplied)
-          alreadyReplied--;
+        if (alreadyReplied) alreadyReplied--;
         const fanStatusBits = buffer.readUInt16LE(52);
         const fanStatus = [];
         for (let i = 0; i < 6; i++) {
@@ -566,30 +565,49 @@ const server = net.createServer(socket => {
         }
         console.log("fanStatus", fanStatus);
 
-        const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset //Password
+        // const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset //Password
+        const fanFailBits = 3;
         const floats = [
-          humidity, insideTemperature, outsideTemperature,
-          outputVoltage, inputVoltage, batteryBackup
+          humidity,
+          insideTemperature,
+          outsideTemperature,
+          outputVoltage,
+          inputVoltage,
+          batteryBackup,
         ];
 
-        if (floats.some(val => isNaN(val) || Math.abs(val) > 100000)) {
+        if (floats.some((val) => isNaN(val) || Math.abs(val) > 100000)) {
           console.warn(`⚠️ Skipping packet from ${mac}: bad float value(s)`);
           buffer = buffer.slice(58);
           continue;
         }
 
         if (Math.random() < 0.01) {
-          console.log(`📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(16)}h`);
+          console.log(
+            `📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(
+              16
+            )}h`
+          );
         }
 
         // Threshold-based alarms
         const thresholdAlarms = {
-          insideTemperatureAlarm: insideTemperature > thresholds.insideTemperature.max || insideTemperature < thresholds.insideTemperature.min,
-          outsideTemperatureAlarm: outsideTemperature > thresholds.outsideTemperature.max || outsideTemperature < thresholds.outsideTemperature.min,
-          humidityAlarm: humidity > thresholds.humidity.max || humidity < thresholds.humidity.min,
-          inputVoltageAlarm: inputVoltage > thresholds.inputVoltage.max || inputVoltage < thresholds.inputVoltage.min,
-          outputVoltageAlarm: outputVoltage > thresholds.outputVoltage.max || outputVoltage < thresholds.outputVoltage.min,
-          batteryBackupAlarm: batteryBackup < thresholds.batteryBackup.min
+          insideTemperatureAlarm:
+            insideTemperature > thresholds.insideTemperature.max ||
+            insideTemperature < thresholds.insideTemperature.min,
+          outsideTemperatureAlarm:
+            outsideTemperature > thresholds.outsideTemperature.max ||
+            outsideTemperature < thresholds.outsideTemperature.min,
+          humidityAlarm:
+            humidity > thresholds.humidity.max ||
+            humidity < thresholds.humidity.min,
+          inputVoltageAlarm:
+            inputVoltage > thresholds.inputVoltage.max ||
+            inputVoltage < thresholds.inputVoltage.min,
+          outputVoltageAlarm:
+            outputVoltage > thresholds.outputVoltage.max ||
+            outputVoltage < thresholds.outputVoltage.min,
+          batteryBackupAlarm: batteryBackup < thresholds.batteryBackup.min,
         };
 
         const activeAlarms = [];
@@ -614,46 +632,49 @@ const server = net.createServer(socket => {
         }
 
         if (waterLogging) {
-          activeAlarms.push("Water Logging Alarm")
+          activeAlarms.push("Water Logging Alarm");
         }
 
         if (waterLeakage) {
-          activeAlarms.push("Water Leakage Alarm")
+          activeAlarms.push("Water Leakage Alarm");
         }
 
         if (doorStatus) {
-          activeAlarms.push("Door Alarm")
+          activeAlarms.push("Door Alarm");
         }
 
         if (lockStatus) {
-          activeAlarms.push("Lock Alarm")
+          activeAlarms.push("Lock Alarm");
         }
 
         if (fireAlarm) {
-          activeAlarms.push("Fire Alarm")
+          activeAlarms.push("Fire Alarm");
         }
-
 
         // Single console output
         if (activeAlarms.length > 0) {
-          const alarmLogDir = path.join(require('os').homedir(), 'CommandLogs/alarm');
-          const alarmFileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}_Alarm.inc`
+          const alarmLogDir = path.join(
+            require("os").homedir(),
+            "CommandLogs/alarm"
+          );
+          const alarmFileName = `${now.getDate()}_${now.getMonth() + 1
+            }_${now.getHours()}_Alarm.inc`;
 
           if (fanStatus.includes(2)) {
-            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}\n`
+            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}\n`;
           } else {
-            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}\n`
+            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}\n`;
           }
 
           const alarmFilePath = path.join(alarmLogDir, alarmFileName);
 
           fs.appendFile(alarmFilePath, logAlarm, (err) => {
             if (err) {
-              console.error('Failed to save log:', err);
+              console.error("Failed to save log:", err);
             } else {
               console.log(`✅ Log saved: ${alarmFilePath}`);
             }
-          })
+          });
         }
 
         // Build and save the reading (fan status is now independent, not derived)
@@ -675,17 +696,17 @@ const server = net.createServer(socket => {
           fanLevel2Running,
           fanLevel3Running,
           fanLevel4Running,
-          fanFailBits,   // keep for legacy (optional)
+          fanFailBits, // keep for legacy (optional)
           fan1Status: fanStatus[0],
           fan2Status: fanStatus[1],
           fan3Status: fanStatus[2],
           fan4Status: fanStatus[3],
           fan5Status: fanStatus[4],
           fan6Status: fanStatus[5],
-          ...thresholdAlarms
+          ...thresholdAlarms,
         });
 
-        console.log("fan1", fanLevel1Running)
+        console.log("fan1", fanLevel1Running);
 
         connectedDevices.set(mac, socket);
         readingBuffer.push(reading);
@@ -693,18 +714,20 @@ const server = net.createServer(socket => {
         if (readingBuffer.length >= BULK_SAVE_LIMIT) {
           const toSave = [...readingBuffer];
           readingBuffer = [];
-          SensorReading.insertMany(toSave).catch(err => console.error('Bulk save error:', err.message));
+          SensorReading.insertMany(toSave).catch((err) =>
+            console.error("Bulk save error:", err.message)
+          );
         }
 
         buffer = buffer.slice(58);
       }
     } catch (err) {
-      console.error('Packet parsing failed:', err.message);
+      console.error("Packet parsing failed:", err.message);
       socket.destroy();
     }
   });
 
-  socket.on('end', () => {
+  socket.on("end", () => {
     for (const [mac, sock] of connectedDevices.entries()) {
       if (sock === socket) {
         connectedDevices.delete(mac);
@@ -713,9 +736,9 @@ const server = net.createServer(socket => {
     }
   });
 
-  socket.on('error', err => {
-    if (err.code !== 'ECONNRESET') {
-      console.error('Socket error:', err.message);
+  socket.on("error", (err) => {
+    if (err.code !== "ECONNRESET") {
+      console.error("Socket error:", err.message);
     }
   });
 });
@@ -724,14 +747,16 @@ setInterval(() => {
   if (readingBuffer.length > 0) {
     const toSave = [...readingBuffer];
     readingBuffer = [];
-    SensorReading.insertMany(toSave).catch(err => console.error('Periodic bulk save error:', err.message));
+    SensorReading.insertMany(toSave).catch((err) =>
+      console.error("Periodic bulk save error:", err.message)
+    );
   }
 }, 5000);
 
-server.listen(4000, '0.0.0.0', () => {
-  console.log('TCP server listening on port 4000');
+server.listen(4000, "0.0.0.0", () => {
+  console.log("TCP server listening on port 4000");
 });
 
-app.listen(5000, '0.0.0.0', () => {
-  console.log('HTTP server running on port 5000');
+app.listen(5000, "0.0.0.0", () => {
+  console.log("HTTP server running on port 5000");
 });
