@@ -1,24 +1,31 @@
-import React, { useEffect, useState, useRef } from 'react';
-import '../App.css';
-import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
-import 'react-circular-progressbar/dist/styles.css';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import React, { useEffect, useState, useRef } from "react";
+import "../App.css";
+import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
+import "react-circular-progressbar/dist/styles.css";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
-import swal from 'sweetalert2'
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import swal from "sweetalert2";
 
-const defaultLocation = [28.6139, 77.2090];
+const defaultLocation = [28.6139, 77.209];
 
 function DashboardView() {
   const [readings, setReadings] = useState([]);
   const [devices, setDevices] = useState([]);
   const [deviceMeta, setDeviceMeta] = useState([]);
-  const [selectedMac, setSelectedMac] = useState('');
-  const [status, setStatus] = useState('');
-  const [activeTab, setActiveTab] = useState('gauges');
+  const [selectedMac, setSelectedMac] = useState("");
+  const [status, setStatus] = useState("");
+  const [activeTab, setActiveTab] = useState("gauges");
   const [activeFanBtns, setActiveFanBtns] = useState([]);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -26,26 +33,23 @@ function DashboardView() {
   const [videosCaptured, setVideosCaptured] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
 
-
   //Map and marker refs
   const mapRef = useRef(null);
   const markerRefs = useRef({});
 
   const latestReadingsByMac = {};
-  readings.forEach(r => {
+  readings.forEach((r) => {
     const existing = latestReadingsByMac[r.mac];
     if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
       latestReadingsByMac[r.mac] = r;
     }
   });
 
-
-  const selectedDeviceMeta = deviceMeta.find(d => d.mac === selectedMac);
-  const latestReading = readings.find(r => r.mac === selectedMac);
+  const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
+  const latestReading = readings.find((r) => r.mac === selectedMac);
 
   // console.log("latestR", latestReading)
   // console.log('All properties:', Object.keys(latestReading));
-
 
   useEffect(() => {
     fetchData();
@@ -56,7 +60,7 @@ function DashboardView() {
   // 🔄 Auto-focus map on selected device
   useEffect(() => {
     if (mapRef.current && selectedMac) {
-      const selectedDevice = deviceMeta.find(d => d.mac === selectedMac);
+      const selectedDevice = deviceMeta.find((d) => d.mac === selectedMac);
       const lat = parseFloat(selectedDevice?.latitude);
       const lon = parseFloat(selectedDevice?.longitude);
       if (!isNaN(lat) && !isNaN(lon)) {
@@ -67,23 +71,24 @@ function DashboardView() {
   }, [selectedMac, deviceMeta]);
 
   useEffect(() => {
-    const iframe = document.querySelector('.camera-iframe');
+    const iframe = document.querySelector(".camera-iframe");
     if (iframe) {
       iframe.style.transform = `scale(${zoom}) rotate(${rotation}deg)`;
     }
   }, [zoom, rotation]);
-
 
   const fetchData = async () => {
     try {
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
         fetch(`${process.env.REACT_APP_API_URL}/api/readings`),
         fetch(`${process.env.REACT_APP_API_URL}/api/all-devices`),
-        fetch(`${process.env.REACT_APP_API_URL}/api/devices-info`)
+        fetch(`${process.env.REACT_APP_API_URL}/api/devices-info`),
       ]);
 
       // Fallback to [] if any response fails
-      let readingsData = [], devicesData = [], metadata = [];
+      let readingsData = [],
+        devicesData = [],
+        metadata = [];
 
       if (readingsRes.ok) readingsData = await readingsRes.json();
       if (devicesRes.ok) devicesData = await devicesRes.json();
@@ -95,17 +100,17 @@ function DashboardView() {
       setReadings(readingsData);
       setDevices(devicesData);
       setDeviceMeta(metadata);
-      console.log(readingsData[0].fanFailBits)
-      console.log("readingData", readingsData)
+      console.log(readingsData[0].fanFailBits);
+      console.log("readingData", readingsData);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error("Error fetching data:", err);
     }
   };
 
   const handleMapCreated = (mapInstance) => {
     if (!mapRef.current) {
       mapRef.current = mapInstance;
-      console.log('Map ref set:', mapRef.current); // <--- You should see this log ONCE
+      console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
     }
   };
 
@@ -113,7 +118,7 @@ function DashboardView() {
   // A synchronous function to format the date and time.
   function getFormattedDateTime() {
     const today = new Date();
-    const addLeadingZero = (num) => String(num).padStart(2, '0');
+    const addLeadingZero = (num) => String(num).padStart(2, "0");
 
     const dd = addLeadingZero(today.getDate());
     const mm = addLeadingZero(today.getMonth() + 1);
@@ -125,132 +130,141 @@ function DashboardView() {
     return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
   }
 
-  const sendToLog = async (status, message, command = '') => {
+  const sendToLog = async (status, message, command = "") => {
     const logData = {
       date: new Date().toLocaleString(),
       mac: selectedMac,
       command: command,
       status: status,
-      message: message
-    }
+      message: message,
+    };
 
     try {
       await fetch(`${process.env.REACT_APP_API_URL}/api/log-command`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(logData),
       });
-
     } catch (err) {
       console.error("Failed to log ", err);
     }
-  }
+  };
 
   const sendCommand = async (cmdToSend) => {
     if (!selectedMac || !cmdToSend) {
-      setStatus('Please select a device and enter a command.');
+      setStatus("Please select a device and enter a command.");
       return;
     }
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/command`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),
       });
       const data = await res.json();
       setStatus(data.message);
     } catch (error) {
-      console.error('Command error:', error);
-      setStatus('Error sending command');
+      console.error("Command error:", error);
+      setStatus("Error sending command");
     }
   };
 
   const handleFanClick = (level) => {
     const isActive = activeFanBtns.includes(level);
-    const command = isActive ? `%R0${level}F${getFormattedDateTime()}$` : `%R0${level}N${getFormattedDateTime()}$`;
+    const command = isActive
+      ? `%R0${level}F${getFormattedDateTime()}$`
+      : `%R0${level}N${getFormattedDateTime()}$`;
 
-    sendToLog(`Fan Group ${level} clicked ${isActive ? "off" : "on "}`, "", command);
+    sendToLog(
+      `Fan Group ${level} clicked ${isActive ? "off" : "on "}`,
+      "",
+      command
+    );
     sendCommand(command);
 
     // Update UI immediately (optional, for instant feedback)
-    setActiveFanBtns(isActive
-      ? activeFanBtns.filter(l => l !== level)
-      : [...activeFanBtns, level]
+    setActiveFanBtns(
+      isActive
+        ? activeFanBtns.filter((l) => l !== level)
+        : [...activeFanBtns, level]
     );
   };
 
   //! New code for Open Lock (using Sweetalert2)
   const handleOpenLock = async () => {
     const { value: password } = await swal.fire({
-      title: 'Enter password',
-      input: 'password',
-      inputLabel: 'Password',
-      inputPlaceholder: 'Enter password',
+      title: "Enter password",
+      input: "password",
+      inputLabel: "Password",
+      inputPlaceholder: "Enter password",
       showCancelButton: true,
-      confirmButtonText: 'Open Lock',
-      cancelButtonText: 'Cancel',
-      background: '#292929',
-      color: '#fff',
+      confirmButtonText: "Open Lock",
+      cancelButtonText: "Cancel",
+      background: "#292929",
+      color: "#fff",
       confirmButtonColor: "#2f2f2fff",
-      width: "20em"
+      width: "20em",
     });
 
     if (password) {
-      if (password === 'admin123') {
+      if (password === "admin123") {
         sendCommand(`%L00O${getFormattedDateTime()}$`);
-        setStatus('Lock opened successfully!');
+        setStatus("Lock opened successfully!");
       } else {
-        setStatus('Wrong password!');
+        setStatus("Wrong password!");
       }
     }
   };
-
 
   const handleResetLock = () => {
     const pwd = window.prompt("Enter password to reset lock:");
-    if (pwd === 'admin123') {
+    if (pwd === "admin123") {
       const newLock = window.prompt("Enter new lock value:");
-      if (newLock && newLock.trim() !== '') {
+      if (newLock && newLock.trim() !== "") {
         sendToLog(`Lock Reset ${newLock} clicked`);
         sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
       } else {
-        setStatus('New lock value cannot be empty!');
+        setStatus("New lock value cannot be empty!");
       }
     } else {
-      setStatus('Wrong password for resetting lock!');
+      setStatus("Wrong password for resetting lock!");
     }
   };
 
-  // Function 
+  // Function
   const openPassword = () => {
     const pwd = window.prompt("Enter password to reset attempt:");
     const today = new Date();
-    if (pwd === 'admin123') sendCommand(`%L00P${getFormattedDateTime()}$`);
-    else setStatus('Wrong password for opening lock!');
+    if (pwd === "admin123") sendCommand(`%L00P${getFormattedDateTime()}$`);
+    else setStatus("Wrong password for opening lock!");
   };
 
   const toggleFullscreen = () => {
-    const iframe = document.querySelector('.camera-iframe');
+    const iframe = document.querySelector(".camera-iframe");
     if (iframe.requestFullscreen) iframe.requestFullscreen();
     else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
     else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
   };
 
-  const zoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
-  const zoomOut = () => setZoom(prev => Math.max(prev - 0.1, 1));
-  const rotateFeed = () => setRotation(prev => (prev + 90) % 360);
+  const zoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 2));
+  const zoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 1));
+  const rotateFeed = () => setRotation((prev) => (prev + 90) % 360);
 
   const isAlarmActive = (reading) =>
     reading.fireAlarm || reading.waterLeakage || reading.waterLogging;
 
   const historicalData = readings
-    .filter(r => r.mac === selectedMac && r.timestamp)
+    .filter((r) => r.mac === selectedMac && r.timestamp)
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // oldest to latest
     .slice(-15)
-    .map(r => ({
+    .map((r) => ({
       time: new Date(r.timestamp).toLocaleTimeString([], {
-        month: '2-digit',
-        day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
       }),
       insideTemperature: Number(r.insideTemperature.toFixed(2)),
       outsideTemperature: Number(r.outsideTemperature.toFixed(2)),
@@ -268,11 +282,13 @@ function DashboardView() {
 
   const fetchSnapshots = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/snapshots`);
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/snapshots`
+      );
       const snapshotFiles = await response.json();
       setSnapshots(snapshotFiles);
     } catch (err) {
-      console.error('Error fetching snapshots:', err);
+      console.error("Error fetching snapshots:", err);
     }
   };
 
@@ -282,82 +298,163 @@ function DashboardView() {
       const videos = await resp.json();
       setVideosCaptured(videos);
     } catch (err) {
-      console.error('Error fetching videos: ', err);
+      console.error("Error fetching videos: ", err);
     }
-  }
-
+  };
 
   const alarmKeys = [
     {
-      key: 'fireAlarm',
-      Name: 'Fire Alarm'
+      key: "fireAlarm",
+      Name: "Fire Alarm",
     },
     {
-      key: 'waterLogging',
-      Name: 'Logging'
+      key: "waterLogging",
+      Name: "Logging",
     },
     {
-      key: 'waterLeakage',
-      Name: 'Leakage'
+      key: "waterLeakage",
+      Name: "Leakage",
     },
-  ]
+  ];
 
   const statusKeys = [
     {
-      key: 'lockStatus',
-      Name: "Lock"
+      key: "lockStatus",
+      Name: "Lock",
     },
     {
-      key: 'doorStatus',
-      Name: "Door"
+      key: "doorStatus",
+      Name: "Door",
     },
     {
-      key: 'fanFailBits',
-      Name: "Password"
+      key: "fanFailBits",
+      Name: "Password",
     },
-  ]
+  ];
 
   return (
     <>
       {/* Logo */}
-      <div style={{
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        zIndex: 9999
-      }}>
-        <img src="/technotrendz.png" alt="Technotrendz Logo" style={{ height: '40px', width: '100px' }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 20,
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          zIndex: 9999,
+        }}
+      >
+        <img
+          src="/technotrendz.png"
+          alt="Technotrendz Logo"
+          style={{ height: "40px", width: "100px" }}
+        />
       </div>
       <div className="dashboard">
         <div className="panel">
-          <h2 className="selected-heading">📟 Selected iMoni {selectedMac && <span>: {selectedMac}</span>}</h2>
+          <h2 className="selected-heading">
+            📟 Selected iMoni {selectedMac && <span>: {selectedMac}</span>}
+          </h2>
           {latestReading && (
             <div>
               <div className="tabs">
-                <button className={activeTab === 'gauges' ? 'active' : ''} onClick={() => setActiveTab('gauges')}>Gauges</button>
-                <button className={activeTab === 'status' ? 'active' : ''} onClick={() => setActiveTab('status')}>Status</button>
-                <button className={activeTab === 'camera-feed' ? 'active' : ''} onClick={() => setActiveTab('camera-feed')}>Camera Feed</button>
-                <button className={activeTab === 'snapshots' ? 'active' : ''} onClick={() => setActiveTab('snapshots')}>Snapshots</button>
+                <button
+                  className={activeTab === "gauges" ? "active" : ""}
+                  onClick={() => setActiveTab("gauges")}
+                >
+                  Gauges
+                </button>
+                <button
+                  className={activeTab === "status" ? "active" : ""}
+                  onClick={() => setActiveTab("status")}
+                >
+                  Status
+                </button>
+                <button
+                  className={activeTab === "camera-feed" ? "active" : ""}
+                  onClick={() => setActiveTab("camera-feed")}
+                >
+                  Camera Feed
+                </button>
+                <button
+                  className={activeTab === "snapshots" ? "active" : ""}
+                  onClick={() => setActiveTab("snapshots")}
+                >
+                  Snapshots
+                </button>
               </div>
 
-              {activeTab === 'gauges' && (
+              {activeTab === "gauges" && (
                 <div className="gauges grid-3x3">
-                  <Gauge label="Inside Temp" value={latestReading.insideTemperature} max={100} color="#e63946" alarm={latestReading.insideTemperatureAlarm} />
-                  <Gauge label="Outside Temp" value={latestReading.outsideTemperature} max={100} color="#fca311" alarm={latestReading.outsideTemperatureAlarm} />
-                  <Gauge label="Humidity" value={latestReading.humidity} max={100} color="#1d3557" alarm={latestReading.humidityAlarm} />
-                  <Gauge label="HUPS O/P" value={latestReading.inputVoltage} max={5} color="#06d6a0" alarm={latestReading.inputVoltageAlarm} />
-                  <Gauge label="LoadCurrent" value={latestReading.outputVoltage} max={5} color="#118ab2" alarm={latestReading.outputVoltageAlarm} />
-                  <Gauge label="DV Current" value={latestReading.batteryBackup} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm} />
-                  <Gauge label="Battery %" value={(latestReading.batteryBackup * 1.5).toFixed(2)} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm * 1.3} />
-                  <Gauge label="Battery(Hours)" value={(latestReading.batteryBackup).toFixed(0)} max={120} color="#ffc107" alarm={latestReading.batteryBackupAlarm} />
-                  <Gauge label="LockBat(Hours)" value={(latestReading.inputVoltage * 1.1).toFixed(0)} max={5} color="#ffc107" alarm={latestReading.inputVoltageAlarm * 1.2} />
+                  <Gauge
+                    label="Inside Temp"
+                    value={latestReading.insideTemperature}
+                    max={100}
+                    color="#e63946"
+                    alarm={latestReading.insideTemperatureAlarm}
+                  />
+                  <Gauge
+                    label="Outside Temp"
+                    value={latestReading.outsideTemperature}
+                    max={100}
+                    color="#fca311"
+                    alarm={latestReading.outsideTemperatureAlarm}
+                  />
+                  <Gauge
+                    label="Humidity"
+                    value={latestReading.humidity}
+                    max={100}
+                    color="#1d3557"
+                    alarm={latestReading.humidityAlarm}
+                  />
+                  <Gauge
+                    label="HUPS O/P"
+                    value={latestReading.inputVoltage}
+                    max={5}
+                    color="#06d6a0"
+                    alarm={latestReading.inputVoltageAlarm}
+                  />
+                  <Gauge
+                    label="LoadCurrent"
+                    value={latestReading.outputVoltage}
+                    max={5}
+                    color="#118ab2"
+                    alarm={latestReading.outputVoltageAlarm}
+                  />
+                  <Gauge
+                    label="DV Current"
+                    value={latestReading.batteryBackup}
+                    max={120}
+                    color="#ffc107"
+                    alarm={latestReading.batteryBackupAlarm}
+                  />
+                  <Gauge
+                    label="Battery %"
+                    value={(latestReading.batteryBackup * 1.5).toFixed(2)}
+                    max={120}
+                    color="#ffc107"
+                    alarm={latestReading.batteryBackupAlarm * 1.3}
+                  />
+                  <Gauge
+                    label="Battery(Hours)"
+                    value={latestReading.batteryBackup.toFixed(0)}
+                    max={120}
+                    color="#ffc107"
+                    alarm={latestReading.batteryBackupAlarm}
+                  />
+                  <Gauge
+                    label="LockBat(Hours)"
+                    value={(latestReading.inputVoltage * 1.1).toFixed(0)}
+                    max={5}
+                    color="#ffc107"
+                    alarm={latestReading.inputVoltageAlarm * 1.2}
+                  />
                 </div>
               )}
 
-              {activeTab === 'status' && (
+              {activeTab === "status" && (
                 <div className="fan-status">
                   <div className="fan-status-line">
                     <h4>Fan Running Status</h4>
@@ -365,12 +462,12 @@ function DashboardView() {
                       const statusVal = latestReading[`fan${i + 1}Status`]; // 0=off, 1=healthy, 2=faulty
                       // console.log('statusVal', statusVal);
 
-                      console.log("statusC")
-                      let statusClass = 'off';
+                      console.log("statusC");
+                      let statusClass = "off";
                       if (statusVal === 1) {
-                        statusClass = 'running';  // green
+                        statusClass = "running"; // green
                       } else if (statusVal === 2) {
-                        statusClass = 'faulty';   // red
+                        statusClass = "faulty"; // red
                       }
                       console.log(statusClass);
 
@@ -387,62 +484,107 @@ function DashboardView() {
                     <h4>Alarms</h4>
                     {alarmKeys.map((alarm, i) => (
                       <div key={i} className="alarm-indicator">
-                        <div className={`alarm-led ${latestReading[alarm.key] ? 'active' : ''}`} />
+                        <div
+                          className={`alarm-led ${latestReading[alarm.key] ? "active" : ""
+                            }`}
+                        />
                         <div className="alarm-label">{alarm.Name}</div>
                       </div>
                     ))}
                     {statusKeys.map((status, i) => {
-                      if (status.key !== 'fanFailBits') {
-
+                      if (status.key !== "fanFailBits") {
                         return (
                           <div key={i} className="alarm-indicator">
-                            <div className={`alarm-led ${latestReading[status.key] === 'OPEN' ? 'active' : ''}`} />
+                            <div
+                              className={`alarm-led ${latestReading[status.key] === "OPEN"
+                                ? "active"
+                                : ""
+                                }`}
+                            />
                             <div className="alarm-label">{status.Name}</div>
                           </div>
                         );
                       } else {
-                        return (<div key={i} className="alarm-indicator">
-                          <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} />
-                          <div className="alarm-label">{status.Name}</div>
-                        </div>);
+                        return (
+                          <div key={i} className="alarm-indicator">
+                            {/* <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} /> */}
+                            <div
+                              className={`alarm-led 
+                            ${latestReading[status.key] === 1 ||
+                                  latestReading[status.key] === 2
+                                  ? "warn"
+                                  : latestReading[status.key] === 3
+                                    ? "active"
+                                    : ""
+                                }`}
+                            />
+                            <div className="alarm-label">{status.Name}</div>
+                          </div>
+                        );
                       }
                     })}
                   </div>
 
                   <div className="alarm-line">
                     <h4>HUPS</h4>
-                    {['Mains', 'Rectfier', 'Inverter'].map((key, i) => (
+                    {["Mains", "Rectfier", "Inverter"].map((key, i) => (
                       <div key={i} className="alarm-indicator">
-                        <div className={`alarm-led ${latestReading[key] ? 'active' : ''}`} />
-                        <div className="alarm-label">{key.replace(/([A-Z])/g, ' $1')}</div>
+                        <div
+                          className={`alarm-led ${latestReading[key] ? "active" : ""
+                            }`}
+                        />
+                        <div className="alarm-label">
+                          {key.replace(/([A-Z])/g, " $1")}
+                        </div>
                       </div>
                     ))}
-                    {['O.Load', 'MPT', 'MOSFET'].map((key, i) => (
+                    {["O.Load", "MPT", "MOSFET"].map((key, i) => (
                       <div key={i} className="alarm-indicator">
-                        <div className={`alarm-led ${latestReading[key] === 'OPEN' ? 'active' : ''}`} />
-                        <div className="alarm-label">{key.replace('Status', '')}</div>
+                        <div
+                          className={`alarm-led ${latestReading[key] === "OPEN" ? "active" : ""
+                            }`}
+                        />
+                        <div className="alarm-label">
+                          {key.replace("Status", "")}
+                        </div>
                       </div>
                     ))}
                   </div>
 
                   <h4>🛠 Commands</h4>
                   <div className="fan-power-buttons aligned">
-                    {[1, 2, 3, 4, 5].map(level => (
+                    {[1, 2, 3, 4, 5].map((level) => (
                       <div key={level} className="fan-light">
-                        <button className={`power-btn ${activeFanBtns.includes(level) || (latestReading && latestReading[`fan${level}Status`] === 1) ? 'active' : ''}`} onClick={() => handleFanClick(level)} />
-                        <div className="fan-label">{level >= 1 && level <= 4 ? `FG ${level}` : 'LOAD'}</div>
+                        <button
+                          className={`power-btn ${activeFanBtns.includes(level) ||
+                            (latestReading &&
+                              latestReading[`fan${level}Status`] === 1)
+                            ? "active"
+                            : ""
+                            }`}
+                          onClick={() => handleFanClick(level)}
+                        />
+                        <div className="fan-label">
+                          {level >= 1 && level <= 4 ? `FG ${level}` : "LOAD"}
+                        </div>
                       </div>
                     ))}
                     <div className="fan-light">
-                      <button className="lock-btn" onClick={handleOpenLock}>🔓</button>
+                      <button className="lock-btn" onClick={handleOpenLock}>
+                        🔓
+                      </button>
                       <div className="fan-label">Lock</div>
                     </div>
                     <div className="fan-light">
-                      <button className="lock-btn" onClick={handleResetLock}>🔐</button>
+                      <button className="lock-btn" onClick={handleResetLock}>
+                        🔐
+                      </button>
                       <div className="fan-label">Reset</div>
                     </div>
                     <div className="fan-light">
-                      <button className="lock-btn" onClick={openPassword}>🔐</button>
+                      <button className="lock-btn" onClick={openPassword}>
+                        🔐
+                      </button>
                       <div className="fan-label">Open PWD</div>
                     </div>
                   </div>
@@ -450,9 +592,8 @@ function DashboardView() {
                 </div>
               )}
 
-
               {/* Camera Feed */}
-              {activeTab === 'camera-feed' && (
+              {activeTab === "camera-feed" && (
                 <div className="camera-feed-wrapper">
                   <div className="camera-frame">
                     {videosCaptured.length > 0 ? (
@@ -464,8 +605,9 @@ function DashboardView() {
                           title="Live Camera"
                         />
                       ))
-                    ) : (<p>No Videos to show</p>)
-                    }
+                    ) : (
+                      <p>No Videos to show</p>
+                    )}
                   </div>
                   <div className="camera-controls">
                     <button onClick={toggleFullscreen}>🔳 Fullscreen</button>
@@ -476,10 +618,12 @@ function DashboardView() {
                 </div>
               )}
 
-
               {/* Full Screen Image Modal with Navigation */}
               {selectedImage && (
-                <div className="fullscreen-modal" onClick={() => setSelectedImage(null)}>
+                <div
+                  className="fullscreen-modal"
+                  onClick={() => setSelectedImage(null)}
+                >
                   <div className="modal-header">
                     <button
                       className="close-btn-fullscreen"
@@ -488,7 +632,13 @@ function DashboardView() {
                       ✕
                     </button>
                     <div className="image-title">
-                      {selectedImage.split('/').pop()} ({snapshots.findIndex(img => `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` === selectedImage) + 1} of {snapshots.length})
+                      {selectedImage.split("/").pop()} (
+                      {snapshots.findIndex(
+                        (img) =>
+                          `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` ===
+                          selectedImage
+                      ) + 1}{" "}
+                      of {snapshots.length})
                     </div>
                   </div>
 
@@ -499,9 +649,17 @@ function DashboardView() {
                         className="nav-arrow left-arrow"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const currentIndex = snapshots.findIndex(img => `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` === selectedImage);
-                          const prevIndex = (currentIndex - 1 + snapshots.length) % snapshots.length;
-                          setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[prevIndex]}`);
+                          const currentIndex = snapshots.findIndex(
+                            (img) =>
+                              `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` ===
+                              selectedImage
+                          );
+                          const prevIndex =
+                            (currentIndex - 1 + snapshots.length) %
+                            snapshots.length;
+                          setSelectedImage(
+                            `${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[prevIndex]}`
+                          );
                         }}
                       >
                         ‹
@@ -510,9 +668,16 @@ function DashboardView() {
                         className="nav-arrow right-arrow"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const currentIndex = snapshots.findIndex(img => `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` === selectedImage);
-                          const nextIndex = (currentIndex + 1) % snapshots.length;
-                          setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[nextIndex]}`);
+                          const currentIndex = snapshots.findIndex(
+                            (img) =>
+                              `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` ===
+                              selectedImage
+                          );
+                          const nextIndex =
+                            (currentIndex + 1) % snapshots.length;
+                          setSelectedImage(
+                            `${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[nextIndex]}`
+                          );
                         }}
                       >
                         ›
@@ -531,7 +696,7 @@ function DashboardView() {
               )}
 
               {/* Snapshots */}
-              {activeTab === 'snapshots' && (
+              {activeTab === "snapshots" && (
                 <div className="camera-tab">
                   <h4>🖼️ Snapshots</h4>
                   <div className="snapshots-grid">
@@ -539,22 +704,28 @@ function DashboardView() {
                       snapshots.map((filename, i) => (
                         <div
                           key={i}
-                          className='snapshot-item'
-                          onClick={() => setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`)}>
-
+                          className="snapshot-item"
+                          onClick={() =>
+                            setSelectedImage(
+                              `${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`
+                            )
+                          }
+                        >
                           <img
                             key={i}
                             src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`}
                             alt={`snapshot-${i + 1}`}
                             onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/120x90?text=Error';
+                              e.target.src =
+                                "https://via.placeholder.com/120x90?text=Error";
                             }}
                           />
-                          <div className='snapshot-label'>{filename}</div>
+                          <div className="snapshot-label">{filename}</div>
                         </div>
-                      )))
-                      : (<p>No snapshots available</p>
-                      )}
+                      ))
+                    ) : (
+                      <p>No snapshots available</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -574,17 +745,58 @@ function DashboardView() {
                   angle={-45}
                   textAnchor="end"
                   height={60}
-                  tick={{ fontSize: 10, fill: '#ccc' }}
+                  tick={{ fontSize: 10, fill: "#ccc" }}
                 />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="insideTemperature" stroke="#ff4d4f" dot={false} isAnimationActive={true} name="insideTemp" />
-                <Line type="monotone" dataKey="humidity" stroke="#1d3557" dot={false} isAnimationActive={true} />
-                <Line type="monotone" dataKey="inputVoltage" stroke="#00b894" dot={false} isAnimationActive={true} name="I/P volt" />
-                <Line type="monotone" dataKey="outputVoltage" stroke="#0984e3" dot={false} isAnimationActive={true} name="O/P volt" />
-                <Line type="monotone" dataKey="batteryBackup" stroke="#ffc107" dot={false} isAnimationActive={true} name="Battery" />
-                <Line type="monotone" dataKey="outsideTemperature" stroke="#ffa500" dot={false} isAnimationActive={true} name="outsideTemp" />
+                <Line
+                  type="monotone"
+                  dataKey="insideTemperature"
+                  stroke="#ff4d4f"
+                  dot={false}
+                  isAnimationActive={true}
+                  name="insideTemp"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="humidity"
+                  stroke="#1d3557"
+                  dot={false}
+                  isAnimationActive={true}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="inputVoltage"
+                  stroke="#00b894"
+                  dot={false}
+                  isAnimationActive={true}
+                  name="I/P volt"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="outputVoltage"
+                  stroke="#0984e3"
+                  dot={false}
+                  isAnimationActive={true}
+                  name="O/P volt"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="batteryBackup"
+                  stroke="#ffc107"
+                  dot={false}
+                  isAnimationActive={true}
+                  name="Battery"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="outsideTemperature"
+                  stroke="#ffa500"
+                  dot={false}
+                  isAnimationActive={true}
+                  name="outsideTemp"
+                />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -598,44 +810,53 @@ function DashboardView() {
           <div className="grid">
             {(() => {
               const latestReadingsByMac = {};
-              readings.forEach(r => {
+              readings.forEach((r) => {
                 const existing = latestReadingsByMac[r.mac];
-                if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
+                if (
+                  !existing ||
+                  new Date(r.timestamp) > new Date(existing.timestamp)
+                ) {
                   latestReadingsByMac[r.mac] = r;
                 }
               });
 
-              return deviceMeta.map(device => {
+              return deviceMeta.map((device) => {
                 const mac = device.mac;
                 const reading = latestReadingsByMac[mac];
-                let colorClass = 'disconnected'; // default
+                let colorClass = "disconnected"; // default
 
                 if (reading && reading.timestamp) {
-                  const age = Date.now() - new Date(reading.timestamp).getTime();
+                  const age =
+                    Date.now() - new Date(reading.timestamp).getTime();
                   const staleThreshold = 30000; // 30 seconds
 
                   if (age <= staleThreshold) {
                     // Use status from latest valid reading
                     const hasStatusAlarm = isAlarmActive(reading);
                     const hasGaugeAlarm =
-                      reading.insideTemperatureAlarm || reading.outsideTemperatureAlarm ||
-                      reading.humidityAlarm || reading.inputVoltageAlarm ||
-                      reading.outputVoltageAlarm || reading.batteryBackupAlarm;
+                      reading.insideTemperatureAlarm ||
+                      reading.outsideTemperatureAlarm ||
+                      reading.humidityAlarm ||
+                      reading.inputVoltageAlarm ||
+                      reading.outputVoltageAlarm ||
+                      reading.batteryBackupAlarm;
 
-                    colorClass =
-                      hasStatusAlarm ? 'status-alarm'
-                        : hasGaugeAlarm ? 'gauge-alarm'
-                          : 'connected';
+                    colorClass = hasStatusAlarm
+                      ? "status-alarm"
+                      : hasGaugeAlarm
+                        ? "gauge-alarm"
+                        : "connected";
                   } else {
                     // Reading is stale — treat as disconnected
-                    colorClass = 'disconnected';
+                    colorClass = "disconnected";
                   }
                 }
 
                 return (
                   <div
                     key={mac}
-                    className={`device-tile ${colorClass} ${selectedMac === mac ? 'selected' : ''}`}
+                    className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
+                      }`}
                     onClick={() => setSelectedMac(mac)}
                   >
                     {device.locationId || mac}
@@ -651,18 +872,21 @@ function DashboardView() {
           <h2>🗺️ Device Map</h2>
 
           {(() => {
-            const selectedDevice = deviceMeta.find(d => d.mac === selectedMac);
+            const selectedDevice = deviceMeta.find(
+              (d) => d.mac === selectedMac
+            );
             const lat = parseFloat(selectedDevice?.latitude);
             const lon = parseFloat(selectedDevice?.longitude);
-            const selectedCenter = (!isNaN(lat) && !isNaN(lon)) ? [lat, lon] : defaultLocation;
+            const selectedCenter =
+              !isNaN(lat) && !isNaN(lon) ? [lat, lon] : defaultLocation;
 
             return (
               <MapContainer
-                key={selectedMac || 'default-map'}
+                key={selectedMac || "default-map"}
                 center={selectedCenter}
                 zoom={15}
                 scrollWheelZoom={true}
-                style={{ height: '315px', width: '100%' }}
+                style={{ height: "315px", width: "100%" }}
                 whenCreated={handleMapCreated}
               >
                 <TileLayer
@@ -670,14 +894,15 @@ function DashboardView() {
                   attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
                 />
 
-                {deviceMeta.map(device => {
+                {deviceMeta.map((device) => {
                   const mac = device.mac;
                   const reading = latestReadingsByMac[mac];
 
-                  let dotClass = 'disconnected'; // Default state
+                  let dotClass = "disconnected"; // Default state
 
                   if (reading) {
-                    const timeDiff = Date.now() - new Date(reading.timestamp).getTime();
+                    const timeDiff =
+                      Date.now() - new Date(reading.timestamp).getTime();
                     const isStale = timeDiff > 30000;
 
                     if (!isStale) {
@@ -691,15 +916,15 @@ function DashboardView() {
                         reading.batteryBackupAlarm;
 
                       dotClass = hasStatusAlarm
-                        ? 'status-alarm'
+                        ? "status-alarm"
                         : hasGaugeAlarm
-                          ? 'gauge-alarm'
-                          : 'connected';
+                          ? "gauge-alarm"
+                          : "connected";
                     }
                   }
 
                   const icon = L.divIcon({
-                    className: 'custom-marker',
+                    className: "custom-marker",
                     html: `<div class="marker-dot ${dotClass}"></div>`,
                     iconSize: [20, 20],
                     iconAnchor: [10, 10],
@@ -714,7 +939,7 @@ function DashboardView() {
                       key={mac}
                       position={[lat, lon]}
                       icon={icon}
-                      ref={ref => {
+                      ref={(ref) => {
                         markerRefs.current[mac] = ref;
                       }}
                       eventHandlers={{
@@ -724,7 +949,7 @@ function DashboardView() {
                       <Popup>
                         {device.locationId || mac}
                         <br />
-                        {device.address || ''}
+                        {device.address || ""}
                       </Popup>
                     </Marker>
                   );
@@ -733,17 +958,23 @@ function DashboardView() {
             );
           })()}
 
-          <div style={{
-            marginTop: '8px',
-            fontSize: '0.8rem',
-            color: '#aaa',
-            textAlign: 'right'
-          }}>
-            Best viewed on {navigator.userAgent.includes("Chrome") ? "Chrome" :
-              navigator.userAgent.includes("Firefox") ? "Firefox" : "your browser"} @ {window.innerWidth}x{window.innerHeight}
+          <div
+            style={{
+              marginTop: "8px",
+              fontSize: "0.8rem",
+              color: "#aaa",
+              textAlign: "right",
+            }}
+          >
+            Best viewed on{" "}
+            {navigator.userAgent.includes("Chrome")
+              ? "Chrome"
+              : navigator.userAgent.includes("Firefox")
+                ? "Firefox"
+                : "your browser"}{" "}
+            @ {window.innerWidth}x{window.innerHeight}
           </div>
         </div>
-
       </div>
     </>
   );
@@ -751,12 +982,16 @@ function DashboardView() {
 
 function Gauge({ label, value, max, color, alarm = false }) {
   return (
-    <div className={`gauge-box small ${alarm ? 'alarm' : ''}`}>
+    <div className={`gauge-box small ${alarm ? "alarm" : ""}`}>
       <CircularProgressbar
         value={value}
         maxValue={max}
         text={`${value}`}
-        styles={buildStyles({ pathColor: color, textColor: '#fff', trailColor: '#333' })}
+        styles={buildStyles({
+          pathColor: color,
+          textColor: "#fff",
+          trailColor: "#333",
+        })}
       />
       <div className="gauge-label">{label}</div>
     </div>
