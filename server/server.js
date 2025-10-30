@@ -135,25 +135,38 @@ app.get('/api/devices-info', async (req, res) => {
 
 
 // ✅ Delete device by MAC
-app.put('/api/device/:mac', async (req, res) => {
-    try {
-        const { password, ...updateFields } = req.body;
-        if (updateFields.locationId && updateFields.locationId.length > 17)
-            return res.status(400).json({ error: 'Location ID must be 17 characters or fewer' });
-        if (password !== process.env.ADMIN_PASSWORD)
-            return res.status(403).json({ error: 'Unauthorized: Invalid admin password' });
-        const { mac } = req.params;
-        const updatedDevice = await Device.findOneAndUpdate(
-            { mac },
-            { $set: updateFields },
-            { new: true }
-        );
-        if (!updatedDevice) return res.status(404).json({ error: 'Device not found' });
-        res.json(updatedDevice);
-    } catch (error) {
-        console.error('Error updating device:', error);
-        res.status(500).json({ error: 'Server error while updating device' });
+// ✅ Edit User
+app.put("/api/user/:id", async (req, res) => {
+  try {
+    const { username, password, adminPassword } = req.body;
+    if (adminPassword !== process.env.ADMIN_PASSWORD)
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: Invalid admin password" });
+
+    const user = await User.findById(req.params.id);
+
+    const updateFields = {};
+    updateFields.username = username;
+
+    if (password && password.trim() !== "") {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateFields.password = hashedPassword;
     }
+
+    const updatedDevice = await User.findOneAndUpdate(
+      user,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updatedDevice)
+      return res.status(404).json({ error: "User not found" });
+    res.json(updatedDevice);
+  } catch (error) {
+    console.error("Error updating device:", error);
+    res.status(500).json({ error: "Server error while updating device" });
+  }
 });
 
 // ✅ Command endpoint
