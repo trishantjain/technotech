@@ -248,6 +248,10 @@ body {
   width: 100%;
 }
 
+.snapshot-label{
+  font-size: 11px;
+}
+
 /* Devices */
 .grid {
   display: grid;
