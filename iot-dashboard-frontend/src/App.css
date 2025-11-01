@@ -176,6 +176,11 @@ body {
   box-shadow: 0 0 12px orange;
   animation: blinkAlarm 1s infinite alternate;
 }
+.alarm-led.danger {
+  background-color: yellow;
+  box-shadow: 0 0 12px yellow;
+  animation: blinkAlarm 1s infinite alternate;
+}
 
 @keyframes blinkAlarm {
   0% {
