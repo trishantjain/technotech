@@ -336,7 +336,7 @@ app.get("/api/historical-data", async (req, res) => {
 // Serve snapshot images
 app.get("/api/snapshots/:imageName", (req, res) => {
   const imageName = req.params.imageName;
-  const imagePath = path.join("C:/Users/trish/cam", imageName);
+  const imagePath = path.join("C:/snaps", imageName);
 
   // Check if file exists
   if (!fs.existsSync(imagePath)) {
@@ -349,7 +349,7 @@ app.get("/api/snapshots/:imageName", (req, res) => {
 
 // Get list of available snapshots
 app.get("/api/snapshots", (req, res) => {
-  const snapshotsDir = "C:/Users/trish/cam";
+  const snapshotsDir = "C:/snaps";
 
   try {
     const files = fs
@@ -539,6 +539,26 @@ const server = net.createServer((socket) => {
           alreadyReplied = 40; // Load Balancing
         }
 
+        // Checking if door is open or lock to click snapshots
+        if ((padding === 0x43)) {
+          console.log("⚠️ Capture Function runs...")
+          sendX(socket);
+
+          const args = [
+            '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
+          ]
+
+          const ffmpeg = spawn('ffmpeg', args);
+
+          ffmpeg.on('close', (code) => {
+            if (code === 0) {
+              console.log("Captured successfully...")
+            } else {
+              console.error(`ffmpeg process exited with code ${code}`)
+            }
+          })
+        }
+
         // Logging Incoming Data from Simulator
         const now = new Date();
         const fileName = `${now.getDate()}_${now.getMonth() + 1
@@ -582,8 +602,7 @@ const server = net.createServer((socket) => {
         }
         console.log("fanStatus", fanStatus);
 
-        // const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset //Password
-        const fanFailBits = 3;
+        const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset //Password
         const floats = [
           humidity,
           insideTemperature,
