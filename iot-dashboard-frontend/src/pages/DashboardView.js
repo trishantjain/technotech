@@ -220,11 +220,16 @@ function DashboardView() {
     const pwd = window.prompt("Enter password to reset lock:");
     if (pwd === "admin123") {
       const newLock = window.prompt("Enter new lock value:");
+
+      if (/^\d{9}$/.test(newLock)) {
       if (newLock && newLock.trim() !== "") {
         sendToLog(`Lock Reset ${newLock} clicked`);
         sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
       } else {
         setStatus("New lock value cannot be empty!");
+        }
+      } else {
+        alert("Enter Numeric Password of 9 Digits")
       }
     } else {
       setStatus("Wrong password for resetting lock!");
@@ -233,7 +238,7 @@ function DashboardView() {
 
   // Function
   const openPassword = () => {
-    const pwd = window.prompt("Enter password to reset attempt:");
+    const pwd = window.prompt("Enter password to Open Lock:");
     const today = new Date();
     if (pwd === "admin123") sendCommand(`%L00P${getFormattedDateTime()}$`);
     else setStatus("Wrong password for opening lock!");
