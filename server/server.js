@@ -11,7 +11,7 @@ const SensorReading = require("./SensorReading");
 const thresholds = require("./thresholds");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const axios = require('axios')
 
 const app = express();
 const connectedDevices = new Map();
@@ -539,25 +539,73 @@ const server = net.createServer((socket) => {
           alreadyReplied = 40; // Load Balancing
         }
 
-        // Checking if door is open or lock to click snapshots
+        // // Checking if door is open or lock to click snapshots
+        // if ((padding === 0x43)) {
+        //   console.log("⚠️ Capture Function runs...")
+        //   sendX(socket);
+
+        //   const args = [
+        //     '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
+        //   ]
+
+        //   const ffmpeg = spawn('ffmpeg', args);
+
+        //   ffmpeg.on('close', (code) => {
+        //     if (code === 0) {
+        //       console.log("Captured successfully...")
+        //     } else {
+        //       console.error(`ffmpeg process exited with code ${code}`)
+        //     }
+        //   })
+        // }
+
         if ((padding === 0x43)) {
-          console.log("⚠️ Capture Function runs...")
           sendX(socket);
 
-          const args = [
-            '-rtsp_transport', 'tcp', '-i', 'rtsp://192.168.0.40/media/video1', '-frames-v', '1', 'C:/snaps'
-          ]
+          console.log("📸 Capture pictures command received");
 
-          const ffmpeg = spawn('ffmpeg', args);
+          // Create timestamp
+          const now = new Date();
+          const timestamp = now.toISOString()
+            .replace(/[-:]/g, '')
+            .replace(/T/, '_')
+            .replace(/\..+/, '')
+            .slice(0, 15);
 
-          ffmpeg.on('close', (code) => {
-            if (code === 0) {
-              console.log("Captured successfully...")
-            } else {
-              console.error(`ffmpeg process exited with code ${code}`)
-            }
+          const fileName = `image_${timestamp}.jpg`;
+          const outputDir = 'C:/snaps';
+          const outputPath = path.join(outputDir, fileName);
+
+          // Ensure directory exists
+          if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+          }
+
+          // Capture snapshot
+          const url = `http://192.168.0.120/CGI/command/snap?channel=01`;
+
+          axios({
+            method: 'GET',
+            url: url,
+            responseType: 'stream'
           })
+            .then((response) => {
+              const writer = fs.createWriteStream(outputPath);
+              response.data.pipe(writer);
+
+              return new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+              });
+            })
+            .then(() => {
+              console.log(`✅ Snapshot captured: ${fileName}`);
+            })
+            .catch((error) => {
+              console.error(`❌ Error capturing snapshot: ${error.message}`);
+            });
         }
+
 
         // Logging Incoming Data from Simulator
         const now = new Date();
