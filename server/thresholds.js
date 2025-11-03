@@ -21,6 +21,6 @@ module.exports = {
   },
   batteryBackup: {
     min: 10,     // minimum 10 mins backup expected
-    max: 14     // assume 2 hrs max for chart normalization
+    max: 13     // assume 2 hrs max for chart normalization
   }
 };
