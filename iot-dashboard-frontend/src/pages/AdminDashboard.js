@@ -151,12 +151,13 @@ const RegisterUserTab = () => {
     }
     requestPassword(async (adminPassword) => {
       try {
+        const uname = user.username;
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/user/${user._id}`,
+          `${process.env.REACT_APP_API_URL}/api/user/delete/${user._id}`,
           {
-            method: "DELETE",
+            method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ adminPassword }),
+            body: JSON.stringify({ adminPassword, uname }),
           }
         );
         const data = await res.json();
@@ -874,10 +875,10 @@ const HistoricalDataTab = () => {
                   {specificReading.fanLevel1Running
                     ? 1
                     : specificReading.fanLevel2Running
-                    ? 2
-                    : specificReading.fanLevel3Running
-                    ? 3
-                    : "Off"}
+                      ? 2
+                      : specificReading.fanLevel3Running
+                        ? 3
+                        : "Off"}
                 </div>
               </div>
             </div>
