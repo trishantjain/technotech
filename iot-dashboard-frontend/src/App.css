@@ -619,3 +619,67 @@ body {
   background-color: #ff0000;
   box-shadow: 0 0 8px #ff0000;
 }
+
+.fullscreen-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+}
+
+.modal-body {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.fullscreen-image {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+}
+
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  color: white;
+  font-size: 2rem;
+  padding: 1rem;
+  cursor: pointer;
+  z-index: 10001;
+}
+
+.left-arrow {
+  left: 1rem;
+}
+
+.right-arrow {
+  right: 1rem;
+}
+
+.close-btn-fullscreen {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
