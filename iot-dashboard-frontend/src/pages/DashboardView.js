@@ -175,11 +175,20 @@ function DashboardView() {
       ? `%R0${level}F${getFormattedDateTime()}$`
       : `%R0${level}N${getFormattedDateTime()}$`;
 
-    sendToLog(
-      `Fan Group ${level} clicked ${isActive ? "off" : "on "}`,
-      "",
-      command
-    );
+    if (level !== 5) {
+      sendToLog(
+        `Fan Group ${level} clicked ${isActive ? "off" : "on "}`,
+        "",
+        command
+      );
+    } else {
+      sendToLog(
+        `LOAD Clicked ${isActive ? "off" : "on "}`,
+        "",
+        command
+      );
+
+    }
     sendCommand(command);
 
     // Update UI immediately (optional, for instant feedback)
@@ -209,6 +218,7 @@ function DashboardView() {
     if (password) {
       if (password === "admin123") {
         sendCommand(`%L00O${getFormattedDateTime()}$`);
+        sendToLog("Password Open Button Clicked");
         setStatus("Lock opened successfully!");
       } else {
         setStatus("Wrong password!");
@@ -222,11 +232,12 @@ function DashboardView() {
       const newLock = window.prompt("Enter new lock value:");
 
       if (/^\d{9}$/.test(newLock)) {
-      if (newLock && newLock.trim() !== "") {
-        sendToLog(`Lock Reset ${newLock} clicked`);
-        sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
-      } else {
-        setStatus("New lock value cannot be empty!");
+        if (newLock && newLock.trim() !== "") {
+          sendToLog(`Lock Reset ${newLock} clicked`);
+          sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
+          setStatus(`New passowrd ${newLock} `)
+        } else {
+          setStatus("New lock value cannot be empty!");
         }
       } else {
         alert("Enter Numeric Password of 9 Digits")
@@ -439,7 +450,7 @@ function DashboardView() {
                   <Gauge
                     label="DV Current"
                     value={latestReading.batteryBackup}
-                    max={120}
+                    max={12}
                     color="#ffc107"
                     alarm={latestReading.batteryBackupAlarm}
                   />
@@ -448,19 +459,19 @@ function DashboardView() {
                     value={(latestReading.batteryBackup * 1.5).toFixed(2)}
                     max={120}
                     color="#ffc107"
-                    alarm={latestReading.batteryBackupAlarm * 1.3}
+                    alarm={latestReading.batteryBackupAlarm}
                   />
                   <Gauge
                     label="Battery(Hours)"
-                    value={latestReading.batteryBackup.toFixed(0)}
+                    value={(latestReading.batteryBackup).toFixed(2)}
                     max={120}
                     color="#ffc107"
                     alarm={latestReading.batteryBackupAlarm}
                   />
                   <Gauge
                     label="LockBat(Hours)"
-                    value={(latestReading.inputVoltage * 1.1).toFixed(0)}
-                    max={5}
+                    value={((latestReading.batteryBackup - 10) * 4).toFixed(2)}
+                    max={16}
                     color="#ffc107"
                     alarm={latestReading.inputVoltageAlarm * 1.2}
                   />
@@ -498,9 +509,8 @@ function DashboardView() {
                     {alarmKeys.map((alarm, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${
-                            latestReading[alarm.key] ? "active" : ""
-                          }`}
+                          className={`alarm-led ${latestReading[alarm.key] ? "active" : ""
+                            }`}
                         />
                         <div className="alarm-label">{alarm.Name}</div>
                       </div>
@@ -510,11 +520,10 @@ function DashboardView() {
                         return (
                           <div key={i} className="alarm-indicator">
                             <div
-                              className={`alarm-led ${
-                                latestReading[status.key] === "OPEN"
-                                  ? "active"
-                                  : ""
-                              }`}
+                              className={`alarm-led ${latestReading[status.key] === "OPEN"
+                                ? "active"
+                                : ""
+                                }`}
                             />
                             <div className="alarm-label">{status.Name}</div>
                           </div>
@@ -525,15 +534,14 @@ function DashboardView() {
                             {/* <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} /> */}
                             <div
                               className={`alarm-led 
-                            ${
-                              latestReading[status.key] === 1
-                                ? "danger"
-                                : latestReading[status.key] === 2
-                                ? "warn"
-                                : latestReading[status.key] === 3
-                                ? "active"
-                                : ""
-                            }`}
+                            ${latestReading[status.key] === 1
+                                  ? "danger"
+                                  : latestReading[status.key] === 2
+                                    ? "warn"
+                                    : latestReading[status.key] === 3
+                                      ? "active"
+                                      : ""
+                                }`}
                             />
                             <div className="alarm-label">{status.Name}</div>
                           </div>
@@ -547,9 +555,8 @@ function DashboardView() {
                     {["Mains", "Rectfier", "Inverter"].map((key, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${
-                            latestReading[key] ? "active" : ""
-                          }`}
+                          className={`alarm-led ${latestReading[key] ? "active" : ""
+                            }`}
                         />
                         <div className="alarm-label">
                           {key.replace(/([A-Z])/g, " $1")}
@@ -559,9 +566,8 @@ function DashboardView() {
                     {["O.Load", "MPT", "MOSFET"].map((key, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${
-                            latestReading[key] === "OPEN" ? "active" : ""
-                          }`}
+                          className={`alarm-led ${latestReading[key] === "OPEN" ? "active" : ""
+                            }`}
                         />
                         <div className="alarm-label">
                           {key.replace("Status", "")}
@@ -575,13 +581,12 @@ function DashboardView() {
                     {[1, 2, 3, 4, 5].map((level) => (
                       <div key={level} className="fan-light">
                         <button
-                          className={`power-btn ${
-                            activeFanBtns.includes(level) ||
+                          className={`power-btn ${activeFanBtns.includes(level) ||
                             (latestReading &&
                               latestReading[`fan${level}Status`] === 1)
-                              ? "active"
-                              : ""
-                          }`}
+                            ? "active"
+                            : ""
+                            }`}
                           onClick={() => handleFanClick(level)}
                         />
                         <div className="fan-label">
@@ -864,8 +869,8 @@ function DashboardView() {
                     colorClass = hasStatusAlarm
                       ? "status-alarm"
                       : hasGaugeAlarm
-                      ? "gauge-alarm"
-                      : "connected";
+                        ? "gauge-alarm"
+                        : "connected";
                   } else {
                     // Reading is stale — treat as disconnected
                     colorClass = "disconnected";
@@ -875,9 +880,8 @@ function DashboardView() {
                 return (
                   <div
                     key={mac}
-                    className={`device-tile ${colorClass} ${
-                      selectedMac === mac ? "selected" : ""
-                    }`}
+                    className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
+                      }`}
                     onClick={() => setSelectedMac(mac)}
                   >
                     {device.locationId || mac}
@@ -939,8 +943,8 @@ function DashboardView() {
                       dotClass = hasStatusAlarm
                         ? "status-alarm"
                         : hasGaugeAlarm
-                        ? "gauge-alarm"
-                        : "connected";
+                          ? "gauge-alarm"
+                          : "connected";
                     }
                   }
 
@@ -991,8 +995,8 @@ function DashboardView() {
             {navigator.userAgent.includes("Chrome")
               ? "Chrome"
               : navigator.userAgent.includes("Firefox")
-              ? "Firefox"
-              : "your browser"}{" "}
+                ? "Firefox"
+                : "your browser"}{" "}
             @ {window.innerWidth}x{window.innerHeight}
           </div>
         </div>
