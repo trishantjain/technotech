@@ -207,6 +207,32 @@ app.put("/api/user/:id", async (req, res) => {
   }
 });
 
+// ✅ Delete User
+app.post("/api/user/delete/:id", async (req, res) => {
+  try {
+
+    const { adminPassword, uname } = req.body;
+
+    console.log("Admin Password: ", adminPassword);
+    console.log("UserName: ", uname);
+
+    if (adminPassword !== process.env.ADMIN_PASSWORD)
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: Invalid admin password" });
+
+    const result = await User.deleteOne({ uname: req.params.username });
+    if (result.deletedCount === 0)
+      return res.status(404).json({ error: "User not found" });
+    res.json({ message: "User deleted successfully" });
+
+
+  } catch (error) {
+    console.error("Error updating User:", error);
+    res.status(500).json({ error: "Server error while updating device" });
+  }
+});
+
 // ✅ Command endpoint
 app.post("/command", (req, res) => {
   const { mac, command } = req.body;
