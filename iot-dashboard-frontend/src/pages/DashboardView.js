@@ -586,7 +586,7 @@ function DashboardView() {
                         <button
                           className={`power-btn ${activeFanBtns.includes(level) ||
                             (latestReading &&
-                              latestReading[`fan${level}Status`] === 1)
+                              latestReading[`fanLevel${level}Running`] === true)
                             ? "active"
                             : ""
                             }`}
@@ -620,31 +620,6 @@ function DashboardView() {
                 </div>
               )}
 
-              {/* Camera Feed */}
-              {activeTab === "camera-feed" && (
-                <div className="camera-feed-wrapper">
-                  <div className="camera-frame">
-                    {videosCaptured.length > 0 ? (
-                      videosCaptured.map((filename, i) => (
-                        <iframe
-                          className="camera-iframe"
-                          src={`${process.env.REACT_APP_API_URL}/api/cam/${filename}`}
-                          allow="autoplay"
-                          title="Live Camera"
-                        />
-                      ))
-                    ) : (
-                      <p>No Videos to show</p>
-                    )}
-                  </div>
-                  <div className="camera-controls">
-                    <button onClick={toggleFullscreen}>🔳 Fullscreen</button>
-                    <button onClick={rotateFeed}>🔄 Rotate</button>
-                    <button onClick={zoomIn}>➕ Zoom In</button>
-                    <button onClick={zoomOut}>➖ Zoom Out</button>
-                  </div>
-                </div>
-              )}
 
               {/* Full Screen Image Modal with Navigation */}
               {selectedImage && (
