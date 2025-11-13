@@ -227,7 +227,7 @@ function DashboardView() {
   };
 
   const handleResetLock = () => {
-    const pwd = window.prompt("Enter password to reset lock:");
+    const pwd = window.prompt("Enter admin password to reset lock:");
     if (pwd === "admin123") {
       const newLock = window.prompt("Enter new lock value:");
 
@@ -397,12 +397,6 @@ function DashboardView() {
                   Status
                 </button>
                 <button
-                  className={activeTab === "camera-feed" ? "active" : ""}
-                  onClick={() => setActiveTab("camera-feed")}
-                >
-                  Camera Feed
-                </button>
-                <button
                   className={activeTab === "snapshots" ? "active" : ""}
                   onClick={() => setActiveTab("snapshots")}
                 >
@@ -468,6 +462,14 @@ function DashboardView() {
                     color="#ffc107"
                     alarm={latestReading.batteryBackupAlarm}
                   />
+                  {latestReading.batteryBackup <= 10 ?
+                    <Gauge
+                      label="LockBat(Hours)"
+                      value="0"
+                      max={16}
+                      color="#ffc107"
+                      alarm={latestReading.inputVoltageAlarm * 1.2}
+                    /> :
                   <Gauge
                     label="LockBat(Hours)"
                     value={((latestReading.batteryBackup - 10) * 4).toFixed(2)}
@@ -475,6 +477,7 @@ function DashboardView() {
                     color="#ffc107"
                     alarm={latestReading.inputVoltageAlarm * 1.2}
                   />
+                  }
                 </div>
               )}
 
