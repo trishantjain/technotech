@@ -19,13 +19,92 @@ app.use(bodyParser.json());
 const cors = require("cors");
 app.use(cors());
 
+
+// ===================== DEBUG SYSTEM =====================
+
+const debug = {
+  enabled: true,
+  lastPacketTime: null,
+  packetCount: 0,
+  errorCount: 0,
+  bufferStats: {
+    totalBytes: 0,
+    discardedBytes: 0,
+    malformedPackets: 0
+  },
+
+  // Loging timestamp and context message
+  log: (message, context = '') => {
+    if (!debug.enabled) return;
+    const timestamp = getFormattedDateTime();
+    console.log(`🔍 [${timestamp}] ${message}`, context ? `| ${context}` : '')
+  },
+
+  // Error Logging
+  error: (message, error = null) => {
+    const timestamp = getFormattedDateTime();
+    console.log(`❌ [${timestamp}] ${message}`, error ? `| Error: ${error.message}` : '')
+    debug.errorCount++;
+  },
+
+  // Stats
+  stats: () => {
+    const now = new Date();
+    const uptime = process.uptime();
+    const stats = {
+      serverTime: getFormattedDateTime(),
+      upTime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
+      packetReceived: debug.packetCount,
+      errors: debug.errorCount,
+      lastPacket: debug.lastPacketTime ? `${Math.floor((now - debug.lastPacketTime) / 1000)}s ago` : 'Never',
+      bufferStats: debug.bufferStats,
+      connectedDevices: connectedDevices.size,
+      readingBufferSize: readingBuffer.length,
+      dateFunction: "getFormattedDateTime() working ✅"
+    };
+    console.log('📊 DEBUG STATS:', JSON.stringify(stats, null, 2));
+    return stats;
+  },
+
+  healthCheck: () => {
+    const issues = [];
+
+    if (!debug.lastPacketTime) {
+      issues.push("No Packets Received yet");
+    } else {
+      const timeSinceLastPacket = Date.now() - debug.lastPacketTime;
+      if (timeSinceLastPacket > 30000) {
+        issues.push(`No Packets for ${timeSinceLastPacket / 1000}s`);
+      }
+    }
+
+    if (debug.errorCount > 10) {
+      issues.push("High error count");
+    }
+
+    if (debug.bufferStats.malformedPackets > debug.packetCount * 0.5) {
+      issues.push("High malformed packet rate");
+    }
+
+    return {
+      status: issues.length === 0 ? "HEALTHY" : "ISSUES",
+      serverTime: getFormattedDateTime(),
+      issues: issues
+    };
+  }
+};
+
+
 // 🔌 DB connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err.message));
 
-// --------------- HTTP API Endpoints (unchanged) ---------------
+
+
+
+// ===================== HTTP API Endpoints (unchanged) =====================
 app.get("/ping", async (req, res) => {
   try {
     await mongoose.connection.db.admin().ping();
@@ -391,73 +470,64 @@ app.get("/api/snapshots", (req, res) => {
   }
 });
 
-// Get list of Camera Videos
-app.get("/api/cam", (req, res) => {
-  const camDir = "C:/Users/trish/eMS_videos";
-
-  try {
-    // Check if directory exists
-    if (!fs.existsSync(camDir)) {
-      return res.status(404).json({ error: "Videos directory not found" });
-    }
-
-    const videos = fs
-      .readdirSync(camDir)
-      .filter((file) => {
-        const ext = path.extname(file).toLowerCase();
-        return [".mp4", ".avi", ".mov", ".webm", ".mkv"].includes(ext);
-      })
-      .sort(); // Sort alphabetically
-
-    res.json(videos);
-  } catch (error) {
-    console.error("Error reading Camera:", err);
-    res.status(500).json({ error: "Failed to get Videos" });
-  }
-});
-
-app.get("/api/cam/:camid", (req, res) => {
-  try {
-    const camid = req.params.camid;
-
-    // ✅ Security: Prevent path traversal attacks
-    if (camid.includes("..") || camid.includes("/") || camid.includes("\\")) {
-      return res.status(400).json({ error: "Invalid file name" });
-    }
-
-    const camPath = path.join("C:/Users/trish/eMS_videos", camid);
-
-    if (!fs.existsSync(camPath)) {
-      res.status(404).json({ error: "Video Not Found" });
-    }
-
-    // ✅ Set content type for video
-    const ext = path.extname(camid).toLowerCase();
-    const contentTypes = {
-      ".mp4": "video/mp4",
-      ".avi": "video/x-msvideo",
-      ".mov": "video/quicktime",
-      ".webm": "video/webm",
-      ".mkv": "video/x-matroska",
-    };
-
-    res.setHeader("Content-Type", contentTypes[ext] || "video/mp4");
-
-    res.sendFile(camPath, (err) => {
-      if (err) {
-        console.error("Error sending file:", err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Error streaming video" });
-        }
-      }
-    });
-  } catch (error) {
-    res.status(404).json("Unable to fetch file: ", error);
-  }
-});
-
 app.get("/api/thresholds", (req, res) => {
   res.json(thresholds);
+});
+
+app.get("/api/debug/stats", (req, res) => {
+  res.json(debug.stats());
+});
+
+app.get("/api/debug/health", (req, res) => {
+  res.json(debug.healthCheck());
+});
+
+app.post("/api/debug/toggle", (req, res) => {
+  debug.enabled = !debug.enabled;
+  res.json({
+    enabled: debug.enabled,
+    message: `Debug ${debug.enabled ? 'enabled' : 'disabled'}`,
+    timestamp: getFormattedDateTime()
+  });
+});
+
+app.post("/api/debug/connected-devices", (req, res) => {
+  const devices = Array.from(connectedDevices.entries().map(([mac, socket]) => ({
+    mac,
+    connected: !socket.destroyed,
+    remoteAddress: socket.remoteAddress,
+    remotePort: socket.remotePort,
+    lastSeen: getFormattedDateTime()
+  })));
+
+  res.json(devices);
+});
+
+app.post("/api/debug/reset-counters", (req,res)=>{
+  debug.errorCount = 0;
+  debug.packetCount = 0;
+  debug.bufferStats.malformedPackets = 0;
+  debug.bufferStats.discardedBytes = 0;
+  debug.bufferStats.totalBytes = 0;
+  debug.lastPacketTime = null;
+
+  res.json({
+    message: "All counters reset",
+    resetTime: getFormattedDateTime()
+  });
+});
+
+app.get("/api/debug/packet-stream", (req,res)=>{
+  res.json({
+    currentTime: getFormattedDateTime(),
+    totalPackets: debug.packetCount,
+    lastPacketTime: debug.lastPacketTime ? getFormattedDateTime(new Date(debug.lastPacketTime)): "Never",
+    activeConnections: connectedDevices.size,
+    bufferStatus: {
+      currentBufferSize: readingBuffer.length,
+      maxBufferSize: BULK_SAVE_LIMIT
+    }
+  });
 });
 
 // 📡 TCP Server
@@ -487,6 +557,10 @@ function sendX(socket) {
 const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
 
+  const clientInfo = `${socket.remoteAddress}:${socket.remotePort}`;
+
+  debug.log(`New TCP Connection from`, clientInfo);
+
   socket.on("data", async (data) => {
     console.log(
       `Received packet (${data.length} bytes):`,
@@ -495,6 +569,16 @@ const server = net.createServer((socket) => {
     buffer = Buffer.concat([buffer, data]);
 
     try {
+      debug.packetCount++;
+      debug.lastPacketTime = Date.now();
+      debug.bufferStats.discardedBytes.totalBytes += data.length;
+
+      debug.log(`Raw data received (${data.length} bytes) from`, clientInfo);
+      debug.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
+
+      buffer = Buffer.concat([buffer, data]);
+      debug.log(`Total buffer size: ${buffer.length} bytes`);
+
       while (buffer.length >= 58) {
         const bufStr = buffer.toString("utf-8");
 
@@ -832,8 +916,11 @@ const server = net.createServer((socket) => {
         }
 
         buffer = buffer.slice(58);
+
+        debug.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
       }
     } catch (err) {
+      debug.error(`Critical error in data handler from ${clientInfo}`, err);
       console.error("Packet parsing failed:", err.message);
       socket.destroy();
     }
