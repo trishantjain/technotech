@@ -7,7 +7,7 @@ const net = require("net");
 const mongoose = require("mongoose");
 const express = require("express");
 const bodyParser = require("body-parser");
-const SensorReading = require("./SensorReading");
+const SensorReading = require("./models/SensorReading");
 const thresholds = require("./thresholds");
 const fs = require("fs");
 const path = require("path");
@@ -438,7 +438,7 @@ app.get("/api/historical-data", async (req, res) => {
   }
 });
 
-// Serve snapshot images
+// ✅ Serve snapshot images
 app.get("/api/snapshots/:imageName", (req, res) => {
   const imageName = req.params.imageName;
   const imagePath = path.join("C:/snaps", imageName);
@@ -452,7 +452,7 @@ app.get("/api/snapshots/:imageName", (req, res) => {
   res.sendFile(imagePath);
 });
 
-// Get list of available snapshots
+// ✅ Get list of available snapshots
 app.get("/api/snapshots", (req, res) => {
   const snapshotsDir = "C:/snaps";
 
@@ -503,7 +503,7 @@ app.post("/api/debug/connected-devices", (req, res) => {
   res.json(devices);
 });
 
-app.post("/api/debug/reset-counters", (req,res)=>{
+app.post("/api/debug/reset-counters", (req, res) => {
   debug.errorCount = 0;
   debug.packetCount = 0;
   debug.bufferStats.malformedPackets = 0;
@@ -517,11 +517,11 @@ app.post("/api/debug/reset-counters", (req,res)=>{
   });
 });
 
-app.get("/api/debug/packet-stream", (req,res)=>{
+app.get("/api/debug/packet-stream", (req, res) => {
   res.json({
     currentTime: getFormattedDateTime(),
     totalPackets: debug.packetCount,
-    lastPacketTime: debug.lastPacketTime ? getFormattedDateTime(new Date(debug.lastPacketTime)): "Never",
+    lastPacketTime: debug.lastPacketTime ? getFormattedDateTime(new Date(debug.lastPacketTime)) : "Never",
     activeConnections: connectedDevices.size,
     bufferStatus: {
       currentBufferSize: readingBuffer.length,
@@ -534,6 +534,7 @@ app.get("/api/debug/packet-stream", (req,res)=>{
 const BULK_SAVE_LIMIT = 1000;
 let readingBuffer = [];
 let alreadyReplied = 0;
+
 function getFormattedDateTime() {
   const today = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -554,11 +555,66 @@ function sendX(socket) {
   }
 }
 
+// Function to delete MongoDB data older than 2 days
+function deleteData() {
+  const cutOffDate = new Date(Date.now() - (2 * 24 * 60 * 60 * 1000));
+
+
+
+  SensorReading.deleteMany({
+    timestamp: { $lt: cutOffDate }
+  }).then(result => {
+    console.log("Cleaned up", result);
+  }).catch(err => {
+    console.log("Error in cleanup");
+  });
+}
+
+
+
+// Getting Last Record Date
+async function getData() {
+  try{
+
+    const sensorRecordsCount = await SensorReading.countDocuments();
+    
+    
+    if (sensorRecordsCount > 10000) {
+      const now = new Date();
+      
+      const lastDoc = await SensorReading.findOne().sort({ timestamp: 1 });
+      if(!lastDoc){
+        debug.log("No Sensor Data found", 'CLEANUP')
+      }
+      
+      const dateDiffer = Math.abs(now - lastDoc.timestamp) / (1000 * 60 * 60 * 24);
+      const dateDifferRounded = Math.floor(dateDiffer);
+      
+      if (dateDifferRounded > 15) {
+        await SensorReading.deleteMany({ timestamp: lastDoc.timestamp })
+      }
+    }
+  }catch(err){
+    debug.error("Error in Deleting Data: ", err);
+  }
+}
+
+function hourlyDBCleanup() {
+
+  getData();
+
+  setInterval(getData, 60 * 60 * 1000);
+}
+
+hourlyDBCleanup();
+
+
 const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
 
   const clientInfo = `${socket.remoteAddress}:${socket.remotePort}`;
 
+  // getData();
   debug.log(`New TCP Connection from`, clientInfo);
 
   socket.on("data", async (data) => {
@@ -648,6 +704,8 @@ const server = net.createServer((socket) => {
           sendX(socket);
           alreadyReplied = 40; // Load Balancing
         }
+
+        // console.log("Water Leakage: ", waterLeakage);
 
         // // Checking if door is open or lock to click snapshots
         // if ((padding === 0x43)) {
@@ -902,7 +960,7 @@ const server = net.createServer((socket) => {
           ...thresholdAlarms,
         });
 
-        console.log("fan1", fanLevel1Running);
+        // console.log("fan1", fanLevel1Running);
 
         connectedDevices.set(mac, socket);
         readingBuffer.push(reading);
