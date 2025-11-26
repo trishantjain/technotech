@@ -51,6 +51,67 @@ function DashboardView() {
   // console.log("latestR", latestReading)
   // console.log('All properties:', Object.keys(latestReading));
 
+  // // WebSocket connection - FIXED VERSION
+  // useEffect(() => {
+  //   const connectWebSocket = () => {
+  //     console.log('🔄 Attempting WebSocket connection...');
+
+  //     // Use wss:// if in production, ws:// for development
+  //     const wsUrl = process.env.NODE_ENV === 'production'
+  //       ? `wss://${window.location.host}`
+  //       : 'ws://localhost:8080';
+
+  //     const ws = new WebSocket(wsUrl);
+  //     wsRef.current = ws;
+
+  //     ws.onopen = () => {
+  //       console.log('✅ WebSocket connected successfully');
+  //     };
+
+  //     ws.onmessage = (event) => {
+  //       try {
+  //         const message = JSON.parse(event.data);
+  //         console.log('📨 WebSocket message:', message.type);
+
+  //         if (message.type === 'NEW_READING') {
+  //           const newReading = message.data;
+  //           setReadings(prev => {
+  //             const filtered = prev.filter(r => r.mac !== newReading.mac);
+  //             return [...filtered, newReading].slice(-400);
+  //           });
+  //         }
+  //       } catch (err) {
+  //         console.error('❌ WebSocket message parse error:', err);
+  //       }
+  //     };
+
+  //     ws.onerror = (error) => {
+  //       console.error('❌ WebSocket connection error:', error);
+  //     };
+
+  //     ws.onclose = (event) => {
+  //       console.log(`🔌 WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
+
+  //       // Auto-reconnect after 3 seconds
+  //       setTimeout(() => {
+  //         console.log('🔄 Attempting to reconnect WebSocket...');
+  //         connectWebSocket();
+  //       }, 3000);
+  //     };
+  //   };
+
+  //   // Initial connection
+  //   connectWebSocket();
+
+  //   // Cleanup
+  //   return () => {
+  //     if (wsRef.current) {
+  //       console.log('🛑 Closing WebSocket connection');
+  //       wsRef.current.close(1000, 'Component unmounting');
+  //     }
+  //   };
+  // }, []);
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 5000);
