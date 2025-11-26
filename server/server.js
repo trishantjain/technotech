@@ -829,6 +829,29 @@ const server = net.createServer((socket) => {
           }
         });
 
+        /* ======== DELETING LOG FILE ======== */
+/*         const IncLogDeleteFile = `${now.getDate() - 3}_${now.getMonth() + 1
+          }_${now.getHours()}.inc`;
+
+        const IncLogDeleteDir = path.join(IncLogDir, IncLogDeleteFile);
+
+        fs.access(IncLogDeleteDir, fs.constants.F_OK, (err) => {
+          if (err) {
+            console.log(`⚠️ Error in Finding ${IncLogDeleteDir} File ⚠️: ${err}`);
+            return;
+          }
+
+          fs.unlink(IncLogDeleteDir, (err) => {
+            if (err) {
+              console.log(`⚠️ Error in Deleting ${IncLogDeleteDir} File ⚠️: ${err}`);
+            }
+
+            console.log(`✅ ${IncLogDeleteDir} successfully deleted ✅`);
+          })
+        })
+ */        /* ======== DELETING LOG FILE ======== */
+
+
         if (alreadyReplied) alreadyReplied--;
         const fanStatusBits = buffer.readUInt16LE(52);
         const fanStatus = [];
