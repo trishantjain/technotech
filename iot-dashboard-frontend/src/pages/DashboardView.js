@@ -364,21 +364,10 @@ function DashboardView() {
     }
   };
 
-  const fetchVideos = async () => {
-    try {
-      const resp = await fetch(`${process.env.REACT_APP_API_URL}/api/cam`);
-      const videos = await resp.json();
-      setVideosCaptured(videos);
-    } catch (err) {
-      console.error("Error fetching videos: ", err);
-    }
-  };
 
   // Fetch snapshots on component mount
   useEffect(() => {
     fetchSnapshots();
-    fetchVideos();
-
 
     const snapshotInterval = setInterval(() => {
       fetchSnapshots();
