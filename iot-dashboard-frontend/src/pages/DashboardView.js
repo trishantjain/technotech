@@ -112,10 +112,20 @@ function DashboardView() {
   //   };
   // }, []);
 
+  // UseEffect for fetching Data
   useEffect(() => {
+    console.log('🚨Starting data fetch interval (5s)🚨');
+    const interval = setInterval(fetchData, 2000);
+
     fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+
+    // console.log('🚨Fetching Data🚨')
+    // return () => clearInterval(interval);
+    return () => {
+      console.log('🛑Clearing data fetch interval');
+      clearInterval(interval);
+    };
+
   }, []);
 
   // 🔄 Auto-focus map on selected device
