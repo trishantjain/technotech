@@ -11,10 +11,12 @@
     "react": "^19.1.0",
     "react-circular-progressbar": "^2.2.0",
     "react-dom": "^19.1.0",
+    "react-gauge-component": "^1.2.64",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.6.3",
     "react-scripts": "5.0.1",
     "recharts": "^2.15.4",
+    "sweetalert2": "^11.26.3",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
