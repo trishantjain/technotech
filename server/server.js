@@ -183,8 +183,10 @@ app.get("/api/users", async (req, res) => {
 app.post("/api/register-device", async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
+    const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
+
     const device = new Device({
-      mac,
+      mac: normalizedMac, //! Converting to LowerCase()
       locationId,
       address,
       latitude,
@@ -201,8 +203,13 @@ app.post("/api/register-device", async (req, res) => {
 // ✅ Get registered device metadata
 app.get("/api/devices-info", async (req, res) => {
   try {
-    const devices = await Device.find(); // includes ipCamera
-    res.json(devices);
+    const devices = await Device.find().sort({locationId: -1}); // includes ipCamera
+    /* NEW ADDED */
+    const normalizedDevices = devices.map(device => ({
+      ...device._doc,
+      mac: device.mac.toLowerCase() //! Converting to LowerCase()
+    }));
+    res.json(normalizedDevices); //! Converting to LowerCase()
   } catch (err) {
     res.status(500).json({ error: "Error fetching devices" });
   }
@@ -211,6 +218,8 @@ app.get("/api/devices-info", async (req, res) => {
 // ✅ Delete device by MAC
 app.put("/api/device/:mac", async (req, res) => {
   try {
+    /* NEW ADDED*/
+    const mac = req.params.mac.toLowerCase(); //! Converting to LowerCase()
     const { password, ...updateFields } = req.body;
     if (updateFields.locationId && updateFields.locationId.length > 17)
       return res
@@ -220,7 +229,7 @@ app.put("/api/device/:mac", async (req, res) => {
       return res
         .status(403)
         .json({ error: "Unauthorized: Invalid admin password" });
-    const { mac } = req.params;
+    // const { mac } = req.params;
     const updatedDevice = await Device.findOneAndUpdate(
       { mac },
       { $set: updateFields },
@@ -237,6 +246,9 @@ app.put("/api/device/:mac", async (req, res) => {
 
 app.post("/api/device/delete/:mac", async (req, res) => {
   const { password } = req.body;
+  /* NEW ADDED*/
+  const mac = req.params.mac.toLowerCase(); //! Converting to LowerCase()
+
   if (password !== process.env.ADMIN_PASSWORD)
     return res
       .status(403)
@@ -315,23 +327,24 @@ app.post("/api/user/delete/:id", async (req, res) => {
 // ✅ Command endpoint
 app.post("/command", (req, res) => {
   const { mac, command } = req.body;
-  const deviceSocket = connectedDevices.get(mac);
+  const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
+  const deviceSocket = connectedDevices.get(normalizedMac);
 
   if (!deviceSocket || deviceSocket.destroyed) {
     connectedDevices.delete(mac);
-    return res.status(404).json({ message: `Device ${mac} not connected` });
+    return res.status(404).json({ message: `Device ${normalizedMac} not connected` });
   }
 
   const buffer = Buffer.from(command, "utf-8");
   deviceSocket.write(buffer, (err) => {
     if (err) {
-      console.error(`Failed to send command to ${mac}:`, err.message);
+      console.error(`Failed to send command to ${normalizedMac}:`, err.message);
       return res
         .status(500)
-        .json({ message: `Error sending command to ${mac}` });
+        .json({ message: `Error sending command to ${normalizedMac}` });
     }
-    console.log(`Sent command "${command}" to ${mac}`);
-    res.json({ message: `Command sent to ${mac}` });
+    console.log(`Sent command "${command}" to ${normalizedMac}`);
+    res.json({ message: `Command sent to ${normalizedMac}` });
   });
 });
 
@@ -344,7 +357,7 @@ app.get("/api/devices", (req, res) => {
 app.get("/api/all-devices", async (req, res) => {
   try {
     const devices = await Device.find({}, "mac");
-    res.json(devices.map((d) => d.mac));
+    res.json(devices.map((d) => d.mac.toLowerCase())); //! Converting to LowerCase()
   } catch (error) {
     console.error("Error fetching registered devices:", error);
     res.status(500).json({ error: "Failed to fetch devices" });
@@ -367,7 +380,8 @@ app.get("/api/readings", async (req, res) => {
 // ✅ Get latest reading by MAC
 app.get("/api/device/:mac", async (req, res) => {
   try {
-    const latest = await SensorReading.findOne({ mac: req.params.mac }).sort({
+    const normalizedMac = req.params.mac.toLowerCase(); //! Converting to LowerCase()
+    const latest = await SensorReading.findOne({ mac: normalizedMac }).sort({
       timestamp: -1,
     });
     if (!latest) return res.status(404).json({ message: "No data found" });
@@ -415,6 +429,7 @@ app.get("/api/historical-data", async (req, res) => {
   const { mac, datetime } = req.query;
   if (!mac || !datetime)
     return res.status(400).json({ error: "Missing mac or datetime" });
+  const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
   const datetimeObj = new Date(datetime);
   if (isNaN(datetimeObj.getTime()))
     return res.status(400).json({ error: "Invalid datetime format" });
@@ -424,11 +439,11 @@ app.get("/api/historical-data", async (req, res) => {
   nextDate.setDate(nextDate.getDate() + 1);
   try {
     const readings = await SensorReading.find({
-      mac,
+      mac: normalizedMac,
       timestamp: { $gte: selectedDate, $lt: nextDate },
     }).sort({ timestamp: 1 });
     const atSelectedTime = await SensorReading.findOne({
-      mac,
+      mac: normalizedMac,
       timestamp: { $lte: datetimeObj },
     }).sort({ timestamp: -1 });
     res.json({ readings, atSelectedTime });
@@ -493,7 +508,7 @@ app.post("/api/debug/toggle", (req, res) => {
 
 app.post("/api/debug/connected-devices", (req, res) => {
   const devices = Array.from(connectedDevices.entries().map(([mac, socket]) => ({
-    mac,
+    mac: mac.toLowerCase(), //! Converting to LowerCase()
     connected: !socket.destroyed,
     remoteAddress: socket.remoteAddress,
     remotePort: socket.remotePort,
@@ -681,7 +696,7 @@ const server = net.createServer((socket) => {
           continue;
         }
 
-        const mac = sanitizedMac;
+        const mac = sanitizedMac.toLowerCase(); //! Converting to LowerCase()
         const humidity = +buffer.readFloatLE(17).toFixed(2);
         const insideTemperature = +buffer.readFloatLE(21).toFixed(2);
         const outsideTemperature = +buffer.readFloatLE(25).toFixed(2);
@@ -734,15 +749,19 @@ const server = net.createServer((socket) => {
 
           // Create timestamp
           const now = new Date();
-          const timestamp = now.toISOString()
-            .replace(/[-:]/g, '')
-            .replace(/T/, '_')
-            .replace(/\..+/, '')
-            .slice(0, 15);
+          // const timestamp = now.toISOString()
+          //   .replace(/[-:]/g, '')
+          //   .replace(/T/, '_')
+          //   .replace(/\..+/, '')
+          //   .slice(0, 15);
+
+          const timestamp = getFormattedDateTime();
 
           const fileName = `image_${timestamp}.jpg`;
           const outputDir = 'C:/snaps';
           const outputPath = path.join(outputDir, fileName);
+
+          console.log("fileName: ", fileName);
 
           // Ensure directory exists
           if (!fs.existsSync(outputDir)) {
