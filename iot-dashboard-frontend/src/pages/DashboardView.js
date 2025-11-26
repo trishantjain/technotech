@@ -158,9 +158,9 @@ function DashboardView() {
       setReadings(Array.isArray(readingsData) ? readingsData : []);
       setDevices(Array.isArray(devicesData) ? devicesData : []);
       setDeviceMeta(Array.isArray(metadata) ? metadata : []);
-      setReadings(readingsData);
-      setDevices(devicesData);
-      setDeviceMeta(metadata);
+      // setReadings(readingsData);
+      // setDevices(devicesData);
+      // setDeviceMeta(metadata);
       // console.log(readingsData[0].fanFailBits);
       // console.log("readingData", readingsData);
     } catch (err) {
@@ -328,7 +328,7 @@ function DashboardView() {
   const rotateFeed = () => setRotation((prev) => (prev + 90) % 360);
 
   const isAlarmActive = (reading) =>
-    reading.fireAlarm || reading.waterLeakage || reading.waterLogging;
+    reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
 
   const historicalData = readings
     .filter((r) => r.mac === selectedMac && r.timestamp)
