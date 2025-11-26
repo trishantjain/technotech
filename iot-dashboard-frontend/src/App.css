@@ -1,3 +1,5 @@
+/*  🔄🔍📈✅📡⚠️❌🔴🟢🔧🌡️🌀🧪🚨📢⚙️🕛⏰🔌⚡*/
+
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -210,19 +212,29 @@ body {
   box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
 }
 
-.power-btn.active {
+/* .power-btn.active {
   background-color: black;
   box-shadow: 0 0 20px limegreen;
-}
+} */
 
 .power-btn::before {
-  content: '\23FA';
-  font-size: 24px;
-  color: #444;
+  background-image: url('../../iot-dashboard-frontend/src/pages/power-on-off.svg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: brightness(0) invert(1);
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
 }
 
 .power-btn.active::before {
   color: #00ff00;
+}
+
+.power-btn.active::before{
+  filter: brightness(0) saturate(100%) invert(48%) sepia(98%) saturate(1733%) hue-rotate(82deg);
 }
 
 .lock-btn {
@@ -266,6 +278,9 @@ body {
   font-weight: bold;
   background-color: #222;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .device-tile.connected {
@@ -292,6 +307,13 @@ body {
   border: 2px solid #fff;
   box-shadow: 0 0 10px #fff;
 }
+
+.device-tile.disconnected { order: 1; }      /* Show online devices first */
+.device-tile.status-alarm { order: 2; }     /* Then offline devices */
+.device-tile.gauge-alarm { order: 3; }     /* Then warning state */
+.device-tile.connected { order: 3; }     /* Then warning state */
+.device-tile.disconnected { order: 0; }    /* Selected device always on top */
+
 
 /* Map markers */
 .custom-marker {
