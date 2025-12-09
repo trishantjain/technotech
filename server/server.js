@@ -147,6 +147,7 @@ app.post("/api/login", async (req, res) => {
   res.json({ role: user.role, token }); // ✅ return role and token
 });
 
+// *====================  USER API  ========================
 // ✅ Register new user
 app.post("/api/register-user", async (req, res) => {
   const { username, password, role } = req.body;
@@ -180,6 +181,67 @@ app.get("/api/users", async (req, res) => {
   }
 });
 
+// ✅ Edit User
+app.put("/api/user/:id", async (req, res) => {
+  try {
+    const { username, password, adminPassword } = req.body;
+    if (adminPassword !== process.env.ADMIN_PASSWORD)
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: Invalid admin password" });
+
+    const user = await User.findById(req.params.id);
+
+    const updateFields = {};
+    updateFields.username = username;
+
+    if (password && password.trim() !== "") {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateFields.password = hashedPassword;
+    }
+
+    const updatedDevice = await User.findOneAndUpdate(
+      user,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updatedDevice)
+      return res.status(404).json({ error: "User not found" });
+    res.json(updatedDevice);
+  } catch (error) {
+    console.error("Error updating device:", error);
+    res.status(500).json({ error: "Server error while updating device" });
+  }
+});
+
+// ✅ Delete User
+app.delete("/api/user/:username", async (req, res) => {
+  try {
+
+    const { adminPassword } = req.body;
+
+    if (adminPassword !== process.env.ADMIN_PASSWORD)
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: Invalid admin password" });
+
+    const result = await User.deleteOne({ username: req.params.username });
+    if (result.deletedCount === 0)
+      return res.status(404).json({ error: "User not found" });
+    res.json({ message: "User deleted successfully" });
+
+
+  } catch (error) {
+    console.error("Error updating User:", error);
+    res.status(500).json({ error: "Server error while updating device" });
+  }
+});
+// *====================  USER API  ========================
+
+
+// *====================  DEVICE API  ====================== 
+// ✅ Register new device
 app.post("/api/register-device", async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
@@ -213,7 +275,7 @@ app.post("/api/register-device", async (req, res) => {
 // ✅ Get registered device metadata
 app.get("/api/devices-info", async (req, res) => {
   try {
-    const devices = await Device.find().sort({locationId: -1}); // includes ipCamera
+    const devices = await Device.find().sort({ locationId: -1 }); // includes ipCamera
     /* NEW ADDED */
     const normalizedDevices = devices.map(device => ({
       ...device._doc,
@@ -225,16 +287,23 @@ app.get("/api/devices-info", async (req, res) => {
   }
 });
 
-// ✅ Delete device by MAC
+// ✅ Get connected MACs
+app.get("/api/devices", (req, res) => {
+  res.json(Array.from(connectedDevices.keys()).map(mac => mac.toLowerCase())); //! Converting to LowerCase()
+});
+
+// ✅ Update device by MAC
 app.put("/api/device/:mac", async (req, res) => {
   try {
     /* NEW ADDED*/
     const mac = req.params.mac.toLowerCase(); //! Converting to LowerCase()
     const { password, ...updateFields } = req.body;
+
     if (updateFields.locationId && updateFields.locationId.length > 17)
       return res
         .status(400)
         .json({ error: "Location ID must be 17 characters or fewer" });
+
     if (password !== process.env.ADMIN_PASSWORD)
       return res
         .status(403)
@@ -283,95 +352,6 @@ app.post("/api/device/delete/:mac", async (req, res) => {
   }
 });
 
-// ✅ Edit User
-app.put("/api/user/:id", async (req, res) => {
-  try {
-    const { username, password, adminPassword } = req.body;
-    if (adminPassword !== process.env.ADMIN_PASSWORD)
-      return res
-        .status(403)
-        .json({ error: "Unauthorized: Invalid admin password" });
-
-    const user = await User.findById(req.params.id);
-
-    const updateFields = {};
-    updateFields.username = username;
-
-    if (password && password.trim() !== "") {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      updateFields.password = hashedPassword;
-    }
-
-    const updatedDevice = await User.findOneAndUpdate(
-      user,
-      { $set: updateFields },
-      { new: true }
-    );
-
-    if (!updatedDevice)
-      return res.status(404).json({ error: "User not found" });
-    res.json(updatedDevice);
-  } catch (error) {
-    console.error("Error updating device:", error);
-    res.status(500).json({ error: "Server error while updating device" });
-  }
-});
-
-// ✅ Delete User
-app.post("/api/user/delete/:id", async (req, res) => {
-  try {
-
-    const { adminPassword, uname } = req.body;
-
-    console.log("Admin Password: ", adminPassword);
-    console.log("UserName: ", uname);
-
-    if (adminPassword !== process.env.ADMIN_PASSWORD)
-      return res
-        .status(403)
-        .json({ error: "Unauthorized: Invalid admin password" });
-
-    const result = await User.deleteOne({ uname: req.params.username });
-    if (result.deletedCount === 0)
-      return res.status(404).json({ error: "User not found" });
-    res.json({ message: "User deleted successfully" });
-
-
-  } catch (error) {
-    console.error("Error updating User:", error);
-    res.status(500).json({ error: "Server error while updating device" });
-  }
-});
-
-// ✅ Command endpoint
-app.post("/command", (req, res) => {
-  const { mac, command } = req.body;
-  const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
-  const deviceSocket = connectedDevices.get(normalizedMac);
-
-  if (!deviceSocket || deviceSocket.destroyed) {
-    connectedDevices.delete(mac);
-    return res.status(404).json({ message: `Device ${normalizedMac} not connected` });
-  }
-
-  const buffer = Buffer.from(command, "utf-8");
-  deviceSocket.write(buffer, (err) => {
-    if (err) {
-      console.error(`Failed to send command to ${normalizedMac}:`, err.message);
-      return res
-        .status(500)
-        .json({ message: `Error sending command to ${normalizedMac}` });
-    }
-    console.log(`Sent command "${command}" to ${normalizedMac}`);
-    res.json({ message: `Command sent to ${normalizedMac}` });
-  });
-});
-
-// ✅ Get connected MACs
-app.get("/api/devices", (req, res) => {
-  res.json(Array.from(connectedDevices.keys()));
-});
-
 // ✅ Get only registered MACs
 app.get("/api/all-devices", async (req, res) => {
   try {
@@ -380,19 +360,6 @@ app.get("/api/all-devices", async (req, res) => {
   } catch (error) {
     console.error("Error fetching registered devices:", error);
     res.status(500).json({ error: "Failed to fetch devices" });
-  }
-});
-
-// ✅ Get last 100 readings
-app.get("/api/readings", async (req, res) => {
-  try {
-    const readings = await SensorReading.find()
-      .sort({ timestamp: -1 })
-      .limit(400);
-    res.json(readings);
-  } catch (error) {
-    console.error("Error fetching readings:", error);
-    res.status(500).json({ error: "Failed to fetch readings" });
   }
 });
 
@@ -408,6 +375,110 @@ app.get("/api/device/:mac", async (req, res) => {
   } catch (err) {
     console.error("Error fetching device data:", err.message);
     res.status(500).json({ error: "Failed to fetch data" });
+  }
+});
+// *====================  DEVICE API  ====================== 
+
+
+// *==================== SNAPSHOTS API =====================
+// ✅ Serve snapshot images
+app.get("/api/snapshots/:imageName", (req, res) => {
+  try {
+    const imageName = req.params.imageName;
+    const rawMac = req.query.mac;
+    const macSuffix = rawMac.slice(9, 17).replace(/[: ]/g, "_"); // Gets characters 9-16 (0-indexed)
+
+    const imagePath = path.join(`C:/snaps/${macSuffix}`, imageName);
+
+    // Check if file exists
+    if (!fs.existsSync(imagePath)) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    // Send the image file
+    res.sendFile(imagePath);
+  } catch (err) {
+    console.error("Error reading snapshots:", err);
+    res.status(500).json({ error: "Failed to read snapshots" });
+  }
+});
+
+// ✅ Get list of available snapshots
+app.get("/api/snapshots", (req, res) => {
+  try {
+    const rawMac = req.query.mac;
+
+    // Validate MAC address exists
+    if (!rawMac) {
+      return res.status(400).json({ error: "MAC address is required" });
+    }
+
+
+    // Extract the last part of MAC 
+    const macSuffix = rawMac.slice(9, 17).replace(/[: ]/g, "_"); // Gets characters 9-16 (0-indexed)
+    // console.log("MAC ADDRESS: ", macSuffix);
+
+    const snapshotsDir = `C:/Snaps/${macSuffix}`;
+
+    const files = fs
+      .readdirSync(snapshotsDir)
+      .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
+      // Sorting images in descending order based on timestamp in filename
+      .sort((a, b) => {
+        // Extract YYMMDDHHMMSS format for comparison
+        const getKey = (filename) => {
+          const match = filename.match(/_(\d{2})_(\d{2})_(\d{2})_(\d{2}f)_(\d{2})_(\d{2})\./);
+          return match ? match[3] + match[2] + match[1] + match[4] + match[5] + match[6] : '0';
+        };
+        return getKey(b).localeCompare(getKey(a));
+      })
+      .slice(0, 15); // Get last 15 images
+
+    // console.log("FILES: ", files);
+
+    res.json(files);
+  } catch (err) {
+    console.error("Error reading snapshots:", err);
+    res.status(500).json({ error: "Failed to read snapshots" });
+  }
+});
+// *==================== SNAPSHOTS API =====================
+
+
+// ✅ Command endpoint
+app.post("/command", (req, res) => {
+  const { mac, command } = req.body;
+  const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
+  const deviceSocket = connectedDevices.get(normalizedMac);
+
+  if (!deviceSocket || deviceSocket.destroyed) {
+    connectedDevices.delete(normalizedMac);
+    return res.status(404).json({ message: `Device ${normalizedMac} not connected` });
+  }
+
+  const buffer = Buffer.from(command, "utf-8");
+  deviceSocket.write(buffer, (err) => {
+    if (err) {
+      console.error(`Failed to send command to ${normalizedMac}:`, err.message);
+      return res
+        .status(500)
+        .json({ message: `Error sending command to ${normalizedMac}` });
+    }
+    console.log(`Sent command "${command}" to ${normalizedMac}`);
+    res.json({ message: `${command} sent to ${normalizedMac}` });
+  });
+});
+
+// ✅ Get last 100 readings
+app.get("/api/readings", async (req, res) => {
+  try {
+    const readings = await SensorReading.find()
+      .sort({ timestamp: -1 })
+      .limit(400);
+    res.json(readings);
+  } catch (error) {
+    console.error("Error fetching readings:", error);
+    res.status(500).json({ error: "Failed to fetch readings" });
   }
 });
 
