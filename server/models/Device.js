@@ -5,7 +5,16 @@ const deviceSchema = new mongoose.Schema({
   address: String,
   latitude: Number,
   longitude: Number,
-  ipCamera: { type: String, default: '' }  // ✅ New field
+  ipCamera: {
+    type: {
+      type: String,
+      required: true
+    },
+    ip: {
+      type: String,
+      required: true
+    }
+  }  // ✅ New field
 });
 
 module.exports = mongoose.model('Device', deviceSchema);
