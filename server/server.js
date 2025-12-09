@@ -916,46 +916,25 @@ const server = net.createServer((socket) => {
         };
 
         // Checks if path exists || Creates the path
-        if (!fs.existsSync(logDir)) {
-          fs.mkdirSync(logDir, { recursive: true });
+        if (!fs.existsSync(IncLogDir)) {
+          fs.mkdirSync(IncLogDir, { recursive: true });
         }
 
-        const filePath = path.join(logDir, fileName);
+        const IncLogFilePath = path.join(IncLogDir, fileName);
         const timestamp = now.toLocaleString();
-        const logEntry = `[${timestamp}] | MAC:${mac} | Data:${JSON.stringify(
+        const IncLogEntry = `[${timestamp}] | MAC:${mac} | Data:${JSON.stringify(
           sensorData
         )}"\n`;
 
         // File writing happens after response
-        fs.appendFile(filePath, logEntry, (err) => {
+        fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
           if (err) {
             console.error("Failed to save log:", err);
           } else {
-            console.log(`✅ Log saved: ${filePath}`);
+            console.log(`✅ Log saved: ${IncLogFilePath}`);
           }
         });
 
-        /* ======== DELETING LOG FILE ======== */
-/*         const IncLogDeleteFile = `${now.getDate() - 3}_${now.getMonth() + 1
-          }_${now.getHours()}.inc`;
-
-        const IncLogDeleteDir = path.join(IncLogDir, IncLogDeleteFile);
-
-        fs.access(IncLogDeleteDir, fs.constants.F_OK, (err) => {
-          if (err) {
-            console.log(`⚠️ Error in Finding ${IncLogDeleteDir} File ⚠️: ${err}`);
-            return;
-          }
-
-          fs.unlink(IncLogDeleteDir, (err) => {
-            if (err) {
-              console.log(`⚠️ Error in Deleting ${IncLogDeleteDir} File ⚠️: ${err}`);
-            }
-
-            console.log(`✅ ${IncLogDeleteDir} successfully deleted ✅`);
-          })
-        })
- */        /* ======== DELETING LOG FILE ======== */
 
 
         if (alreadyReplied) alreadyReplied--;
