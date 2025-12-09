@@ -489,14 +489,14 @@ function DashboardView() {
                     alarm={latestReading.humidityAlarm}
                   />
                   <Gauge
-                    label="HUPS O/P"
+                    label="Input Volt"
                     value={latestReading.inputVoltage}
                     max={5}
                     color="#06d6a0"
                     alarm={latestReading.inputVoltageAlarm}
                   />
                   <Gauge
-                    label="LoadCurrent"
+                    label="Output Volt"
                     value={latestReading.outputVoltage}
                     max={5}
                     color="#118ab2"
