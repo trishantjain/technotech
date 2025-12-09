@@ -152,7 +152,7 @@ const RegisterUserTab = () => {
     requestPassword(async (adminPassword) => {
       try {
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/user/${user._id}`,
+          `${process.env.REACT_APP_API_URL}/api/user/${user.username}`,
           {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
