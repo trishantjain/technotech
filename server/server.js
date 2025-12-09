@@ -543,97 +543,9 @@ app.get("/api/historical-data", async (req, res) => {
   }
 });
 
-// ✅ Serve snapshot images
-app.get("/api/snapshots/:imageName", (req, res) => {
-  const imageName = req.params.imageName;
-  const imagePath = path.join("C:/snaps", imageName);
+// ✅ Debug routes
+app.use('/debug', require('./auth/debug'));
 
-  // Check if file exists
-  if (!fs.existsSync(imagePath)) {
-    return res.status(404).json({ error: "Image not found" });
-  }
-
-  // Send the image file
-  res.sendFile(imagePath);
-});
-
-// ✅ Get list of available snapshots
-app.get("/api/snapshots", (req, res) => {
-  const snapshotsDir = "C:/snaps";
-
-  try {
-    const files = fs
-      .readdirSync(snapshotsDir)
-      .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
-      .sort()
-      .slice(-15); // Get last 15 images
-
-    res.json(files);
-  } catch (err) {
-    console.error("Error reading snapshots:", err);
-    res.status(500).json({ error: "Failed to read snapshots" });
-  }
-});
-
-app.get("/api/thresholds", (req, res) => {
-  res.json(thresholds);
-});
-
-app.get("/api/debug/stats", (req, res) => {
-  res.json(debug.stats());
-});
-
-app.get("/api/debug/health", (req, res) => {
-  res.json(debug.healthCheck());
-});
-
-app.post("/api/debug/toggle", (req, res) => {
-  debug.enabled = !debug.enabled;
-  res.json({
-    enabled: debug.enabled,
-    message: `Debug ${debug.enabled ? 'enabled' : 'disabled'}`,
-    timestamp: getFormattedDateTime()
-  });
-});
-
-app.post("/api/debug/connected-devices", (req, res) => {
-  const devices = Array.from(connectedDevices.entries().map(([mac, socket]) => ({
-    mac: mac.toLowerCase(), //! Converting to LowerCase()
-    connected: !socket.destroyed,
-    remoteAddress: socket.remoteAddress,
-    remotePort: socket.remotePort,
-    lastSeen: getFormattedDateTime()
-  })));
-
-  res.json(devices);
-});
-
-app.post("/api/debug/reset-counters", (req, res) => {
-  debug.errorCount = 0;
-  debug.packetCount = 0;
-  debug.bufferStats.malformedPackets = 0;
-  debug.bufferStats.discardedBytes = 0;
-  debug.bufferStats.totalBytes = 0;
-  debug.lastPacketTime = null;
-
-  res.json({
-    message: "All counters reset",
-    resetTime: getFormattedDateTime()
-  });
-});
-
-app.get("/api/debug/packet-stream", (req, res) => {
-  res.json({
-    currentTime: getFormattedDateTime(),
-    totalPackets: debug.packetCount,
-    lastPacketTime: debug.lastPacketTime ? getFormattedDateTime(new Date(debug.lastPacketTime)) : "Never",
-    activeConnections: connectedDevices.size,
-    bufferStatus: {
-      currentBufferSize: readingBuffer.length,
-      maxBufferSize: BULK_SAVE_LIMIT
-    }
-  });
-});
 
 // 📡 TCP Server
 const BULK_SAVE_LIMIT = 1000;
