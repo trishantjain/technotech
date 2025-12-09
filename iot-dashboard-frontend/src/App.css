@@ -165,6 +165,12 @@ body {
   font-size: 0.8rem;
   color: #ccc;
   margin-top: 2px;
+  text-wrap: wrap;
+  max-width: 80px; /* Limit width to force wrapping */
+  word-break: break-word; /* Allow long words to break */
+  text-align: center;
+  line-height: 1.2; /* Improve readability of wrapped text */
+
 }
 
 .alarm-led.active {
