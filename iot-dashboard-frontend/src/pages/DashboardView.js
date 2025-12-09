@@ -273,10 +273,10 @@ function DashboardView() {
   //! New code for Open Lock (using Sweetalert2)
   const handleOpenLock = async () => {
     const { value: password } = await swal.fire({
-      title: "Enter password",
+      title: "Enter Admin password",
       input: "password",
       inputLabel: "Password",
-      inputPlaceholder: "Enter password",
+      inputPlaceholder: "Enter admin password",
       showCancelButton: true,
       confirmButtonText: "Open Lock",
       cancelButtonText: "Cancel",
@@ -306,7 +306,7 @@ function DashboardView() {
         if (newLock && newLock.trim() !== "") {
           sendToLog(`Lock Reset ${newLock} clicked`);
           sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
-          setStatus(`New passowrd ${newLock} `)
+          setStatus(`New password ${newLock} `)
         } else {
           setStatus("New lock value cannot be empty!");
         }
@@ -320,8 +320,8 @@ function DashboardView() {
 
   // Function
   const openPassword = () => {
-    const pwd = window.prompt("Enter password to Open Lock:");
-    const today = new Date();
+    const pwd = window.prompt("Enter admin password to Open Lock:");
+    // const today = new Date();
     if (pwd === "admin123") sendCommand(`%L00P${getFormattedDateTime()}$`);
     else setStatus("Wrong password for opening lock!");
   };
@@ -524,14 +524,14 @@ function DashboardView() {
                   />
                   {latestReading.batteryBackup <= 10 ?
                     <Gauge
-                      label="LockBat(Hours)"
+                      label="LockBat(Left Hours)"
                       value="0"
                       max={16}
                       color="#ffc107"
                       alarm={latestReading.inputVoltageAlarm * 1.2}
                     /> :
                   <Gauge
-                    label="LockBat(Hours)"
+                      label="LockBat(Left Hours)"
                     value={((latestReading.batteryBackup - 10) * 4).toFixed(2)}
                     max={16}
                     color="#ffc107"
@@ -653,7 +653,7 @@ function DashboardView() {
                           onClick={() => handleFanClick(level)}
                         />
                         <div className="fan-label">
-                          {level >= 1 && level <= 4 ? `FG ${level}` : "LOAD"}
+                          {level >= 1 && level <= 4 ? `FG ${level}` : "NON-CRITICAL LOAD"}
                         </div>
                       </div>
                     ))}
