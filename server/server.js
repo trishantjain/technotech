@@ -184,14 +184,24 @@ app.post("/api/register-device", async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
     const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
+    let parsedCamera = ipCamera;
 
+    if (ipCamera && typeof ipCamera === 'string') {
+      const [camType, camIP] = ipCamera.split(',');
+      parsedCamera = {
+        type: camType,
+        ip: camIP
+      }
+    }
+
+    console.log("Parsed Camera: ", parsedCamera);
     const device = new Device({
       mac: normalizedMac, //! Converting to LowerCase()
       locationId,
       address,
       latitude,
       longitude,
-      ipCamera: ipCamera || "",
+      ipCamera: parsedCamera || "",
     });
     await device.save();
     res.json({ message: "Device registered successfully" });
@@ -229,7 +239,16 @@ app.put("/api/device/:mac", async (req, res) => {
       return res
         .status(403)
         .json({ error: "Unauthorized: Invalid admin password" });
-    // const { mac } = req.params;
+
+    if (updateFields.ipCamera && typeof updateFields.ipCamera === 'string') {
+      const [camType, camIP] = updateFields.ipCamera.split(',');
+      updateFields.ipCamera = {
+        type: camType,
+        ip: camIP
+      }
+
+    }
+
     const updatedDevice = await Device.findOneAndUpdate(
       { mac },
       { $set: updateFields },
