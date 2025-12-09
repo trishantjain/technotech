@@ -569,7 +569,8 @@ const BULK_SAVE_LIMIT = 1000;
 let readingBuffer = [];
 let alreadyReplied = 0;
 
-function getFormattedDateTime() {
+function getFormattedDateTime(outType = 'string') {
+  // Pass any string to function if you want output in second way
   const today = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   const dd = pad(today.getDate());
@@ -578,7 +579,12 @@ function getFormattedDateTime() {
   const HH = pad(today.getHours());
   const MM = pad(today.getMinutes());
   const SS = pad(today.getSeconds());
+
+  if (outType === 'string') {
   return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
+  } else {
+    return `${dd}_${mm}_${yy}_${HH}_${MM}_${SS}`;
+  }
 }
 function sendX(socket) {
   const msg = `%X000${getFormattedDateTime()}$`;
