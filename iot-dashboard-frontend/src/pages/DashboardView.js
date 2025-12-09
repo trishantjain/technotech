@@ -362,10 +362,11 @@ function DashboardView() {
     }));
 
 
-  const fetchSnapshots = async () => {
+  const fetchSnapshots = async (selectedMac) => {
     try {
+      setActiveTab("snapshots");
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/snapshots`
+        `${process.env.REACT_APP_API_URL}/api/snapshots/?mac=${selectedMac}`
       );
       const snapshotFiles = await response.json();
       setSnapshots(snapshotFiles);
@@ -377,14 +378,14 @@ function DashboardView() {
 
   // Fetch snapshots on component mount
   useEffect(() => {
-    fetchSnapshots();
+    fetchSnapshots(selectedMac);
 
     const snapshotInterval = setInterval(() => {
-      fetchSnapshots();
-    }, 10000); // ✅ Set up timer
+      fetchSnapshots(selectedMac);
+    }, 240000); // ✅ Set up timer
 
     return () => clearInterval(snapshotInterval); // ✅ Cleanup
-  }, []);
+  }, [selectedMac]);
 
   const alarmKeys = [
     {
@@ -458,7 +459,7 @@ function DashboardView() {
                 </button>
                 <button
                   className={activeTab === "snapshots" ? "active" : ""}
-                  onClick={() => setActiveTab("snapshots")}
+                  onClick={() => fetchSnapshots(selectedMac)}
                 >
                   Snapshots
                 </button>
@@ -770,13 +771,13 @@ function DashboardView() {
                           className="snapshot-item"
                           onClick={() =>
                             setSelectedImage(
-                              `${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`
+                              `${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`
                             )
                           }
                         >
                           <img
                             key={i}
-                            src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}`}
+                            src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`}
                             alt={`snapshot-${i + 1}`}
                             onError={(e) => {
                               e.target.src =
