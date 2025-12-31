@@ -417,6 +417,33 @@ function DashboardView() {
     },
   ];
 
+  const hupsKeys = [
+    {
+      key: "mainStatus",
+      Name: "Main",
+    },
+    {
+      key: "rectStatus",
+      Name: "Rectfier",
+    },
+    {
+      key: "inveStatus",
+      Name: "Inverter",
+    },
+    {
+      key: "overStatus",
+      Name: "O.Load",
+    },
+    {
+      key: "mptStatus",
+      Name: "MPT",
+    },
+    {
+      key: "mosfStatus",
+      Name: "MOSFET",
+    },
+  ]
+
   return (
     <>
       {/* Logo */}
@@ -616,18 +643,18 @@ function DashboardView() {
 
                   <div className="alarm-line">
                     <h4>HUPS</h4>
-                    {["Mains", "Rectfier", "Inverter"].map((key, i) => (
+                    {hupsKeys.map((hups, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${latestReading[key] ? "active" : ""
+                          className={`alarm-led ${latestReading[hups.key] ? "active" : ""
                             }`}
                         />
                         <div className="alarm-label">
-                          {key.replace(/([A-Z])/g, " $1")}
+                          {hups.Name}
                         </div>
                       </div>
                     ))}
-                    {["O.Load", "MPT", "MOSFET"].map((key, i) => (
+                    {/* {["O.Load", "MPT", "MOSFET"].map((key, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
                           className={`alarm-led ${latestReading[key] === "OPEN" ? "active" : ""
@@ -637,7 +664,7 @@ function DashboardView() {
                           {key.replace("Status", "")}
                         </div>
                       </div>
-                    ))}
+                    ))} */}
                   </div>
 
                   <h4>🛠 Commands</h4>
