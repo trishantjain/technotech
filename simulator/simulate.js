@@ -13,6 +13,8 @@ let isCSVMode = true;
 // 🔥 PRE-INDEXING: Fast lookup structure
 let csvDataBySecond = new Map(); // { second → [row1, row2, ...] }
 
+let PADDING_BYTE = 0;
+
 const connectedDevices = new Map();
 
 function generateMac(index) {
@@ -22,6 +24,12 @@ function generateMac(index) {
 function toFloatLE(value) {
   const buf = Buffer.alloc(4);
   buf.writeFloatLE(value, 0);
+  return buf;
+}
+
+function toShortLE(value){
+  const buf = Buffer.alloc(2);
+  buf.writeInt16LE(value, 0);
   return buf;
 }
 
@@ -217,12 +225,14 @@ function startDevice(mac, index) {
           const insideTemp = triggerAlarm ? 55 + Math.random() * 5 : 35 + Math.random() * 3;
           const outsideTemp = triggerAlarm ? 65 + Math.random() * 5 : 40 + Math.random() * 3;
           const lockStatus = Math.random() < 0.5 ? 1 : 0;
-          const doorStatus = 0;
-          const waterLogging = 1;
+          const doorStatus = Math.random() < 0.5 ? 1 : 0;
+          const waterLogging = triggerAlarm && Math.random() < 0.2 ? 1 : 0;
           const waterLeakage = !triggerAlarm && Math.random() < 0.2 ? 1 : 0;
-          const outputVoltage = triggerAlarm ? 2.5 + Math.random() * 0.2 : 3.3 + Math.random() * 0.1;
-          const inputVoltage = outputVoltage * 10;
-          const batteryBackup = triggerAlarm ? 5 + Math.random() * 2 : 12 + Math.random() * 3;
+          const outputVoltage = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
+          const hupsDVC = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
+          const inputVoltage = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
+          const hupsBat = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
+          const batteryBackup = triggerAlarm ? 12 + Math.random() * 2 : 20 + Math.random() * 3;
           const alarmActive = waterLogging || waterLeakage;
           const fireAlarm = 0;
 
@@ -244,23 +254,33 @@ function startDevice(mac, index) {
           const fanStatusBuf = Buffer.alloc(2);
           fanStatusBuf.writeUInt16LE(fanStatusBits, 0);
 
-          let failMask = 0;
-          for (let bit = 0; bit <= 5; bit++) {
-            if (triggerAlarm && Math.random() < 0.1) failMask |= (1 << bit);
-          }
+          console.log(`🎛️ [${mac}] Fans Status: [${fanStatusBuf.join(', ')}]`);
 
-          const failBuf = Buffer.alloc(4);
-          failBuf.writeUInt32LE(failMask, 0);
+          // let failMask = 0;
+          // for (let bit = 0; bit <= 5; bit++) {
+          //   if (triggerAlarm && Math.random() < 0.1) failMask |= (1 << bit);
+          // }
+
+          let failMask1 = Math.floor(Math.random() * 256); // Random 0 or 1
+          let failMask2 = Math.floor(Math.random() * 256); // Random 0 or 1
+          let failMask3 = Math.floor(Math.random() * 256); // Random 0 or 1
+          let failMask4 = Math.floor(Math.random() * 256); // Random 0 or 1
+
+          // const failBuf1 = Buffer.alloc(2);
+          // const failBuf2 = Buffer.alloc(2);
+          // const failBuf3 = Buffer.alloc(2);
+          // const failBuf4 = Buffer.alloc(2);
+          // failBuf1.writeUInt16LE(failMask1, 0);
+          // failBuf2.writeUInt16LE(failMask2, 0);
+          // failBuf3.writeUInt16LE(failMask3, 0);
+          // failBuf4.writeUInt16LE(failMask4, 0);
 
           const packet = Buffer.concat([
-            Buffer.from(mac.padEnd(17, ' '), 'utf-8'),
-            toFloatLE(humidity),
-            toFloatLE(insideTemp),
-            toFloatLE(outsideTemp),
-            Buffer.from([lockStatus, doorStatus, waterLogging, waterLeakage]),
-            toFloatLE(outputVoltage),
-            toFloatLE(inputVoltage),
-            toFloatLE(batteryBackup),
+            toShortLE(outputVoltage), //33-34
+            toShortLE(hupsDVC), //35-36
+            toShortLE(inputVoltage), //37-38
+            toShortLE(hupsBat), //39-40
+            toFloatLE(batteryBackup), //41-44
             Buffer.from([
               alarmActive ? 1 : 0,
               fireAlarm,
@@ -268,11 +288,18 @@ function startDevice(mac, index) {
               fan2,
               fan3,
               fan4,
-              0
-            ]),
-            fanStatusBuf,
-            failBuf
+              PADDING_BYTE
+            ]), //45-51
+            fanStatusBuf, //52-53
+            Buffer.from([failMask1]), //54
+            Buffer.from([failMask2]), //55
+            Buffer.from([failMask3]), //56
+            Buffer.from([failMask4]), //57
           ]);
+
+
+          const len = new TextEncoder().encode(JSON.stringify(outputVoltage)).length;
+          console.log(`Byte used by packet: ${len}`);
 
           const status = isDisconnectedSim && sendCount >= 3 ? '❌ DISCONNECTED' : triggerAlarm ? '🚨 ALARM' : '✅ NORMAL';
           console.log(`📤 [${mac}] ${status} | Sending packet #${sendCount}`);
