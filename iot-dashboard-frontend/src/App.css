@@ -85,7 +85,7 @@ body {
 /* Gauges */
 .gauges.grid-3x3 {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, auto);
   gap: 12px;
   justify-items: center;
 }
@@ -107,10 +107,10 @@ body {
 }
 
 .gauge-box.alarm {
-  border: 4px solid red;
-  box-shadow: 0 0 10px red;
+  border: 2px solid red;
+  box-shadow: 0 0 5px red;
   animation: blink 1s infinite;
-  border-radius: 80%;
+  border-radius: 10%;
 }
 
 @keyframes blink {
@@ -132,7 +132,7 @@ body {
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
-  margin: 10px 0;
+  margin: -10px 0;
 }
 
 .fan-light,
@@ -253,7 +253,7 @@ body {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  margin-top: 12px;
+  margin-top: -10px;
 }
 
 .power-btn {
@@ -534,7 +534,6 @@ body {
 .sidebar {
   width: 220px;
   background-color: #000;
-  ;
   color: white;
   height: 100vh;
   transition: width 0.3s ease;
@@ -759,3 +758,21 @@ body {
   font-size: 1.5rem;
   cursor: pointer;
 }
+
+/* .logo-panel{
+  background-color: grey;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 50%;
+  position: fixed;
+} */
+
+/* .logo-left{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: left;
+}
+.logo-right{
+  justify-content: right;
+} */
