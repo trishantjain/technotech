@@ -362,12 +362,21 @@ body {
   box-shadow: 0 0 10px #fff;
 }
 
-.device-tile.disconnected { order: 1; }      /* Show online devices first */
-.device-tile.status-alarm { order: 2; }     /* Then offline devices */
-.device-tile.gauge-alarm { order: 3; }     /* Then warning state */
-.device-tile.connected { order: 3; }     /* Then warning state */
-.device-tile.disconnected { order: 0; }    /* Selected device always on top */
-
+.device-tile.disconnected {
+  order: 1;
+} /* Show online devices first */
+.device-tile.status-alarm {
+  order: 2;
+} /* Then offline devices */
+.device-tile.gauge-alarm {
+  order: 3;
+} /* Then warning state */
+.device-tile.connected {
+  order: 3;
+} /* Then warning state */
+.device-tile.disconnected {
+  order: 0;
+} /* Selected device always on top */
 
 /* Map markers */
 .custom-marker {
