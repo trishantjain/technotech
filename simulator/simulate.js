@@ -161,7 +161,10 @@ function startDevice(mac, index) {
     client.on('connect', () => {
       console.log(`✅ Connected as ${mac}`);
 
-      if (!isCSVMode) {
+      if (isCSVMode && csvData.length > 0) {
+        console.log(`📄 ${mac} waiting for CSV data dispatcher...`);
+        // Device will receive data from startDataDispatcher()
+      } else if (!isCSVMode || csvData.length === 0) {
         console.log(`🔄 ${mac} starting in RANDOM mode`);
 
         let sendCount = 0;
@@ -461,6 +464,7 @@ function startDataDispatcher() {
     console.log(`🔄 Moving to next second: ${previousSecond} → ${currentSecond}`);
 
     // Check if we've reached the end of CSV timeline
+    if (csvData.length > 0) {
     const maxSecond = Math.max(...csvData.map(row => parseInt(row.seconds)));
     console.log(`📈 Max second in CSV: ${maxSecond}, Current: ${currentSecond}`);
 
@@ -469,6 +473,7 @@ function startDataDispatcher() {
       clearInterval(interval);
       isCSVMode = false;
 
+      }
       // All devices will now operate in random mode (handled in startDevice)
     }
 
