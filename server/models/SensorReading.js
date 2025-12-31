@@ -10,15 +10,17 @@ const sensorReadingSchema = new mongoose.Schema({
     waterLogging: { type: Boolean, required: true },
     waterLeakage: { type: Boolean, required: true },
     outputVoltage: { type: Number, required: true },
+    hupsDVC: { type: Number, required: true },
     inputVoltage: { type: Number, required: true },
+    hupsBatVolt: { type: Number, required: true },
     batteryBackup: { type: Number, required: true },
     alarmActive: { type: Boolean, required: true },
-    fireAlarm: { type: Boolean, required: true },
+    fireAlarm: { type: Number, required: true },
     fanLevel1Running: { type: Boolean, required: true },
     fanLevel2Running: { type: Boolean, required: true },
     fanLevel3Running: { type: Boolean, required: true },
     fanLevel4Running: { type: Boolean, required: true },
-    fanFailBits: { type: Number, required: true },
+    pwsFailCount: { type: Number, required: true },
     // Now numbers for independent status: 0=off, 1=healthy, 2=faulty
     fan1Status: { type: Number, required: true },
     fan2Status: { type: Number, required: true },
@@ -33,6 +35,13 @@ const sensorReadingSchema = new mongoose.Schema({
     inputVoltageAlarm: { type: Boolean, required: true },
     outputVoltageAlarm: { type: Boolean, required: true },
     batteryBackupAlarm: { type: Boolean, required: true },
+    mainStatus: {type: Number, required: true},
+    rectStatus: {type: Number, required: true},
+    inveStatus: {type: Number, required: true},
+    overStatus: {type: Number, required: true},
+    mptStatus: {type: Number, required: true},
+    mosfStatus: {type: Number, required: true},
+    hupsRes: {type: Number, required: true},
     // Timestamp (unchanged)
     timestamp: { type: Date, default: Date.now }
 });

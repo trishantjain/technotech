@@ -776,8 +776,10 @@ const server = net.createServer((socket) => {
         const doorStatus = buffer[30] === 1 ? "OPEN" : "CLOSED";
         const waterLogging = !!buffer[31];
         const waterLeakage = !!buffer[32];
-        const outputVoltage = +buffer.readFloatLE(33).toFixed(2);
-        const inputVoltage = +buffer.readFloatLE(37).toFixed(2);
+        const outputVoltage = +buffer.readInt16LE(33).toFixed(2);
+        const hupsDVC = buffer.readInt16LE(35);
+        const inputVoltage = +buffer.readInt16LE(37).toFixed(2);
+        const hupsBatVolt = buffer.readInt16LE(39);
         const batteryBackup = +buffer.readFloatLE(41).toFixed(2);
         const alarmActive = !!buffer[45];
         const fireAlarm = !!buffer[46];
@@ -786,7 +788,21 @@ const server = net.createServer((socket) => {
         const fanLevel3Running = !!buffer[49];
         const fanLevel4Running = !!buffer[50];
         const padding = buffer[51]; // unused
-        // console.log("Padding value: ", padding);
+        const hupsStat = buffer[55]; // unused
+        const hupsAlarms = []
+
+        for (let i = 0; i < 8; i++) {
+          hupsAlarms[i] = (hupsStat >> (i) & 0x01);
+        }
+        console.log("hupsAlarms: ", hupsAlarms);
+
+        const hupsRes = buffer[56]; // unused
+        console.log("hupsRes: ", hupsRes);
+
+        const failMask = buffer[57]; // unused
+        console.log("failMask: ", failMask);
+
+
         if (padding === 0x31 && !alreadyReplied) {
           sendX(socket);
           alreadyReplied = 40; // Load Balancing
@@ -1069,7 +1085,9 @@ const server = net.createServer((socket) => {
           waterLogging,
           waterLeakage,
           outputVoltage,
+          hupsDVC,
           inputVoltage,
+          hupsBatVolt,
           batteryBackup,
           alarmActive,
           fireAlarm,
@@ -1084,6 +1102,13 @@ const server = net.createServer((socket) => {
           fan4Status: fanStatus[3],
           fan5Status: fanStatus[4],
           fan6Status: fanStatus[5],
+          mainStatus: hupsAlarms[0],
+          rectStatus: hupsAlarms[1],
+          inveStatus: hupsAlarms[2],
+          overStatus: hupsAlarms[3],
+          mptStatus: hupsAlarms[4],
+          mosfStatus: hupsAlarms[5],
+          hupsRes,
           ...thresholdAlarms,
         });
 
