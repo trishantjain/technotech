@@ -170,25 +170,73 @@ body {
   word-break: break-word; /* Allow long words to break */
   text-align: center;
   line-height: 1.2; /* Improve readability of wrapped text */
+}
 
+.alarm-attempt {
+  color: white;
+  font-size: 0.75rem;
 }
 
 .alarm-led.active {
   background-color: red;
   box-shadow: 0 0 12px red;
   animation: blinkAlarm 1s infinite alternate;
+  content: "0 Attempts Left";
 }
+/* 
+.alarm-led.pass-active {
+  background-color: red;
+  box-shadow: 0 0 12px red;
+  animation: blinkAlarm 1s infinite alternate;
+} */
 
 .alarm-led.warn {
   background-color: orange;
   box-shadow: 0 0 12px orange;
   animation: blinkAlarm 1s infinite alternate;
+  content: "1 Attempts Left";
 }
 .alarm-led.danger {
   background-color: yellow;
   box-shadow: 0 0 12px yellow;
   animation: blinkAlarm 1s infinite alternate;
+  content: "2 Attempts Left";
 }
+
+/* .pass{
+  display: block;
+} */
+
+/* .pass.active::before {
+  content: "1";
+}
+.pass.warn::before {
+  content: "2";
+}
+.pass.danger::before {
+  content: "3";
+} */
+
+/* .alarm-led.pass-danger:hover::before {
+  display: inline-block;
+  border: 1px solid white;
+  background-color: grey;
+  content: "2 Attempts Left";
+}
+
+.alarm-led.pass-warn:hover::before {
+  display: inline-block;
+  border: 1px solid white;
+  background-color: grey;
+  content: "1 Attempts Left";
+}
+
+.alarm-led.pass-active:hover::before {
+  display: inline-block;
+  border: 1px solid white;
+  background-color: grey;
+  content: "0 Attempts Left";
+} */
 
 @keyframes blinkAlarm {
   0% {

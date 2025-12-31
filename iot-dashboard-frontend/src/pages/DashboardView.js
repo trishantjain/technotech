@@ -704,6 +704,7 @@ function DashboardView() {
                       <div className="fan-label">Open PWD</div>
                     </div>
                   </div>
+                  <span>SysId: {selectedMac.slice(9, 17)}</span>
                   {status && <p>{status}</p>}
                 </div>
               )}
@@ -883,7 +884,7 @@ function DashboardView() {
                 <Line
                   type="monotone"
                   dataKey="outsideTemperature"
-                  stroke="#ffa500"
+                  stroke="#0b6517ff"
                   dot={false}
                   isAnimationActive={true}
                   name="outsideTemp"
