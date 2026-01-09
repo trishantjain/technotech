@@ -252,7 +252,7 @@ app.post("/api/register-device", async (req, res) => {
       const [camType, camIP] = ipCamera.split(',');
       parsedCamera = {
         type: camType,
-        ip: camIP
+        ip: camIP.trim()
       }
     }
 
@@ -920,7 +920,7 @@ const server = net.createServer((socket) => {
         const now = new Date();
         const fileName = `${now.getDate()}_${now.getMonth() + 1
           }_${now.getHours()}.inc`;
-        const logDir = "C:/CommandLogs/inc";
+        const IncLogDir = "C:/CommandLogs/inc";
 
         const sensorData = {
           humidity: humidity,
@@ -961,7 +961,8 @@ const server = net.createServer((socket) => {
         }
         console.log("fanStatus", fanStatus);
 
-        const fanFailBits = buffer.readUInt32LE(54); // <-- Critical offset //Password
+        const pwsFailCount = buffer[54];
+        console.log("Password Bit: ", pwsFailCount)// <-- Critical offset //Password
         const floats = [
           humidity,
           insideTemperature,
@@ -1095,7 +1096,7 @@ const server = net.createServer((socket) => {
           fanLevel2Running,
           fanLevel3Running,
           fanLevel4Running,
-          fanFailBits, // keep for legacy (optional)
+          pwsFailCount, // keep for legacy (optional)
           fan1Status: fanStatus[0],
           fan2Status: fanStatus[1],
           fan3Status: fanStatus[2],
