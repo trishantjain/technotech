@@ -447,27 +447,63 @@ function DashboardView() {
   return (
     <>
       {/* Logo */}
-      <div
+      <div className="logo-panel">
+
+        <div
         style={{
-          position: "absolute",
-          top: 20,
-          right: 20,
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          zIndex: 9999,
+          display: "flex"
         }}
-      >
-        <img
-          src="/technotrendz.png"
-          alt="Technotrendz Logo"
-          style={{ height: "40px", width: "100px" }}
-        />
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 300,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              zIndex: 99
+            }}
+          >
+            <img
+              src="/bharatnet_logo.png"
+              alt="BharatNet"
+              style={{ height: "40px", width: "100px", left: "100px" }}
+            />
+            <img
+              src="/BSNL_logo.png"
+              alt="BSNL"
+              style={{ height: "40px", width: "100px", left: "100px" }}
+            />
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              right: 60,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              zIndex: 99
+            }}
+
+          >
+            <img
+              src="/ITI.png"
+              alt="ITI"
+              style={{ height: "40px", width: "100px" }}
+            />
+            <img
+              src="/technotrendz.png"
+              alt="Technotrendz Logo"
+              style={{ height: "40px", width: "100px" }}
+            />
+          </div>
+        </div>
       </div>
+
       <div className="dashboard">
         <div className="panel">
           <h2 className="selected-heading">
-            📟 Selected iMoni {selectedMac && <span>: {selectedMac}</span>}
+            📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
           </h2>
           {latestReading && (
             <div>
@@ -876,7 +912,7 @@ function DashboardView() {
                 <Line
                   type="monotone"
                   dataKey="batteryBackup"
-                  stroke="#ffc107"
+                  stroke="#2205ffff"
                   dot={false}
                   isAnimationActive={true}
                   name="Battery"
