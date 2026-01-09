@@ -30,8 +30,9 @@ function DashboardView() {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [snapshots, setSnapshots] = useState([]);
-  const [videosCaptured, setVideosCaptured] = useState([]);
+  // const [videosCaptured, setVideosCaptured] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedDevice, setSelectedDevice] = useState("");
 
   //Map and marker refs
   const mapRef = useRef(null);
@@ -201,6 +202,7 @@ function DashboardView() {
     return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
   }
 
+  // Function to log-commands in system
   const sendToLog = async (status, message, command = "") => {
     const logData = {
       date: new Date().toLocaleString(),
@@ -416,7 +418,7 @@ function DashboardView() {
       Name: "Door",
     },
     {
-      key: "fanFailBits",
+      key: "pwsFailCount",
       Name: "Password",
     },
   ];
@@ -543,7 +545,7 @@ function DashboardView() {
                   />
                   <Gauge
                     label="Outside Temp"
-                    value={latestReading.outsideTemperature}
+                    value={(latestReading.outsideTemperature).toFixed(2)}
                     max={100}
                     color="#fca311"
                     alarm={latestReading.outsideTemperatureAlarm}
@@ -557,14 +559,14 @@ function DashboardView() {
                   />
                   <Gauge
                     label="Input Volt"
-                    value={latestReading.inputVoltage}
+                    value={(latestReading.inputVoltage).toFixed(2)}
                     max={5}
                     color="#06d6a0"
                     alarm={latestReading.inputVoltageAlarm}
                   />
                   <Gauge
                     label="Output Volt"
-                    value={latestReading.outputVoltage}
+                    value={(latestReading.outputVoltage).toFixed(2)}
                     max={5}
                     color="#118ab2"
                     alarm={latestReading.outputVoltageAlarm}
@@ -593,18 +595,19 @@ function DashboardView() {
                   {latestReading.batteryBackup <= 10 ?
                     <Gauge
                       label="LockBat(Left Hours)"
-                      value="0"
-                      max={16}
+                      value={0}
+                      max={12}
                       color="#ffc107"
-                      alarm={latestReading.inputVoltageAlarm * 1.2}
+                      alarm={latestReading.batteryBackupAlarm}
                     /> :
-                  <Gauge
+                    <Gauge
                       label="LockBat(Left Hours)"
-                    value={((latestReading.batteryBackup - 10) * 4).toFixed(2)}
-                    max={16}
-                    color="#ffc107"
-                    alarm={latestReading.inputVoltageAlarm * 1.2}
-                  />
+                      value={Math.floor(((latestReading.batteryBackup - 9) * 4))}
+                      // value={6}
+                      max={12}
+                      color="#ffc107"
+                      alarm={latestReading.batteryBackupAlarm}
+                    />
                   }
                 </div>
               )}
@@ -647,7 +650,7 @@ function DashboardView() {
                       </div>
                     ))}
                     {statusKeys.map((status, i) => {
-                      if (status.key !== "fanFailBits") {
+                      if (status.key !== "pwsFailCount") {
                         return (
                           <div key={i} className="alarm-indicator">
                             <div
@@ -661,21 +664,24 @@ function DashboardView() {
                         );
                       } else {
                         return (
-                          <div key={i} className="alarm-indicator">
-                            {/* <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} /> */}
-                            <div
-                              className={`alarm-led 
+                          <>
+                            <div key={i} className="alarm-indicator">
+                              {/* <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} /> */}
+                              <div
+                                className={`alarm-led 
                             ${latestReading[status.key] === 1
-                                  ? "danger"
-                                  : latestReading[status.key] === 2
-                                    ? "warn"
-                                    : latestReading[status.key] === 3
-                                      ? "active"
-                                      : ""
-                                }`}
-                            />
-                            <div className="alarm-label">{status.Name}</div>
-                          </div>
+                                    ? "danger"
+                                    : latestReading[status.key] === 2
+                                      ? "warn"
+                                      : latestReading[status.key] === 3
+                                        ? "active"
+                                        : ""
+                                  }`}
+                              />
+                              <div className="alarm-label">{status.Name}</div>
+                              <div className="alarm-attempt">{3 - latestReading[status.key]} Attempt Left</div>
+                            </div>
+                          </>
                         );
                       }
                     })}
