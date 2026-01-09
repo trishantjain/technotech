@@ -364,12 +364,16 @@ function DashboardView() {
 
   const fetchSnapshots = async (selectedMac) => {
     try {
-      setActiveTab("snapshots");
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/snapshots/?mac=${selectedMac}`
-      );
-      const snapshotFiles = await response.json();
-      setSnapshots(snapshotFiles);
+      // setActiveTab("snapshots");
+      if (selectedMac) {
+        let response = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/snapshots/?mac=${selectedMac}`
+        );
+        const snapshotFiles = await response.json();
+        setSnapshots(snapshotFiles);
+      } else {
+        setSnapshots([]);
+      }
     } catch (err) {
       console.error("Error fetching snapshots:", err);
     }
@@ -985,7 +989,7 @@ function DashboardView() {
                     key={mac}
                     className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
                       }`}
-                    onClick={() => setSelectedMac(mac)}
+                    onClick={() => {setSelectedMac(mac); setSelectedDevice(device.locationId)}}
                   >
                     {device.locationId || mac}
                   </div>
