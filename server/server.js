@@ -1066,6 +1066,7 @@ const server = net.createServer((socket) => {
           // const alarmLogDir = "C:/CommandLogs/alarm"
 
           const now = new Date();
+          const timestamp = now.toLocaleString();
 
           const alarmFileName = `${now.getDate()}_${now.getMonth() + 1
             }_${now.getHours()}_Alarm.inc`;
