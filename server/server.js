@@ -721,6 +721,8 @@ const server = net.createServer((socket) => {
     if (eMS_LOGS) console.log(`[LOG] Received packet (${data.length} bytes) from ${clientInfo} at ${new Date(dataStart).toISOString()}`);
     buffer = Buffer.concat([buffer, data]);
 
+    let mac = null;
+
     try {
       // console.packetCount++;
       // debug.lastPacketTime = Date.now();
@@ -845,6 +847,9 @@ const server = net.createServer((socket) => {
 
         if ((padding === 0x43) && (doorStatus === "OPEN")) {
           // if (true) {
+          let timestamp = getFormattedDateTime("path");
+          const snapshotFileName = `image_${timestamp}.jpg`;
+
           try {
             // console.log("Padding: ", padding)
             if (eMS_LOGS) console.log("⚡Camera Function runs ...⚡")
@@ -894,8 +899,14 @@ const server = net.createServer((socket) => {
 
                 if (eMS_LOGS) console.log("🔴outputDir: ", snapshotOutputDir, "🔴");
 
+                try {
+                  if (!fs.existsSync(snapshotOutputDir)) {
+                    fs.mkdirSync(snapshotOutputDir, { recursive: true });
                     console.log(`📁 Created directory: ${snapshotOutputDir}`);
                   }
+                } catch (err) {
+                  console.error(`❌ Failed to create directory ${snapshotOutputDir}:`, err.message);
+                }
 
           axios({
             method: 'GET',
