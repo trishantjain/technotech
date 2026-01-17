@@ -375,7 +375,7 @@ app.get("/api/snapshots/:imageName", (req, res) => {
     const rawMac = req.query.mac;
     const macSuffix = rawMac.slice(9, 17).replace(/[: ]/g, "_"); // Gets characters 9-16 (0-indexed)
 
-    const imagePath = path.join(`C:/snaps/${macSuffix}`, imageName);
+    const imagePath = path.join(`${snapshotOutputDir}/${macSuffix}`, imageName);
 
     // Check if file exists
     if (!fs.existsSync(imagePath)) {
@@ -400,12 +400,11 @@ app.get("/api/snapshots", (req, res) => {
       return res.status(400).json({ error: "MAC address is required" });
     }
 
-
     // Extract the last part of MAC 
     const macSuffix = rawMac.slice(9, 17).replace(/[: ]/g, "_"); // Gets characters 9-16 (0-indexed)
     // console.log("MAC ADDRESS: ", macSuffix);
 
-    const snapshotsDir = `C:/Snaps/${macSuffix}`;
+    const snapshotsDir = `${snapshotOutputDir}/${macSuffix}`;
 
     const files = fs
       .readdirSync(snapshotsDir)
@@ -479,11 +478,11 @@ app.post("/api/log-command", (req, res) => {
   const now = new Date();
   const fileName = `${now.getDate()}_${now.getMonth() + 1
     }_${now.getHours()}.out`;
-  const logDir = "C:/CommandLogs/out";
+  // const outLogDir = "C:/CommandLogs/out";
 
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
-  }
+  // if (!fs.existsSync(outLogDir)) {
+  //   fs.mkdirSync(outLogDir, { recursive: true });
+  // }
 
   const filePath = path.join(logDir, fileName);
   const timestamp = now.toLocaleString();
@@ -538,6 +537,33 @@ app.use('/debug', require('./auth/debug'));
 const BULK_SAVE_LIMIT = 1000;
 let readingBuffer = [];
 let alreadyReplied = 0;
+
+const eMS_LOGS = process.env.eMS_LOGS === "true";
+
+const INC_LOGS_CMD = process.env.INC_LOGS_CMD === "true";
+const OUT_LOGS_CMD = process.env.OUT_LOGS_CMD === "true";
+const ALARM_LOGS_CMD = process.env.ALARM_LOGS_CMD === "true";
+const SNAP_CMD = process.env.SNAP_CMD === "true";
+
+const IncLogDir = process.env.INC_LOG_DIR;
+const outLogDir = process.env.OUT_LOG_DIR;
+const alarmLogDir = process.env.ALARM_LOG_DIR;
+const snapshotOutputDir = process.env.SNAP_DIR;
+
+
+function dirCheck(dir, enabled) {
+  if (!enabled) return;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    console.error(`Failed to create dir ${dir}:`, err.message);
+  }
+}
+
+dirCheck(IncLogDir, INC_LOGS_CMD);
+dirCheck(outLogDir, OUT_LOGS_CMD);
+dirCheck(alarmLogDir, ALARM_LOGS_CMD);
+dirCheck(snapshotOutputDir, SNAP_CMD);
 
 function getFormattedDateTime(outType = 'string') {
   // Pass any string to function if you want output in second way
@@ -637,7 +663,7 @@ hourlyDBCleanup();
 
 // Function to delete log files older than 3 days
 function deleteLogFiles() {
-  const IncLogDir = "C:/CommandLogs/inc";
+  // const IncLogDir = "C:/CommandLogs/inc";
 
   const daysThreshold = 3;
   const thresholdTime = Date.now() - (daysThreshold * 24 * 60 * 60 * 1000);
@@ -738,9 +764,9 @@ const server = net.createServer((socket) => {
 
         const macRaw = packet.subarray(0, 17);
         let macRawStr = macRaw.toString("utf-8");
-        console.log(
-          `Received MAC: [${macRawStr}], length: ${macRawStr.length}`
-        );
+        // console.log(
+        //   `Received MAC: [${macRawStr}], length: ${macRawStr.length}`
+        // );
 
         // Sanitize and verify MAC
         const sanitizedMac = macRawStr.replace(/[^0-9A-Fa-f:]/g, "");
@@ -771,6 +797,8 @@ const server = net.createServer((socket) => {
         const fanLevel3Running = !!buffer[49];
         const fanLevel4Running = !!buffer[50];
         const padding = buffer[51]; // unused
+        const packetTimestamp = new Date();
+
         const hupsStat = buffer[55]; // unused
         const hupsAlarms = []
 
@@ -826,11 +854,14 @@ const server = net.createServer((socket) => {
               console.log("⏰ Snapshot for HiFocus Camera ⏰");
 
               const ip = cameraDetails.ipCamera.ip.trim();
+              const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(9, 17).replace(/[: ]/g, '_'));
+
+
               const args = [
                 '-rtsp_transport', 'tcp',
                 '-i', `rtsp://${ip}/media/video1`,
                 '-frames:v', '1',
-                'C:/snaps/image.jpg'
+                `${snapshotOutputDir_MAC}/${snapshotFileName}`
               ];
 
               // console.log("FFmpeg args: ", args);
@@ -856,9 +887,8 @@ const server = net.createServer((socket) => {
                 let url = `https://${camIP}/CGI/command/snap?channel=01`;
                 console.log("📸 Capturing from URL:", url);
 
-          const fileName = `image_${timestamp}.jpg`;
-                const outputDir = `C:/snaps/${mac.slice(9, 17).replace(/[: ]/g, '_')}`;
-          const outputPath = path.join(outputDir, fileName);
+                const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(9, 17).replace(/[: ]/g, '_'));
+                const snapshotOutputPath = path.join(snapshotOutputDir_MAC, snapshotFileName);
 
                 if (eMS_LOGS) console.log("🔴outputDir: ", snapshotOutputDir, "🔴");
 
@@ -872,8 +902,8 @@ const server = net.createServer((socket) => {
                   timeout: 10000
           })
             .then((response) => {
-              const writer = fs.createWriteStream(outputPath);
-              response.data.pipe(writer);
+                    const writer = fs.createWriteStream(snapshotOutputPath);
+                    response.data.pipe(writer);
 
               return new Promise((resolve, reject) => {
                 writer.on('finish', resolve);
