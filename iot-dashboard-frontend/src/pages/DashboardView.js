@@ -117,15 +117,15 @@ function DashboardView() {
 
   // UseEffect for fetching Data
   useEffect(() => {
-    console.log('🚨Starting data fetch interval (5s)🚨');
-    const interval = setInterval(fetchData, 2000);
+    // console.log('🚨Starting data fetch interval (5s)🚨');
+    const interval = setInterval(fetchData, 5000);
 
     fetchData();
 
     // console.log('🚨Fetching Data🚨')
     // return () => clearInterval(interval);
     return () => {
-      console.log('🛑Clearing data fetch interval');
+      // console.log('🛑Clearing data fetch interval');
       clearInterval(interval);
     };
 
@@ -139,7 +139,7 @@ function DashboardView() {
       const lon = parseFloat(selectedDevice?.longitude);
       if (!isNaN(lat) && !isNaN(lon)) {
         mapRef.current.flyTo([lat, lon], 15, { duration: 1.5 });
-        console.log(`🔍 Flying to ${selectedMac} at [${lat}, ${lon}]`);
+        // console.log(`🔍 Flying to ${selectedMac} at [${lat}, ${lon}]`);
       }
     }
   }, [selectedMac, deviceMeta]);
@@ -321,6 +321,18 @@ function DashboardView() {
       setStatus("Wrong password for resetting lock!");
     }
   };
+
+  function FlyToLocation({ center }) {
+    const map = useMap();
+
+    useEffect(() => {
+      if (center) {
+        map.flyTo(center, map.getZoom(), { duration: 1.2 });
+      }
+    }, [center, map]);
+
+    return null;
+  }
 
   // Function
   const openPassword = () => {
@@ -1022,7 +1034,8 @@ function DashboardView() {
 
             return (
               <MapContainer
-                key={selectedMac || "default-map"}
+                // key={selectedMac || "default-map"}
+                key="device-map"
                 center={selectedCenter}
                 zoom={15}
                 scrollWheelZoom={true}
@@ -1033,6 +1046,8 @@ function DashboardView() {
                   url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
                   attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
                 />
+
+                <FlyToLocation center={selectedCenter} />
 
                 {deviceMeta.map((device) => {
                   const mac = device.mac;
@@ -1083,6 +1098,12 @@ function DashboardView() {
                         markerRefs.current[mac] = ref;
                       }}
                       eventHandlers={{
+                        mouseover: (e) => {
+                          e.target.openPopup();
+                        },
+                        mouseout: (e) => {
+                          e.target.closePopup();
+                        },
                         click: () => setSelectedMac(mac),
                       }}
                     >
