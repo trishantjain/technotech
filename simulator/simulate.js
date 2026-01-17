@@ -4,7 +4,8 @@ const csv = require('csv-parser');
 const fs = require('fs');
 
 
-const TOTAL_DEVICES = 11;
+// const TOTAL_DEVICES = 156;
+const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
