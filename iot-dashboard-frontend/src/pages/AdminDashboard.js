@@ -14,42 +14,80 @@ import PasswordPrompt from "../components/PasswordPrompt";
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("register-user");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const toggleSidebar = () => setSidebarCollapsed((prev) => !prev);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Detect mobile
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Close sidebar on tab change (mobile only)
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(false);
+  }, [activeTab, isMobile]);
+
+  const toggleSidebar = () => {
+    if (isMobile) setSidebarOpen((prev) => !prev);
+    else setSidebarCollapsed((prev) => !prev);
+  };
 
   return (
-    <div className={`admin-dashboard ${sidebarCollapsed ? "collapsed" : ""}`}>
-      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
-        <button className="collapse-toggle" onClick={toggleSidebar}>
-          {sidebarCollapsed ? "➡️" : "⬅️"}
+    <div className={`admin-dashboard${sidebarCollapsed ? " collapsed" : ""}`}>
+      {/* Hamburger for mobile */}
+      {isMobile && (
+        <button
+          className="collapse-toggle"
+          style={{ position: "fixed", left: 10, top: 10, zIndex: 1100 }}
+          onClick={() => setSidebarOpen((prev) => !prev)}
+        >
+          ☰
         </button>
+      )}
+      {/* Sidebar and backdrop */}
+      {isMobile && sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside
+        className={`sidebar${sidebarCollapsed ? " collapsed" : ""}${isMobile ? (sidebarOpen ? " open" : "") : ""}`}
+        style={isMobile ? { position: "fixed" } : {}}
+      >
+        {/* Hide close button on mobile, use hamburger to toggle */}
+        {!isMobile && (
+          <button className="collapse-toggle" onClick={toggleSidebar}>
+            {sidebarCollapsed ? "➡️" : "⬅️"}
+          </button>
+        )}
         {!sidebarCollapsed && <h3>🛠 Admin Panel</h3>}
         <ul>
           <li
             onClick={() => setActiveTab("register-user")}
             className={activeTab === "register-user" ? "active" : ""}
           >
-            👤 {sidebarCollapsed ? "" : "Register User"}
+            👤 {sidebarCollapsed && !isMobile ? "" : "Register User"}
           </li>
           <li
             onClick={() => setActiveTab("register-device")}
             className={activeTab === "register-device" ? "active" : ""}
           >
-            📡 {sidebarCollapsed ? "" : "Register Device"}
+            📡 {sidebarCollapsed && !isMobile ? "" : "Register Device"}
           </li>
           <li className={activeTab === "color-scheme" ? "active" : ""}>
-            🎨 {sidebarCollapsed ? "" : "Alarm Colors"}
+            🎨 {sidebarCollapsed && !isMobile ? "" : "Alarm Colors"}
           </li>
           <li
             onClick={() => setActiveTab("console")}
             className={activeTab === "console" ? "active" : ""}
           >
-            📊 {sidebarCollapsed ? "" : "Console"}
+            📊 {sidebarCollapsed && !isMobile ? "" : "Console"}
           </li>
           <li
             onClick={() => setActiveTab("historical-data")}
             className={activeTab === "historical-data" ? "active" : ""}
           >
-            📈 {sidebarCollapsed ? "" : "Historical Data"}
+            📈 {sidebarCollapsed && !isMobile ? "" : "Historical Data"}
           </li>
         </ul>
       </aside>
@@ -323,7 +361,7 @@ const RegisterDeviceTab = () => {
 
   useEffect(() => {
     fetchDevices();
-    const interval = setInterval(fetchDevices, 5000);
+    const interval = setInterval(fetchDevices, 30000);
     return () => clearInterval(interval);
   }, []);
 
