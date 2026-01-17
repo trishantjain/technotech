@@ -937,34 +937,33 @@ const server = net.createServer((socket) => {
         }
 
 
-        // Logging Incoming Data from Simulator
-        const now = new Date();
-        const fileName = `${now.getDate()}_${now.getMonth() + 1
-          }_${now.getHours()}.inc`;
-        const IncLogDir = "C:/CommandLogs/inc";
+        // ===================== Logging Incoming Data from Simulator =====================
+        if (INC_LOGS_CMD) {
+          const now = new Date();
+          const fileName = `${now.getDate()}_${now.getMonth() + 1
+            }_${now.getHours()}.inc`;
 
-        const sensorData = {
-          humidity: humidity,
-          insideTemperature: insideTemperature,
-          outsideTemperature: outsideTemperature,
-          inputVoltage: inputVoltage,
-          outputVoltage: outputVoltage,
-          batteryBackup: batteryBackup,
-        };
+          const IncLogFilePath = path.join(IncLogDir, fileName);
+          const timestamp = now.toLocaleString();
+          const IncLogEntry = `[${timestamp}] | 
+                                MAC:${mac} | 
+                                Humid=${humidity} |
+                                IT=${insideTemperature} |
+                                OT=${outsideTemperature} |
+                                IV=${inputVoltage} |
+                                OV=${outputVoltage} |
+                                BB=${batteryBackup}\n;`;
 
-        // Checks if path exists || Creates the path
-        if (!fs.existsSync(IncLogDir)) {
-          fs.mkdirSync(IncLogDir, { recursive: true });
-        }
-
-        const IncLogFilePath = path.join(IncLogDir, fileName);
-        const timestamp = now.toLocaleString();
-        const IncLogEntry = `[${timestamp}] | MAC:${mac} | Data:${JSON.stringify(
-          sensorData
-        )}"\n`;
-
+          // File writing happens after response
+          fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
+            if (err) {
+              console.error("Failed to save log:", err);
+            } else {
               if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
             }
+          });
+        }
+        // ===================== Logging Incoming Data from Simulator =====================
 
 
 
