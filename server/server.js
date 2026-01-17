@@ -530,7 +530,7 @@ app.get("/api/historical-data", async (req, res) => {
 });
 
 // ✅ Debug routes
-app.use('/debug', require('./auth/debug'));
+// app.use('/debug', require('./auth/debug'));
 
 
 // 📡 TCP Server
@@ -713,10 +713,12 @@ const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
 
   const clientInfo = `${socket.remoteAddress}:${socket.remotePort}`;
-  if(eMS_LOGS) console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
+  const connStart = Date.now();
+  if (eMS_LOGS) console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
 
   socket.on("data", async (data) => {
-    if(eMS_LOGS) console.log(`[LOG] Received packet (${data.length} bytes) from ${clientInfo} at ${new Date(dataStart).toISOString()}`);
+    const dataStart = Date.now();
+    if (eMS_LOGS) console.log(`[LOG] Received packet (${data.length} bytes) from ${clientInfo} at ${new Date(dataStart).toISOString()}`);
     buffer = Buffer.concat([buffer, data]);
 
     try {
@@ -844,11 +846,11 @@ const server = net.createServer((socket) => {
         if ((padding === 0x43) && (doorStatus === "OPEN")) {
           // if (true) {
           try {
-            console.log("Padding: ", padding)
-            console.log("⚡Camera Function runs ...⚡")
+            // console.log("Padding: ", padding)
+            if (eMS_LOGS) console.log("⚡Camera Function runs ...⚡")
             const cameraDetails = await Device.findOne({ mac }, 'ipCamera').lean();
             const cameraMake = cameraDetails.ipCamera.type.trim();
-            console.log("Camera Make: ", cameraMake);
+            if (eMS_LOGS) console.log("Camera Make: ", cameraMake);
 
             if (cameraMake === 'H') {
               console.log("⏰ Snapshot for HiFocus Camera ⏰");
@@ -950,14 +952,8 @@ const server = net.createServer((socket) => {
           sensorData
         )}"\n`;
 
-        // File writing happens after response
-        fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
-          if (err) {
-            console.error("Failed to save log:", err);
-          } else {
-            console.log(`✅ Log saved: ${IncLogFilePath}`);
-          }
-        });
+              if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
+            }
 
 
 
@@ -1057,11 +1053,9 @@ const server = net.createServer((socket) => {
 
         // Single console output
         if (activeAlarms.length > 0) {
-          const alarmLogDir = "C:/CommandLogs/alarm"
+          // const alarmLogDir = "C:/CommandLogs/alarm"
 
-          if (!fs.existsSync(alarmLogDir)) {
-            fs.mkdirSync(alarmLogDir, { recursive: true });
-          }
+          const now = new Date();
 
           const alarmFileName = `${now.getDate()}_${now.getMonth() + 1
             }_${now.getHours()}_Alarm.inc`;
@@ -1156,7 +1150,8 @@ const server = net.createServer((socket) => {
       console.error("Socket error:", err.message);
     }
   });
-});
+  // });
+
 
 setInterval(() => {
   if (readingBuffer.length > 0) {
@@ -1167,6 +1162,8 @@ setInterval(() => {
     );
   }
 }, 5000);
+
+});
 
 server.listen(4000, "0.0.0.0", () => {
   console.log("TCP server listening on port 4000");
