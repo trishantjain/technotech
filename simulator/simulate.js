@@ -39,7 +39,13 @@ function readCSV(filePath) {
     const results = [];
     const csv_path = path.resolve(filePath);
 
-    fs.createReadStream(csv_path).pipe(csv())
+    const stream = fs.createReadStream(csv_path);
+
+    stream.on('error', (err) => {
+      reject(err);
+    });
+
+    stream.pipe(csv())
       .on('data', (row) => {
 
         const cleanedRow = {};
@@ -276,6 +282,11 @@ function startDevice(mac, index) {
           // failBuf4.writeUInt16LE(failMask4, 0);
 
           const packet = Buffer.concat([
+            Buffer.from(mac.padEnd(17, ' '), 'utf-8'), //0-16
+            toFloatLE(humidity),  //17-20
+            toFloatLE(insideTemp), //21-24
+            toFloatLE(outsideTemp), //25-28
+            Buffer.from([lockStatus, doorStatus, waterLogging, waterLeakage]), //29-32
             toShortLE(outputVoltage), //33-34
             toShortLE(hupsDVC), //35-36
             toShortLE(inputVoltage), //37-38
@@ -303,8 +314,9 @@ function startDevice(mac, index) {
 
           const status = isDisconnectedSim && sendCount >= 3 ? '❌ DISCONNECTED' : triggerAlarm ? '🚨 ALARM' : '✅ NORMAL';
           console.log(`📤 [${mac}] ${status} | Sending packet #${sendCount}`);
+          console.log(`[${mac}] Packet padding byte at offset 51: 0x${packet[51].toString(16)}`);
           client.write(packet);
-        }, 2000);
+        }, 5000);
 
         client.on('close', () => {
           console.warn(`🔌 [${mac}] CONNECTION CLOSED`);
