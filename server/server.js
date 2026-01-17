@@ -1123,6 +1123,8 @@ const server = net.createServer((socket) => {
           mosfStatus: hupsAlarms[5],
           hupsRes,
           ...thresholdAlarms,
+          // Set timestamp to IST
+          timestamp: packetTimestamp
         });
 
         // console.log("fan1", fanLevel1Running);
@@ -1133,10 +1135,19 @@ const server = net.createServer((socket) => {
         if (readingBuffer.length >= BULK_SAVE_LIMIT) {
           const toSave = [...readingBuffer];
           readingBuffer = [];
-          SensorReading.insertMany(toSave).catch((err) =>
-            console.error("Bulk save error:", err.message)
-          );
+          SensorReading.insertMany(toSave)
+            .then((docs) => {
+              docs.forEach(doc => {
+                if (eMS_LOGS) console.log(`✅ Saved reading in DB (bulk): MAC=${doc.mac}, timestamp=${doc.timestamp}`);
+              });
+            })
+            .catch((err) =>
+              console.error("Bulk save error:", err.message)
+            );
+
+          buffer = buffer.slice(58);
         }
+
 
         if (eMS_LOGS) console.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
       }
@@ -1163,15 +1174,21 @@ const server = net.createServer((socket) => {
   // });
 
 
-setInterval(() => {
-  if (readingBuffer.length > 0) {
-    const toSave = [...readingBuffer];
-    readingBuffer = [];
-    SensorReading.insertMany(toSave).catch((err) =>
-      console.error("Periodic bulk save error:", err.message)
-    );
-  }
-}, 5000);
+  setInterval(() => {
+    if (readingBuffer.length > 0) {
+      const toSave = [...readingBuffer];
+      readingBuffer = [];
+      SensorReading.insertMany(toSave)
+        .then((docs) => {
+          docs.forEach(doc => {
+            console.log(`✅ Saved reading in DB (periodic): MAC=${doc.mac}, timestamp=${doc.timestamp}`);
+          });
+        })
+        .catch((err) =>
+          console.error("Periodic bulk save error:", err.message)
+        );
+    }
+  }, 5000);
 
 });
 
