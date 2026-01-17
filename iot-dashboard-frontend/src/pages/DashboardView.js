@@ -16,6 +16,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import swal from "sweetalert2";
+import { useMemo } from "react";
+// import thresholds from "../../../server/thresholds";
 
 const defaultLocation = [28.6139, 77.209];
 
@@ -182,7 +184,7 @@ function DashboardView() {
   const handleMapCreated = (mapInstance) => {
     if (!mapRef.current) {
       mapRef.current = mapInstance;
-      console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
+      // console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
     }
   };
 
@@ -620,14 +622,14 @@ function DashboardView() {
                       const statusVal = latestReading[`fan${i + 1}Status`]; // 0=off, 1=healthy, 2=faulty
                       // console.log('statusVal', statusVal);
 
-                      console.log("statusC");
+                      // console.log("statusC");
                       let statusClass = "off";
                       if (statusVal === 1) {
                         statusClass = "running"; // green
                       } else if (statusVal === 2) {
                         statusClass = "faulty"; // red
                       }
-                      console.log(statusClass);
+                      // console.log(statusClass);
 
                       return (
                         <div key={i} className="fan-light">
