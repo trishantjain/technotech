@@ -357,25 +357,28 @@ function DashboardView() {
     reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
 
   const historicalData = readings
+
     .filter((r) => r.mac === selectedMac && r.timestamp)
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // oldest to latest
     .slice(-15)
-    .map((r) => ({
-      time: new Date(r.timestamp).toLocaleTimeString([], {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }),
-      insideTemperature: Number(r.insideTemperature.toFixed(2)),
-      outsideTemperature: Number(r.outsideTemperature.toFixed(2)),
-      humidity: Number(r.humidity.toFixed(2)),
-      inputVoltage: Number(r.inputVoltage.toFixed(2)),
-      outputVoltage: Number(r.outputVoltage.toFixed(2)),
-      batteryBackup: Number(r.batteryBackup.toFixed(2)),
-    }));
+    .map((r) => {
+      const d = new Date(r.timestamp);
+
+      return {
+        time:
+          `${d.getHours().toString().padStart(2, "0")}:` +
+          `${d.getMinutes().toString().padStart(2, "0")}:` +
+          `${d.getSeconds().toString().padStart(2, "0")}.` +
+          `${d.getMilliseconds().toString().padStart(3, "0")}`, // tenths of a second,
+        insideTemperature: Number(r.insideTemperature.toFixed(2)),
+        outsideTemperature: Number(r.outsideTemperature.toFixed(2)),
+        humidity: Number(r.humidity.toFixed(2)),
+        inputVoltage: Number(r.inputVoltage.toFixed(2)),
+        outputVoltage: Number(r.outputVoltage.toFixed(2)),
+        batteryBackup: Number(r.batteryBackup.toFixed(2)),
+      }
+    });
+
 
 
   const fetchSnapshots = async (selectedMac) => {
