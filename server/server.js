@@ -17,82 +17,83 @@ const app = express();
 const connectedDevices = new Map();
 app.use(bodyParser.json());
 const cors = require("cors");
+const { spawn } = require("child_process");
 app.use(cors());
 
 
 // ===================== DEBUG SYSTEM =====================
 
-const debug = {
-  enabled: true,
-  lastPacketTime: null,
-  packetCount: 0,
-  errorCount: 0,
-  bufferStats: {
-    totalBytes: 0,
-    discardedBytes: 0,
-    malformedPackets: 0
-  },
+// const debug = {
+//   enabled: false,
+//   lastPacketTime: null,
+//   packetCount: 0,
+//   errorCount: 0,
+//   bufferStats: {
+//     totalBytes: 0,
+//     discardedBytes: 0,
+//     malformedPackets: 0
+//   },
 
-  // Loging timestamp and context message
-  log: (message, context = '') => {
-    if (!debug.enabled) return;
-    const timestamp = getFormattedDateTime();
-    console.log(`🔍 [${timestamp}] ${message}`, context ? `| ${context}` : '')
-  },
+//   // Loging timestamp and context message
+//   log: (message, context = '') => {
+//     if (!debug.enabled) return;
+//     const timestamp = getFormattedDateTime();
+//     console.log(`🔍 [${timestamp}] ${message}`, context ? `| ${context}` : '')
+//   },
 
-  // Error Logging
-  error: (message, error = null) => {
-    const timestamp = getFormattedDateTime();
-    console.log(`❌ [${timestamp}] ${message}`, error ? `| Error: ${error.message}` : '')
-    debug.errorCount++;
-  },
+//   // Error Logging
+//   error: (message, error = null) => {
+//     const timestamp = getFormattedDateTime();
+//     console.log(`❌ [${timestamp}] ${message}`, error ? `| Error: ${error.message}` : '')
+//     debug.errorCount++;
+//   },
 
-  // Stats
-  stats: () => {
-    const now = new Date();
-    const uptime = process.uptime();
-    const stats = {
-      serverTime: getFormattedDateTime(),
-      upTime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
-      packetReceived: debug.packetCount,
-      errors: debug.errorCount,
-      lastPacket: debug.lastPacketTime ? `${Math.floor((now - debug.lastPacketTime) / 1000)}s ago` : 'Never',
-      bufferStats: debug.bufferStats,
-      connectedDevices: connectedDevices.size,
-      readingBufferSize: readingBuffer.length,
-      dateFunction: "getFormattedDateTime() working ✅"
-    };
-    console.log('📊 DEBUG STATS:', JSON.stringify(stats, null, 2));
-    return stats;
-  },
+//   // Stats
+//   stats: () => {
+//     const now = new Date();
+//     const uptime = process.uptime();
+//     const stats = {
+//       serverTime: getFormattedDateTime(),
+//       upTime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
+//       packetReceived: debug.packetCount,
+//       errors: debug.errorCount,
+//       lastPacket: debug.lastPacketTime ? `${Math.floor((now - debug.lastPacketTime) / 1000)}s ago` : 'Never',
+//       bufferStats: debug.bufferStats,
+//       connectedDevices: connectedDevices.size,
+//       readingBufferSize: readingBuffer.length,
+//       dateFunction: "getFormattedDateTime() working ✅"
+//     };
+//     console.log('📊 DEBUG STATS:', JSON.stringify(stats, null, 2));
+//     return stats;
+//   },
 
-  healthCheck: () => {
-    const issues = [];
+//   healthCheck: () => {
+//     const issues = [];
 
-    if (!debug.lastPacketTime) {
-      issues.push("No Packets Received yet");
-    } else {
-      const timeSinceLastPacket = Date.now() - debug.lastPacketTime;
-      if (timeSinceLastPacket > 30000) {
-        issues.push(`No Packets for ${timeSinceLastPacket / 1000}s`);
-      }
-    }
+//     if (!debug.lastPacketTime) {
+//       issues.push("No Packets Received yet");
+//     } else {
+//       const timeSinceLastPacket = Date.now() - debug.lastPacketTime;
+//       if (timeSinceLastPacket > 30000) {
+//         issues.push(`No Packets for ${timeSinceLastPacket / 1000}s`);
+//       }
+//     }
 
-    if (debug.errorCount > 10) {
-      issues.push("High error count");
-    }
+//     if (debug.errorCount > 10) {
+//       issues.push("High error count");
+//     }
 
-    if (debug.bufferStats.malformedPackets > debug.packetCount * 0.5) {
-      issues.push("High malformed packet rate");
-    }
+//     if (debug.bufferStats.malformedPackets > debug.packetCount * 0.5) {
+//       issues.push("High malformed packet rate");
+//     }
 
-    return {
-      status: issues.length === 0 ? "HEALTHY" : "ISSUES",
-      serverTime: getFormattedDateTime(),
-      issues: issues
-    };
-  }
-};
+//     return {
+//       status: issues.length === 0 ? "HEALTHY" : "ISSUES",
+//       serverTime: getFormattedDateTime(),
+//       issues: issues
+//     };
+//   }
+// };
 
 
 // 🔌 DB connection
@@ -100,8 +101,6 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err.message));
-
-
 
 
 // ===================== HTTP API Endpoints (unchanged) =====================
@@ -117,6 +116,8 @@ app.get("/ping", async (req, res) => {
 // ✅ Login route (admin hardcoded via .env)
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
+
+  // console.log("LOGIN HIT:", req.body);
 
   // Admin login
   if (
@@ -363,20 +364,6 @@ app.get("/api/all-devices", async (req, res) => {
   }
 });
 
-// ✅ Get latest reading by MAC
-app.get("/api/device/:mac", async (req, res) => {
-  try {
-    const normalizedMac = req.params.mac.toLowerCase(); //! Converting to LowerCase()
-    const latest = await SensorReading.findOne({ mac: normalizedMac }).sort({
-      timestamp: -1,
-    });
-    if (!latest) return res.status(404).json({ message: "No data found" });
-    res.json(latest);
-  } catch (err) {
-    console.error("Error fetching device data:", err.message);
-    res.status(500).json({ error: "Failed to fetch data" });
-  }
-});
 // *====================  DEVICE API  ====================== 
 
 
@@ -510,7 +497,7 @@ app.post("/api/log-command", (req, res) => {
     if (err) {
       console.error("Failed to save log:", err);
     } else {
-      console.log(`✅ Log saved: ${filePath}`);
+      if (eMS_LOGS) console.log(`✅ Log saved: ${filePath}`);
     }
   });
 });
@@ -596,7 +583,7 @@ async function DBCleanup() {
     // Count-based capping
     const sensorRecordsCount = await SensorReading.countDocuments();
     if (sensorRecordsCount === 0) {
-      debug.log("No Sensor Data found", 'CLEANUP');
+      if (eMS_LOGS) console.log("No Sensor Data found", 'CLEANUP');
       return;
     }
 
@@ -608,17 +595,17 @@ async function DBCleanup() {
         .skip(MAX_DOCS - 1);
 
       if (!boundaryDoc || !boundaryDoc.timestamp) {
-        debug.log("Unable to determine boundary timestamp for capping", 'CLEANUP');
+        if (eMS_LOGS) console.log("Unable to determine boundary timestamp for capping", 'CLEANUP');
         return;
       }
       
       const capRes = await SensorReading.deleteMany({
         timestamp: { $lt: boundaryDoc.timestamp }
       });
-      debug.log(`Count capping: deleted ${capRes.deletedCount} docs older than ${boundaryDoc.timestamp.toISOString()}`, 'CLEANUP');
+      if (eMS_LOGS) console.log(`Count capping: deleted ${capRes.deletedCount} docs older than ${boundaryDoc.timestamp.toISOString()}`, 'CLEANUP');
     }
   } catch (err) {
-    debug.error("Error in DB cleanup", err);
+    console.error("Error in DB cleanup", err);
   }
 }
 
@@ -628,7 +615,7 @@ function hourlyDBCleanup() {
 
   const runCleanup = async () => {
     if (isCleaning) {
-      debug.log("Cleanup already running, skipping this tick", 'CLEANUP');
+      if (eMS_LOGS) console.log("Cleanup already running, skipping this tick", 'CLEANUP');
       return;
     }
     isCleaning = true;
@@ -700,28 +687,24 @@ const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
 
   const clientInfo = `${socket.remoteAddress}:${socket.remotePort}`;
-
-  // getData();
-  debug.log(`New TCP Connection from`, clientInfo);
+  if(eMS_LOGS) console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
 
   socket.on("data", async (data) => {
-    console.log(
-      `Received packet (${data.length} bytes):`,
-      data.toString("hex")
-    );
+    if(eMS_LOGS) console.log(`[LOG] Received packet (${data.length} bytes) from ${clientInfo} at ${new Date(dataStart).toISOString()}`);
     buffer = Buffer.concat([buffer, data]);
 
     try {
-      debug.packetCount++;
-      debug.lastPacketTime = Date.now();
-      debug.bufferStats.discardedBytes.totalBytes += data.length;
+      // console.packetCount++;
+      // debug.lastPacketTime = Date.now();
+      // debug.bufferStats.discardedBytes.totalBytes += data.length;
 
-      debug.log(`Raw data received (${data.length} bytes) from`, clientInfo);
-      debug.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
+      if (eMS_LOGS) console.log(`Raw data received (${data.length} bytes) from`, clientInfo);
+      // console.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
 
       buffer = Buffer.concat([buffer, data]);
-      debug.log(`Total buffer size: ${buffer.length} bytes`);
+      // console.log(`Total buffer size: ${buffer.length} bytes`);
 
+      let mac = null;
       while (buffer.length >= 58) {
         const bufStr = buffer.toString("utf-8");
 
@@ -850,23 +833,20 @@ const server = net.createServer((socket) => {
                 'C:/snaps/image.jpg'
               ];
 
-              console.log("FFmpeg args: ", args);
+              // console.log("FFmpeg args: ", args);
 
               const ffmpeg = spawn('ffmpeg', args);
 
               ffmpeg.on('close', (code) => {
                 if (code === 0) {
-                  console.log("Captured successfully...");
+                  if (eMS_LOGS) console.log("Captured successfully...");
                 } else {
                   console.error(`ffmpeg process exited with code ${code}`);
                 }
               });
 
             } else {
-              console.log("⏰ Snapshot for Sparsh Camera ⏰");
-
-              let timestamp = getFormattedDateTime("path");
-              console.log("Timestamp: ", timestamp);
+              if (eMS_LOGS) console.log("⏰ Snapshot for Sparsh Camera ⏰");
 
               let camIP = cameraDetails.ipCamera.ip.trim();
               console.log('CamIP: ', camIP);
@@ -880,11 +860,10 @@ const server = net.createServer((socket) => {
                 const outputDir = `C:/snaps/${mac.slice(9, 17).replace(/[: ]/g, '_')}`;
           const outputPath = path.join(outputDir, fileName);
 
-                console.log("🔴outputDir: ", outputDir, "🔴");
+                if (eMS_LOGS) console.log("🔴outputDir: ", snapshotOutputDir, "🔴");
 
-          if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-          }
+                    console.log(`📁 Created directory: ${snapshotOutputDir}`);
+                  }
 
           axios({
             method: 'GET',
@@ -902,17 +881,16 @@ const server = net.createServer((socket) => {
               });
             })
             .then(() => {
-              console.log(`✅ Snapshot captured: ${fileName}`);
-            })
+                    if (eMS_LOGS) console.log(`✅ Snapshot captured: ${snapshotFileName}`);
+                  })
             .catch((error) => {
               console.error(`❌ Error capturing snapshot: ${error.message}`);
             });
               }, 3000); // 3 second delay
         }
           } catch (err) {
-
+            console.error(`Error occured while caputuring snapshots: ${err}`)
           }
-
         }
 
 
@@ -959,10 +937,10 @@ const server = net.createServer((socket) => {
         for (let i = 0; i < 6; i++) {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
-        console.log("fanStatus", fanStatus);
+        if (eMS_LOGS) console.log("fanStatus", fanStatusBits);
 
         const pwsFailCount = buffer[54];
-        console.log("Password Bit: ", pwsFailCount)// <-- Critical offset //Password
+        if (eMS_LOGS) console.log("Password Bit: ", pwsFailCount)// <-- Critical offset //Password
         const floats = [
           humidity,
           insideTemperature,
@@ -979,7 +957,7 @@ const server = net.createServer((socket) => {
         }
 
         if (Math.random() < 0.01) {
-          console.log(
+          if (eMS_LOGS) console.log(
             `📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(
               16
             )}h`
@@ -1070,7 +1048,7 @@ const server = net.createServer((socket) => {
             if (err) {
               console.error("Failed to save log:", err);
             } else {
-              console.log(`✅ Log saved: ${alarmFilePath}`);
+              if (eMS_LOGS) console.log(`✅ Log saved: ${alarmFilePath}`);
             }
           });
         }
@@ -1126,12 +1104,9 @@ const server = net.createServer((socket) => {
           );
         }
 
-        buffer = buffer.slice(58);
-
-        debug.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
+        if (eMS_LOGS) console.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
       }
     } catch (err) {
-      debug.error(`Critical error in data handler from ${clientInfo}`, err);
       console.error("Packet parsing failed:", err.message);
       socket.destroy();
     }
