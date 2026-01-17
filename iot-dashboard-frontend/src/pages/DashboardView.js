@@ -40,13 +40,18 @@ function DashboardView() {
   const mapRef = useRef(null);
   const markerRefs = useRef({});
 
-  const latestReadingsByMac = {};
-  readings.forEach((r) => {
-    const existing = latestReadingsByMac[r.mac];
-    if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
-      latestReadingsByMac[r.mac] = r;
+  // In this code 'latestReadingsByMac' this only computed only when readings change
+  const latestReadingsByMac = useMemo(() => {
+    const map = {};
+    for (const r of readings) {
+      const existing = map[r.mac];
+      if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
+        map[r.mac] = r;
+      }
     }
-  });
+    return map;
+  }, [readings]);
+
 
   const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
   const latestReading = readings.find((r) => r.mac === selectedMac);
