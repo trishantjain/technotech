@@ -11,7 +11,7 @@ const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
-let isCSVMode = true;
+let isCSVMode = false;
 
 // 🔥 PRE-INDEXING: Fast lookup structure
 let csvDataBySecond = new Map(); // { second → [row1, row2, ...] }
@@ -564,7 +564,7 @@ function startDataDispatcher() {
 async function initializeSimulator() {
   try {
     console.log('📄 Attempting to load CSV data...');
-    csvData = await readCSV('D:/TechnoTrendz/simulator/sim_pack.csv');
+    csvData = await readCSV(process.env.CSV_PATH || './sim_pack2.csv');
 
     preIndexCSVData();
 
