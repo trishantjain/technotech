@@ -18,6 +18,7 @@ import {
 import swal from "sweetalert2";
 import { useMemo } from "react";
 // import thresholds from "../../../server/thresholds";
+// import GaugeComponent from 'react-gauge-component';
 
 const defaultLocation = [28.6139, 77.209];
 
@@ -39,6 +40,15 @@ function DashboardView() {
   //Map and marker refs
   const mapRef = useRef(null);
   const markerRefs = useRef({});
+  // const isFetchingRef = useRef(false); // TIMING TESTING
+
+  // const latestReadingsByMac = {};
+  // readings.forEach((r) => {
+  //   const existing = latestReadingsByMac[r.mac];
+  //   if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
+  //     latestReadingsByMac[r.mac] = r;
+  //   }
+  // });
 
   // In this code 'latestReadingsByMac' this only computed only when readings change
   const latestReadingsByMac = useMemo(() => {
@@ -56,7 +66,8 @@ function DashboardView() {
   const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
   const latestReading = readings.find((r) => r.mac === selectedMac);
 
-  // console.log("latestR", latestReading)
+  // console.log(process.env.REACT_APP_API_URL)
+  // console.log("latestR", latestReading.mainStatus)
   // console.log('All properties:', Object.keys(latestReading));
 
   // // WebSocket connection - FIXED VERSION
@@ -157,6 +168,9 @@ function DashboardView() {
   }, [zoom, rotation]);
 
   const fetchData = async () => {
+    // if (isFetchingRef.current) return;   // ⛔ prevent overlap
+    // isFetchingRef.current = true;
+
     try {
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
         fetch(`${process.env.REACT_APP_API_URL}/api/readings`),
@@ -176,13 +190,11 @@ function DashboardView() {
       setReadings(Array.isArray(readingsData) ? readingsData : []);
       setDevices(Array.isArray(devicesData) ? devicesData : []);
       setDeviceMeta(Array.isArray(metadata) ? metadata : []);
-      // setReadings(readingsData);
-      // setDevices(devicesData);
-      // setDeviceMeta(metadata);
-      // console.log(readingsData[0].fanFailBits);
       // console.log("readingData", readingsData);
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("❌Error fetching data:", err);
+    } finally {
+      // isFetchingRef.current = false
     }
   };
 
@@ -361,6 +373,9 @@ function DashboardView() {
   const isAlarmActive = (reading) =>
     reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
 
+
+  // const CHART_DELAY_MS = 2 * 60 * 1000; // 2 minutes
+  // const chartCutoffTime = Date.now() - CHART_DELAY_MS;
   const historicalData = readings
 
     .filter((r) => r.mac === selectedMac && r.timestamp)
@@ -384,6 +399,17 @@ function DashboardView() {
       }
     });
 
+  // UPDATED FOR TIMING ISSUE TESTING
+  // const historicalData = useMemo(() => {
+  //   return readings
+  //     .filter(r =>
+  //       r.mac === selectedMac &&
+  //       r.timestamp &&
+  //       new Date(r.timestamp).getTime() <= chartCutoffTime
+  //     )
+  //     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+  //     .slice(-15);
+  // }, [readings, selectedMac, chartCutoffTime]);
 
 
   const fetchSnapshots = async (selectedMac) => {
@@ -478,9 +504,9 @@ function DashboardView() {
       <div className="logo-panel">
 
         <div
-        style={{
-          display: "flex"
-        }}
+          style={{
+            display: "flex"
+          }}
         >
           <div
             style={{
@@ -596,7 +622,7 @@ function DashboardView() {
                   <Gauge
                     label="DV Current"
                     value={latestReading.batteryBackup}
-                    max={12}
+                    max={45}
                     color="#ffc107"
                     alarm={latestReading.batteryBackupAlarm}
                   />

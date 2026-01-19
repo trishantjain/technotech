@@ -1,7 +1,9 @@
+require("dotenv").config();
 const net = require('net');
 const path = require('path');
 const csv = require('csv-parser');
 const fs = require('fs');
+// const { connected } = require('process');
 
 
 // const TOTAL_DEVICES = 156;
@@ -18,6 +20,39 @@ let PADDING_BYTE = 0;
 
 const connectedDevices = new Map();
 
+// Single byte padding required by server to trigger picture capture
+// Behavior: send a short pulse of 67 (so outgoing packets include 0x43),
+// then reset to 0 immediately; schedule a repeating pulse every 1 minute.
+function scheduleCameraClicker(pulseIntervalMs = 60000, pulseDurationMs = 500) {
+  function sendPulse() {
+    PADDING_BYTE = 67;
+    console.log(`🔔 Padding pulse ON (0x${PADDING_BYTE.toString(16)})`);
+
+    // After a short duration, reset back to 0
+    setTimeout(() => {
+      PADDING_BYTE = 0;
+      console.log('🔕 Padding reset to 0');
+    }, pulseDurationMs);
+  }
+
+  // Send immediate pulse once when called
+  sendPulse();
+
+  // Then schedule repeating pulses every `pulseIntervalMs`
+  const interval = setInterval(() => {
+    sendPulse();
+  }, pulseIntervalMs);
+
+  return {
+    stop: () => clearInterval(interval)
+  };
+}
+
+// Start pulse schedule after 30s (previous behavior), returning controller if needed
+// setTimeout(() => {
+//   scheduleCameraClicker();
+// }, 30000);
+
 function generateMac(index) {
   return `00:11:22:33:44:${(index % 256).toString(16).padStart(2, '0').toUpperCase()}`;
 }
@@ -28,7 +63,7 @@ function toFloatLE(value) {
   return buf;
 }
 
-function toShortLE(value){
+function toShortLE(value) {
   const buf = Buffer.alloc(2);
   buf.writeInt16LE(value, 0);
   return buf;
@@ -145,7 +180,7 @@ function sendPacketForRow(client, row, mac, index) {
     toFloatLE(insideTemp),
     toFloatLE(outsideTemp),
     Buffer.from([lockStatus, doorStatus, waterLogging, waterLeakage]),
-    toFloatLE(outputVoltage),
+    toShortLE(outputVoltage),
     toFloatLE(inputVoltage),
     toFloatLE(batteryBackup),
     Buffer.from([
@@ -155,19 +190,21 @@ function sendPacketForRow(client, row, mac, index) {
       fan2,
       fan3,
       fan4,
-      0 // padding
+      PADDING_BYTE // padding (placed at offset 51)
     ]),
     fanStatusBuf,
-    failBuf
+    failBuf,
   ]);
 
   console.log(`[${mac}] CSV: Temp=${insideTemp}°C, WaterLeak=${waterLeakage}, WaterLog=${waterLogging}`);
+  console.log(`[${mac}] Packet padding byte at offset 51: 0x${packet[51].toString(16)}`);
   client.write(packet);
 }
 
 
 function startDevice(mac, index) {
   try {
+    // const client = net.createConnection({ host: '34.224.174.148', port: 4000 });
     const client = net.createConnection({ host: 'localhost', port: 4000 });
 
     // 🔧 NEW: Store this device in our connected devices map
@@ -181,6 +218,10 @@ function startDevice(mac, index) {
         // Device will receive data from startDataDispatcher()
       } else if (!isCSVMode || csvData.length === 0) {
         console.log(`🔄 ${mac} starting in RANDOM mode`);
+
+        // SENDING 1 PACKET/SECOND/DEVICE
+        const SEND_INTERVAL = 1000; // 1 second
+        const PHASE_OFFSET_MS = (index * 1000) / TOTAL_DEVICES;
 
         let sendCount = 0;
         const isHealthyDevice = index >= TOTAL_DEVICES - 2;
@@ -300,7 +341,8 @@ function startDevice(mac, index) {
               fan2,
               fan3,
               fan4,
-              PADDING_BYTE
+              // PADDING_BYTE0
+              0
             ]), //45-51
             fanStatusBuf, //52-53
             Buffer.from([failMask1]), //54
@@ -325,7 +367,6 @@ function startDevice(mac, index) {
           clearInterval(interval);
         });
       }
-      // 🔧 NEW: No CSV mode logic here - handled by central dispatcher
     });
 
     client.on('error', (err) => {
@@ -505,16 +546,16 @@ function startDataDispatcher() {
 
     // Check if we've reached the end of CSV timeline
     if (csvData.length > 0) {
-    const maxSecond = Math.max(...csvData.map(row => parseInt(row.seconds)));
-    console.log(`📈 Max second in CSV: ${maxSecond}, Current: ${currentSecond}`);
+      const maxSecond = Math.max(...csvData.map(row => parseInt(row.seconds)));
+      console.log(`📈 Max second in CSV: ${maxSecond}, Current: ${currentSecond}`);
 
-    if (currentSecond > maxSecond) {
-      console.log('🏁 CSV timeline completed! Switching all devices to RANDOM mode');
-      clearInterval(interval);
-      isCSVMode = false;
+      if (currentSecond > maxSecond) {
+        console.log('🏁 CSV timeline completed! Switching all devices to RANDOM mode');
+        clearInterval(interval);
+        isCSVMode = false;
 
+        // All devices will now operate in random mode (handled in startDevice)
       }
-      // All devices will now operate in random mode (handled in startDevice)
     }
 
   }, 2000); // Dispatch every 2 seconds
@@ -533,7 +574,7 @@ async function initializeSimulator() {
     console.log(`   Total rows: ${csvData.length}`);
     console.log(`   Unique MACs: ${uniqueMACs.length}`);
     console.log(`   MACs in CSV: ${uniqueMACs.join(', ')}`);
-    
+
     // Show seconds distribution
     const secondsSample = [...new Set(csvData.map(row => parseInt(row.seconds)))].sort((a, b) => a - b).slice(0, 10);
     console.log(`   First 10 seconds: [${secondsSample.join(', ')}]`);
@@ -576,3 +617,14 @@ process.on('SIGINT', () => {
 /* // Start all devices
 let index = 0;
 const spawnInterval = setInterval(() => {
+  if (index >= TOTAL_DEVICES) {
+    clearInterval(spawnInterval);
+    console.log('✅ All simulated devices started.');
+    return;
+  }
+  const mac = generateMac(index);
+  startDevice(mac, index);
+  devices.push(mac);
+  index++;
+}, 10);
+ */

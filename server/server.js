@@ -20,6 +20,7 @@ const cors = require("cors");
 const { spawn } = require("child_process");
 app.use(cors());
 
+const logStreams = {};
 
 // ===================== DEBUG SYSTEM =====================
 
@@ -460,13 +461,47 @@ app.get("/api/readings", async (req, res) => {
   try {
     const readings = await SensorReading.find()
       .sort({ timestamp: -1 })
-      .limit(400);
+      .limit(200);
     res.json(readings);
   } catch (error) {
     console.error("Error fetching readings:", error);
     res.status(500).json({ error: "Failed to fetch readings" });
   }
 });
+
+// // Super simple test API
+// app.get("/api/alarms-test", async (req, res) => {
+//   try {
+//     // Simple aggregation - get latest per device
+//     const results = await SensorReading.aggregate([
+//       { $sort: { timestamp: -1 } },
+//       {
+//         $group: {
+//           _id: "$mac",
+//           mac: { $first: "$mac" },
+//           hasAnyAlarm: {
+//             $first: {
+//               $or: [
+//                 { $eq: ["$fireAlarm", 1] },
+//                 { $eq: ["$waterLogging", true] },
+//                 { $eq: ["$lockStatus", "OPEN"] },
+//                 { $eq: ["$insideTemperatureAlarm", true] }
+//               ]
+//             }
+//           }
+//         }
+//       },
+//       { $limit: 5 }
+//     ]);
+
+//     res.json({
+//       test: "Alarm computation working",
+//       devices: results
+//     });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // ✅ Get logs saved in PC
 app.post("/api/log-command", (req, res) => {
@@ -492,13 +527,19 @@ app.post("/api/log-command", (req, res) => {
   res.json({ message: "Log received" });
 
   // File writing happens after response
-  fs.appendFile(filePath, logEntry, (err) => {
-    if (err) {
-      console.error("Failed to save log:", err);
-    } else {
-      if (eMS_LOGS) console.log(`✅ Log saved: ${filePath}`);
-    }
-  });
+  // fs.appendFile(filePath, logEntry, (err) => {
+  //   if (err) {
+  //     console.error("Failed to save log:", err);
+  //   } else {
+  //     if (eMS_LOGS) console.log(`✅ Log saved: ${filePath}`);
+  //   }
+  // });
+
+  writeLog(
+    `${filePath}`,
+    logEntry
+  );
+
 });
 
 app.get("/api/historical-data", async (req, res) => {
@@ -577,11 +618,12 @@ function getFormattedDateTime(outType = 'string') {
   const SS = pad(today.getSeconds());
 
   if (outType === 'string') {
-  return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
+    return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
   } else {
     return `${dd}_${mm}_${yy}_${HH}_${MM}_${SS}`;
   }
 }
+
 function sendX(socket) {
   const msg = `%X000${getFormattedDateTime()}$`;
   console.log(`⬅️ Sending back: ${msg}`);
@@ -591,6 +633,7 @@ function sendX(socket) {
   }
 }
 
+// *=================================== CLEANING CODE ===================================
 // Function to delete DB Records
 async function DBCleanup() {
   try {
@@ -621,10 +664,10 @@ async function DBCleanup() {
         .skip(MAX_DOCS - 1);
 
       if (!boundaryDoc || !boundaryDoc.timestamp) {
-        if (eMS_LOGS) console.log("Unable to determine boundary timestamp for capping", 'CLEANUP');
+        console.error("Unable to determine boundary timestamp for capping", 'CLEANUP');
         return;
       }
-      
+
       const capRes = await SensorReading.deleteMany({
         timestamp: { $lt: boundaryDoc.timestamp }
       });
@@ -672,7 +715,7 @@ function deleteLogFiles() {
     if (err) {
       // If directory doesn't exist, that's fine - nothing to delete
       if (err.code === 'ENOENT') return;
-      console.log(`⚠️ Error reading log directory: ${err}`);
+      console.error(`⚠️ Error reading log directory: ${err}`);
       return;
     }
 
@@ -683,7 +726,7 @@ function deleteLogFiles() {
 
       fs.stat(filePath, (err, stats) => {
         if (err) {
-          console.log(`⚠️ Error getting stats for ${filename}: ${err}`);
+          console.error(`⚠️ Error getting stats for ${filename}: ${err}`);
           return;
         }
 
@@ -691,7 +734,7 @@ function deleteLogFiles() {
         if (stats.mtimeMs < thresholdTime) {
           fs.unlink(filePath, (err) => {
             if (err) {
-              console.log(`⚠️ Error deleting ${filename}: ${err}`);
+              console.error(`⚠️ Error deleting ${filename}: ${err}`);
             } else {
               console.log(`✅ ${filename} successfully deleted ✅`);
             }
@@ -708,6 +751,31 @@ function logCleanupScheduler() {
   setInterval(deleteLogFiles, 24 * 60 * 60 * 1000);
 }
 logCleanupScheduler();
+// *=================================== CLEANING CODE ===================================
+
+
+function getLogStream(filePath) {
+  if (!logStreams[filePath]) {
+    // make sure directory exists
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+    logStreams[filePath] = fs.createWriteStream(filePath, {
+      flags: "a" // append mode
+    });
+
+    logStreams[filePath].on("error", (err) => {
+      console.error("Log stream error:", err.message);
+    });
+  }
+
+  return logStreams[filePath];
+}
+
+function writeLog(filePath, data) {
+  const stream = getLogStream(filePath);
+  stream.write(data + "\n");
+}
+
 
 const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
@@ -731,7 +799,7 @@ const server = net.createServer((socket) => {
       if (eMS_LOGS) console.log(`Raw data received (${data.length} bytes) from`, clientInfo);
       // console.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
 
-      buffer = Buffer.concat([buffer, data]);
+      // buffer = Buffer.concat([buffer, data]);
       // console.log(`Total buffer size: ${buffer.length} bytes`);
 
       let mac = null;
@@ -784,10 +852,10 @@ const server = net.createServer((socket) => {
         const mac = sanitizedMac.toLowerCase(); //! Converting to LowerCase()
         const humidity = +buffer.readFloatLE(17).toFixed(2);
         const insideTemperature = +buffer.readFloatLE(21).toFixed(2);
-        const outsideTemperature = +buffer.readFloatLE(25).toFixed(2);
+        const outsideTemperature = +buffer.readFloatLE(25).toFixed(2); // "+" converts string to number as toFixed return string
         const lockStatus = buffer[29] === 1 ? "OPEN" : "CLOSED";
         const doorStatus = buffer[30] === 1 ? "OPEN" : "CLOSED";
-        const waterLogging = !!buffer[31];
+        const waterLogging = !!buffer[31]; // "!!" -> converts true/false to 1/0
         const waterLeakage = !!buffer[32];
         const outputVoltage = +buffer.readInt16LE(33).toFixed(2);
         const hupsDVC = buffer.readInt16LE(35);
@@ -795,7 +863,7 @@ const server = net.createServer((socket) => {
         const hupsBatVolt = buffer.readInt16LE(39);
         const batteryBackup = +buffer.readFloatLE(41).toFixed(2);
         const alarmActive = !!buffer[45];
-        const fireAlarm = !!buffer[46];
+        const fireAlarm = buffer[46];
         const fanLevel1Running = !!buffer[47];
         const fanLevel2Running = !!buffer[48];
         const fanLevel3Running = !!buffer[49];
@@ -809,14 +877,10 @@ const server = net.createServer((socket) => {
         for (let i = 0; i < 8; i++) {
           hupsAlarms[i] = (hupsStat >> (i) & 0x01);
         }
-        console.log("hupsAlarms: ", hupsAlarms);
 
         const hupsRes = buffer[56]; // unused
-        console.log("hupsRes: ", hupsRes);
 
         const failMask = buffer[57]; // unused
-        console.log("failMask: ", failMask);
-
 
         if (padding === 0x31 && !alreadyReplied) {
           sendX(socket);
@@ -908,29 +972,29 @@ const server = net.createServer((socket) => {
                   console.error(`❌ Failed to create directory ${snapshotOutputDir}:`, err.message);
                 }
 
-          axios({
-            method: 'GET',
-            url: url,
+                axios({
+                  method: 'GET',
+                  url: url,
                   responseType: 'stream',
                   timeout: 10000
-          })
-            .then((response) => {
+                })
+                  .then((response) => {
                     const writer = fs.createWriteStream(snapshotOutputPath);
                     response.data.pipe(writer);
 
-              return new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-              });
-            })
-            .then(() => {
+                    return new Promise((resolve, reject) => {
+                      writer.on('finish', resolve);
+                      writer.on('error', reject);
+                    });
+                  })
+                  .then(() => {
                     if (eMS_LOGS) console.log(`✅ Snapshot captured: ${snapshotFileName}`);
                   })
-            .catch((error) => {
-              console.error(`❌ Error capturing snapshot: ${error.message}`);
-            });
+                  .catch((error) => {
+                    console.error(`❌ Error capturing snapshot: ${error.message}`);
+                  });
               }, 3000); // 3 second delay
-        }
+            }
           } catch (err) {
             console.error(`Error occured while caputuring snapshots: ${err}`)
           }
@@ -943,25 +1007,33 @@ const server = net.createServer((socket) => {
           const fileName = `${now.getDate()}_${now.getMonth() + 1
             }_${now.getHours()}.inc`;
 
+          // const sensorData = {
+          //   humidity: humidity,
+          //   insideTemperature: insideTemperature,
+          //   outsideTemperature: outsideTemperature,
+          //   inputVoltage: inputVoltage,
+          //   outputVoltage: outputVoltage,
+          //   batteryBackup: batteryBackup,
+          // };
+
           const IncLogFilePath = path.join(IncLogDir, fileName);
           const timestamp = now.toLocaleString();
-          const IncLogEntry = `[${timestamp}] | 
-                                MAC:${mac} | 
-                                Humid=${humidity} |
-                                IT=${insideTemperature} |
-                                OT=${outsideTemperature} |
-                                IV=${inputVoltage} |
-                                OV=${outputVoltage} |
-                                BB=${batteryBackup}\n;`;
+          const IncLogEntry = `[${timestamp}] | MAC:${mac} | Humid=${humidity} | IT=${insideTemperature} | OT=${outsideTemperature} | IV=${inputVoltage} | OV=${outputVoltage} | BB=${batteryBackup}`;
 
           // File writing happens after response
-          fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
-            if (err) {
-              console.error("Failed to save log:", err);
-            } else {
-              if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
-            }
-          });
+          // fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
+          //   if (err) {
+          //     console.error("Failed to save log:", err);
+          //   } else {
+          //     if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
+          //   }
+          // });
+
+          writeLog(
+            `${IncLogFilePath}`,
+            IncLogEntry
+          );
+
         }
         // ===================== Logging Incoming Data from Simulator =====================
 
@@ -1065,6 +1137,10 @@ const server = net.createServer((socket) => {
         if (activeAlarms.length > 0) {
           // const alarmLogDir = "C:/CommandLogs/alarm"
 
+          // if (!fs.existsSync(alarmLogDir)) {
+          //   fs.mkdirSync(alarmLogDir, { recursive: true });
+          // }
+
           const now = new Date();
           const timestamp = now.toLocaleString();
 
@@ -1079,13 +1155,18 @@ const server = net.createServer((socket) => {
 
           const alarmFilePath = path.join(alarmLogDir, alarmFileName);
 
-          fs.appendFile(alarmFilePath, logAlarm, (err) => {
-            if (err) {
-              console.error("Failed to save log:", err);
-            } else {
-              if (eMS_LOGS) console.log(`✅ Log saved: ${alarmFilePath}`);
-            }
-          });
+          // fs.appendFile(alarmFilePath, logAlarm, (err) => {
+          //   if (err) {
+          //     console.error("Failed to save log:", err);
+          //   } else {
+          //     if (eMS_LOGS) console.log(`✅ Log saved: ${alarmFilePath}`);
+          //   }
+          // });
+
+          writeLog(
+            `${alarmFilePath}`,
+            logAlarm
+          );
         }
 
         // Build and save the reading (fan status is now independent, not derived)
@@ -1131,6 +1212,7 @@ const server = net.createServer((socket) => {
         // console.log("fan1", fanLevel1Running);
 
         connectedDevices.set(mac, socket);
+        // readingBuffer = readingBuffer.filter(r => r.mac !== mac);
         readingBuffer.push(reading);
 
         if (readingBuffer.length >= BULK_SAVE_LIMIT) {
@@ -1149,6 +1231,12 @@ const server = net.createServer((socket) => {
           buffer = buffer.slice(58);
         }
 
+        // setImmediate(async () => {
+        //   if (readingBuffer.length >= BULK_SAVE_LIMIT) {
+        //     const batch = readingBuffer.splice(0);
+        //     await SensorReading.insertMany(batch, { ordered: false });
+        //   }
+        // });
 
         if (eMS_LOGS) console.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
       }
@@ -1200,3 +1288,17 @@ server.listen(4000, "0.0.0.0", () => {
 app.listen(5000, "0.0.0.0", () => {
   console.log("HTTP server running on port 5000");
 });
+
+// setInterval(async () => {
+//   if (readingBuffer.length === 0) return;
+
+//   const batch = readingBuffer.splice(0, BULK_SAVE_LIMIT);
+
+//   try {
+//     await SensorReading.insertMany(batch, { ordered: false });
+//   } catch (err) {
+//     console.error("❌ Bulk insert failed:", err.message);
+//   }
+// }, 200); // flush every 200ms
+
+
