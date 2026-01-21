@@ -7,7 +7,8 @@ const fs = require('fs');
 
 
 // const TOTAL_DEVICES = 156;
-const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
+// const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
+const TOTAL_DEVICES = 10;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
@@ -206,6 +207,7 @@ function startDevice(mac, index) {
   try {
     // const client = net.createConnection({ host: '34.224.174.148', port: 4000 });
     const client = net.createConnection({ host: 'localhost', port: 4000 });
+    console.log("Client connected");
 
     // 🔧 NEW: Store this device in our connected devices map
     connectedDevices.set(mac, client);
@@ -216,7 +218,8 @@ function startDevice(mac, index) {
       if (isCSVMode && csvData.length > 0) {
         console.log(`📄 ${mac} waiting for CSV data dispatcher...`);
         // Device will receive data from startDataDispatcher()
-      } else if (!isCSVMode || csvData.length === 0) {
+        } else if (!isCSVMode || csvData.length === 0) {
+      // } else if (!isCSVMode === false) {
         console.log(`🔄 ${mac} starting in RANDOM mode`);
 
         // SENDING 1 PACKET/SECOND/DEVICE
@@ -563,44 +566,49 @@ function startDataDispatcher() {
 
 async function initializeSimulator() {
   try {
-    console.log('📄 Attempting to load CSV data...');
-    csvData = await readCSV(process.env.CSV_PATH || './sim_pack2.csv');
+    if (isCSVMode === true) {
 
-    preIndexCSVData();
+      console.log('📄 Attempting to load CSV data...');
+      csvData = await readCSV(process.env.CSV_PATH || './sim_pack2.csv');
 
-    // 🔍 Debug: Analyze CSV data
-    const uniqueMACs = [...new Set(csvData.map(row => row.mac))];
-    console.log(`🔍 CSV Analysis:`);
-    console.log(`   Total rows: ${csvData.length}`);
-    console.log(`   Unique MACs: ${uniqueMACs.length}`);
-    console.log(`   MACs in CSV: ${uniqueMACs.join(', ')}`);
+      preIndexCSVData();
 
-    // Show seconds distribution
-    const secondsSample = [...new Set(csvData.map(row => parseInt(row.seconds)))].sort((a, b) => a - b).slice(0, 10);
-    console.log(`   First 10 seconds: [${secondsSample.join(', ')}]`);
+      // 🔍 Debug: Analyze CSV data
+      const uniqueMACs = [...new Set(csvData.map(row => row.mac))];
+      console.log(`🔍 CSV Analysis:`);
+      console.log(`   Total rows: ${csvData.length}`);
+      console.log(`   Unique MACs: ${uniqueMACs.length}`);
+      console.log(`   MACs in CSV: ${uniqueMACs.join(', ')}`);
 
-    // Start all devices
-    for (let i = 0; i < TOTAL_DEVICES; i++) {
-      const mac = generateMac(i);
-      startDevice(mac, i);
-      devices.push(mac);
+      // Show seconds distribution
+      const secondsSample = [...new Set(csvData.map(row => parseInt(row.seconds)))].sort((a, b) => a - b).slice(0, 10);
+      console.log(`   First 10 seconds: [${secondsSample.join(', ')}]`);
+
+      // Start all devices
+      for (let i = 0; i < TOTAL_DEVICES; i++) {
+        const mac = generateMac(i);
+        startDevice(mac, i);
+        devices.push(mac);
+      }
+
+      // 🔧 NEW: Start the central data dispatcher after a brief delay
+      setTimeout(() => {
+        startDataDispatcher();
+      }, 3000);
+
+    } else {
+      console.log('❌ CSV not found, using FULL RANDOM mode...');
+      isCSVMode = false;
+
+      // Start all devices in random mode
+      for (let i = 0; i < TOTAL_DEVICES; i++) {
+        const mac = generateMac(i);
+        startDevice(mac, i);
+        devices.push(mac);
+      }
     }
-
-    // 🔧 NEW: Start the central data dispatcher after a brief delay
-    setTimeout(() => {
-      startDataDispatcher();
-    }, 3000);
-
   } catch (err) {
-    console.log('❌ CSV not found, using FULL RANDOM mode...');
-    isCSVMode = false;
-
-    // Start all devices in random mode
-    for (let i = 0; i < TOTAL_DEVICES; i++) {
-      const mac = generateMac(i);
-      startDevice(mac, i);
-      devices.push(mac);
-    }
+    console.log("Error in starting Simulator");
   }
 }
 
