@@ -8,7 +8,7 @@ const fs = require('fs');
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = 10;
+const TOTAL_DEVICES = 2;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
@@ -210,9 +210,9 @@ function sendPacketForRow(client, row, mac, index) {
 
 function startDevice(mac, index) {
   try {
-    // const client = net.createConnection({ host: '34.224.174.148', port: 4000 });
-    const client = net.createConnection({ host: 'localhost', port: 4000 });
-    console.log("Client connected");
+    const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
+    // const client = net.createConnection({ host: 'localhost', port: 4000 });
+    console.log("Client connected", mac);
 
     // 🔧 NEW: Store this device in our connected devices map
     connectedDevices.set(mac, client);

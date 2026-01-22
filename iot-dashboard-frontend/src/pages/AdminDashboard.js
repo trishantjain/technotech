@@ -380,10 +380,17 @@ const RegisterDeviceTab = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setStatus("");
-    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    // const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
+    /*
+      \d -> For digits 1-9
+      {1,3} -> Allows from 1 digit to 3 digit values
+      \. -> Match for dot
+    */
+    const macRegex = /^192\.168\.0\.(\d{1,3})$/;
     const cleanedMac = form.mac.trim();
+    console.log(cleanedMac);
     if (!macRegex.test(cleanedMac)) {
-      setStatus("❌ Invalid MAC address format. Use XX:XX:XX:XX:XX:XX");
+      setStatus("❌ Invalid MAC address format. Use XXX:XXX:X:X");
       return;
     }
     // Check if MAC already exists
@@ -445,7 +452,7 @@ const RegisterDeviceTab = () => {
           placeholder="MAC Address"
           value={form.mac}
           maxLength={17}
-          pattern="^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
+          pattern="^192\.168\.0\.(\d{1,3})$"
           title="Format: XX:XX:XX:XX:XX:XX (hex digits only)"
           onChange={(e) => setForm({ ...form, mac: e.target.value })}
           required
