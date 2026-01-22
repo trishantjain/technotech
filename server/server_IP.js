@@ -411,7 +411,7 @@ app.get("/api/snapshots/:imageName", (req, res) => {
   try {
     const imageName = req.params.imageName;
     const rawMac = req.query.mac;
-    const macSuffix = rawMac.slice(9, 17).replace(/[: ]/g, "_"); // Gets characters 9-16 (0-indexed)
+    const macSuffix = rawMac.slice(8).replace(/[. ]/g, "_"); // Gets characters 9-16 (0-indexed)
 
     const imagePath = path.join(`${snapshotOutputDir}/${macSuffix}`, imageName);
 
@@ -440,11 +440,10 @@ app.get("/api/snapshots", (req, res) => {
 
 
     // Extract the last part of MAC 
-    const macSuffix = rawMac.slice(9, 17).replace(/[: ]/g, "_"); // Gets characters 9-16 (0-indexed)
+    const macSuffix = rawMac.slice(8).replace(/[. ]/g, "_"); // Gets characters 9-16 (0-indexed)
     // console.log("MAC ADDRESS: ", macSuffix);
 
     const snapshotsDir = `${snapshotOutputDir}/${macSuffix}`;
-
     const files = fs
       .readdirSync(snapshotsDir)
       .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
@@ -834,7 +833,7 @@ const server = net.createServer((socket) => {
   const clientInfo = `${socket.remoteAddress}:${socket.remotePort}`;
   const connStart = Date.now();
   if (eMS_LOGS) {
-    console.trace(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
+    console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
     // console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
   }
   console.log(`New TCP Connection from`, clientInfo);
@@ -853,7 +852,7 @@ const server = net.createServer((socket) => {
       // debug.lastPacketTime = Date.now();
       // debug.bufferStats.discardedBytes.totalBytes += data.length;
 
-      console.log(`Raw data receivedk ${data.toString('hex')} with length (${data.length} bytes) from`, clientInfo);
+      console.log(`Raw data received ${data.toString('hex')} with length (${data.length} bytes) from`, clientInfo);
       // console.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
 
       // buffer = Buffer.concat([buffer, data]);
@@ -1025,7 +1024,7 @@ const server = net.createServer((socket) => {
               console.log("⏰ Snapshot for HiFocus Camera ⏰");
 
               const ip = cameraDetails.ipCamera.ip.trim();
-              const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(9, 17).replace(/[: ]/g, '_'));
+              const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[: ]/g, '_'));
 
               // Using ffmpeg to capture snapshot from the HI-Focus Camera
               const args = [
@@ -1058,7 +1057,7 @@ const server = net.createServer((socket) => {
                 let url = `https://${camIP}/CGI/command/snap?channel=01`;
                 console.log("📸 Capturing from URL:", url);
 
-                const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(9, 17).replace(/[: ]/g, '_'));
+                const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[. ]/g, '_'));
                 const snapshotOutputPath = path.join(snapshotOutputDir_MAC, snapshotFileName);
 
                 if (eMS_LOGS) console.log("🔴outputDir: ", snapshotOutputDir, "🔴");

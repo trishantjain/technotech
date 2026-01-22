@@ -576,7 +576,7 @@ function DashboardView() {
                 </button>
                 <button
                   className={activeTab === "snapshots" ? "active" : ""}
-                  onClick={() => fetchSnapshots(selectedMac)}
+                  onClick={() => { setActiveTab("snapshots"); fetchSnapshots(selectedMac); }}
                 >
                   Snapshots
                 </button>
