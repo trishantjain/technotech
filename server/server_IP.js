@@ -11,13 +11,13 @@ const SensorReading = require("./models/SensorReading");
 const thresholds = require("./thresholds");
 const fs = require("fs");
 const path = require("path");
-const axios = require('axios')
+const axios = require('axios');
+const { spawn } = require('child_process');
 
 const app = express();
 const connectedDevices = new Map();
 app.use(bodyParser.json());
 const cors = require("cors");
-const { spawn } = require("child_process");
 app.use(cors());
 
 
@@ -867,21 +867,47 @@ const server = net.createServer((socket) => {
 
         // if (buffer.length < 4) break;
 
-        const b0 = socket.buffer[0];
-        const b1 = socket.buffer[1];
-        const b2 = socket.buffer[2];
-        const b3 = socket.buffer[3];
+        // const b0 = socket.buffer[0];
+        // const b1 = socket.buffer[1];
+        // const b2 = socket.buffer[2];
+        // const b3 = socket.buffer[3];
 
 
-        // invalid / garbage header → resync exactly like MAC
-        if (
-          b0 === 0 || b0 === 255 ||           // invalid first octet
-          b1 === undefined || b2 === undefined || b3 === undefined
-        ) {
+        // // invalid / garbage header → resync exactly like MAC
+        // if (
+        //   b0 === 0 || b0 === 255 ||           // invalid first octet
+        //   b1 === undefined || b2 === undefined || b3 === undefined
+        // ) {
+        //   socket.buffer = socket.buffer.slice(1);
+        //   continue;
+        // }
+
+        // Handle protocol preamble once after device restart
+        if (!socket.preambleHandled && socket.buffer.length >= 4) {
+          const preamble = socket.buffer.slice(0, 4).toString('ascii');
+          if (preamble === 'tcp2') {
+            socket.buffer = socket.buffer.slice(4);
+            socket.preambleHandled = true;
+          }
+        }
+
+        const header = socket.buffer.slice(0, 8).toString('ascii');
+
+        if (!/^[0-9a-fA-F]{8}$/.test(header)) {
+          // corrupted / misaligned packet → resync like MAC server
           socket.buffer = socket.buffer.slice(1);
           continue;
         }
 
+        const ipHexAscii = socket.buffer.slice(0, 8).toString('ascii');
+
+        // Convert hex pairs → decimal
+        const ip = ipHexAscii
+          .match(/.{2}/g)
+          .map(h => parseInt(h, 16))
+          .join('.');
+
+        console.log("EXTRACTED IP: ", ip);
 
         // wait for full packet
         if (socket.buffer.length < 58) break;
@@ -889,7 +915,7 @@ const server = net.createServer((socket) => {
         const packet = socket.buffer.slice(0, 58);
         socket.buffer = socket.buffer.slice(58);
 
-        const ip = `${packet[0]}.${packet[1]}.${packet[2]}.${packet[3]}`;
+        // const ip = `${packet[0]}.${packet[1]}.${packet[2]}.${packet[3]}`;
 
         //! =============== CODE FOR MAC CHECKING =============== 
         // const bufStr = buffer.toString("utf-8");
@@ -967,9 +993,9 @@ const server = net.createServer((socket) => {
         const fanStatusBits = packet.readUInt16LE(52);
 
         const pwsFailCount = packet[54]; // Password Failure Count
-        const hupsStat = packet[55]; // unused
-        const hupsRes = packet[56]; // unused
-        const failMask = packet[57]; // unused
+        const hupsStat = packet[55];
+        const hupsRes = packet[56];
+        const failMask = packet[57];
 
         const packetTimestamp = new Date();
 
@@ -1047,10 +1073,10 @@ const server = net.createServer((socket) => {
             } else {
               console.log("⏰ Snapshot for Sparsh Camera ⏰");
 
-              let timestamp = getFormattedDateTime("path");
+              console.log("Timestamp: ", timestamp);
 
               // Extracting Camera IP from DB for Sparsh Camera
-              let camIP = cameraDetails.ipCamera.ip.trim(); 
+              let camIP = cameraDetails.ipCamera.ip.trim();
 
               // Added 3 seconds delay for first snapshot capture to wait for opening the door 
               setTimeout(() => {
