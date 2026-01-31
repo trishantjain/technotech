@@ -608,14 +608,14 @@ function DashboardView() {
                   <Gauge
                     label="Input Volt"
                     value={(latestReading.inputVoltage).toFixed(2)}
-                    max={5}
+                    max={100}
                     color="#06d6a0"
                     alarm={latestReading.inputVoltageAlarm}
                   />
                   <Gauge
                     label="Output Volt"
                     value={(latestReading.outputVoltage).toFixed(2)}
-                    max={5}
+                    max={100}
                     color="#118ab2"
                     alarm={latestReading.outputVoltageAlarm}
                   />
@@ -642,18 +642,19 @@ function DashboardView() {
                   />
                   {latestReading.batteryBackup <= 10 ?
                     <Gauge
-                      label="LockBat(Left Hours)"
+                      label="LockBat(Left..)"
                       value={0}
                       max={12}
                       color="#ffc107"
                       alarm={latestReading.batteryBackupAlarm}
                     /> :
                     <Gauge
-                      label="LockBat(Left Hours)"
+                      label="LockBat(Left..)"
                       value={Math.floor(((latestReading.batteryBackup - 9) * 4))}
                       // value={6}
                       max={12}
                       color="#ffc107"
+                      hoverTitle={"LockBat Left Hours"}
                       alarm={latestReading.batteryBackupAlarm}
                     />
                   }
@@ -798,7 +799,7 @@ function DashboardView() {
                       <div className="fan-label">Open PWD</div>
                     </div>
                   </div>
-                  <span>SysId: {selectedMac.slice(9, 17)}</span>
+                  <span>SysId: {selectedMac.slice(8)}</span>
                   {status && <p>{status}</p>}
                 </div>
               )}
@@ -1043,7 +1044,7 @@ function DashboardView() {
                     key={mac}
                     className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
                       }`}
-                    onClick={() => {setSelectedMac(mac); setSelectedDevice(device.locationId)}}
+                    onClick={() => { setSelectedMac(mac); setSelectedDevice(device.locationId) }}
                   >
                     {device.locationId || mac}
                   </div>
@@ -1175,7 +1176,8 @@ function DashboardView() {
   );
 }
 
-function Gauge({ label, value, max, color, alarm = false }) {
+function Gauge({ label, value, max, color, alarm = false, hoverTitle }) {
+
   return (
     <div className={`gauge-box small ${alarm ? "alarm" : ""}`}>
       <CircularProgressbar
@@ -1188,7 +1190,13 @@ function Gauge({ label, value, max, color, alarm = false }) {
           trailColor: "#333",
         })}
       />
-      <div className="gauge-label">{label}</div>
+      <div
+        className="gauge-label"
+        style={hoverTitle ? { cursor: "pointer" } : {}}
+        title={hoverTitle}
+      >
+        {label}
+      </div>
     </div>
   );
 }
