@@ -438,28 +438,31 @@ app.get("/api/snapshots", (req, res) => {
       return res.status(400).json({ error: "MAC address is required" });
     }
 
-
     // Extract the last part of MAC 
     const macSuffix = rawMac.slice(8).replace(/[. ]/g, "_"); // Gets characters 9-16 (0-indexed)
     // console.log("MAC ADDRESS: ", macSuffix);
 
     const snapshotsDir = `${snapshotOutputDir}/${macSuffix}`;
-    const files = fs
-      .readdirSync(snapshotsDir)
-      .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
-      // Sorting images in descending order based on timestamp in filename
-      .sort((a, b) => {
-        // Extract YYMMDDHHMMSS format for comparison
-        const getKey = (filename) => {
-          const match = filename.match(/_(\d{2})_(\d{2})_(\d{2})_(\d{2}f)_(\d{2})_(\d{2})\./);
-          return match ? match[3] + match[2] + match[1] + match[4] + match[5] + match[6] : '0';
-        };
-        return getKey(b).localeCompare(getKey(a));
-      })
-      .slice(0, 15); // Get last 15 images
-
-    // console.log("FILES: ", files);
-
+    let files = [];
+    try {
+      files = fs
+        .readdirSync(snapshotsDir)
+        .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
+        // Sorting images in descending order based on timestamp in filename
+        .sort((a, b) => {
+          // Extract YYMMDDHHMMSS format for comparison
+          const getKey = (filename) => {
+            const match = filename.match(/_(\d{2})_(\d{2})_(\d{2})_(\d{2}f)_(\d{2})_(\d{2})\./);
+            return match ? match[3] + match[2] + match[1] + match[4] + match[5] + match[6] : '0';
+          };
+          return getKey(b).localeCompare(getKey(a));
+        })
+        .slice(0, 15); // Get last 15 images
+    } catch (dirErr) {
+      console.error("Snapshots directory not found or error reading:", dirErr.message);
+      // Return empty array if directory not found
+      files = [];
+    }
     res.json(files);
   } catch (err) {
     console.error("Error reading snapshots:", err);
