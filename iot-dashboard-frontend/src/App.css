@@ -207,6 +207,13 @@ body {
   content: "2 Attempts Left";
 }
 
+.alarm-led.wait {
+  background-color: white;
+  box-shadow: 0 0 12px white;
+  /* animation: blinkAlarm 1s infinite alternate; */
+}
+
+
 /* .pass{
   display: block;
 } */
