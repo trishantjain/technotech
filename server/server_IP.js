@@ -590,6 +590,51 @@ app.post("/api/log-command", (req, res) => {
 
 // ✅ Fetch logs from PC
 app.get("/api/device-logs", (req, res) => {
+  try {
+    const { mac, type = "inc", hours = 1 } = req.query;
+
+    if (!mac) return res.status(400).json({ error: "MAC required" });
+
+    const macDir = mac.replace(/[:. ]/g, "_");
+
+    let baseDir;
+    if (type === "inc") baseDir = IncLogDir;
+    else if (type === "out") baseDir = outLogDir;
+    else if (type === "alarm") baseDir = alarmLogDir;
+    else return res.status(400).json({ error: "Invalid log type" });
+
+    const deviceDir = path.join(baseDir, macDir);
+
+    if (!fs.existsSync(deviceDir)) {
+      return res.json({ logs: [] });
+    }
+
+    const cutoffTime = Date.now() - hours * 60 * 60 * 1000;
+    const logs = [];
+
+    const files = fs.readdirSync(deviceDir)
+      .filter(f => f.endsWith(type === "out" ? ".out" : ".inc"))
+      .sort()
+      .reverse(); // latest first
+
+    for (const file of files) {
+      const filePath = path.join(deviceDir, file);
+      const content = fs.readFileSync(filePath, "utf-8");
+
+      content.split("\n").forEach(line => {
+        const match = line.match(/^\[(.*?)\]/);
+        if (!match) return;
+
+        const logTime = new Date(match[1]).getTime();
+        if (logTime >= cutoffTime) logs.push(line);
+      });
+    }
+    
+    res.json({ logs: logs.reverse() });
+  } catch (err) {
+    console.error("Error fetching device logs:", err?.stack);
+  }
+
 
 });
 

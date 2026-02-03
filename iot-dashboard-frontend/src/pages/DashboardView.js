@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import swal from "sweetalert2";
 import { useMemo } from "react";
+import thresholds from "./thresholds";
 // import thresholds from "../../../server/thresholds";
 // import GaugeComponent from 'react-gauge-component';
 
@@ -36,6 +37,8 @@ function DashboardView() {
   // const [videosCaptured, setVideosCaptured] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState("");
+
+  const [logs, setLogs] = useState([]);
 
   //Map and marker refs
   const mapRef = useRef(null);
@@ -61,6 +64,17 @@ function DashboardView() {
     }
     return map;
   }, [readings]);
+
+  const frontendAlarmsByMac = useMemo(() => {
+    const map = {};
+    for (const mac in latestReadingsByMac) {
+      map[mac] = alarmComputation(
+        latestReadingsByMac[mac],
+        thresholds
+      );
+    }
+    return map;
+  }, [latestReadingsByMac]);
 
 
   const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
@@ -358,6 +372,70 @@ function DashboardView() {
     if (pwd === "admin123") sendCommand(`%L00P${getFormattedDateTime()}$`);
     else setStatus("Wrong password for opening lock!");
   };
+
+  // Centralized alarm computation function
+  function alarmComputation(reading, thresholds) {
+    if (!reading) return { active: false, alarms: [] };
+
+    const alarms = [];
+
+    if (reading.fireAlarm) alarms.push("Fire Alarm");
+    if (reading.waterLeakage) alarms.push("Water Leakage");
+    if (reading.waterLogging) alarms.push("Water Logging");
+    if (reading.lockStatus === "OPEN") alarms.push("Lock Open");
+    if (reading.doorStatus === "OPEN") alarms.push("Door Open");
+
+    // threshold-based (same logic as backend)
+    if (reading.insideTemperature > thresholds.insideTemperature.max) {
+      // setLogs([...logs, "High Inside Temperature"]);
+      alarms.push("High Inside Temperature");
+    }
+
+    if (reading.inputVoltage < thresholds.inputVoltage.min) {
+      // setLogs([...logs, "Low Input Voltage"]);
+      alarms.push("Low Input Voltage");
+    }
+
+    return {
+      active: alarms.length > 0,
+      alarms,
+    };
+  }
+
+  useEffect(() => {
+    // If no device is selected
+    if (!selectedMac) return;
+
+    // Getting reading of selected mac
+    const reading = latestReadingsByMac[selectedMac];
+    if (!reading) return;
+
+    // Getting alarms for the selectedMac
+    const alarmResult = alarmComputation(reading, thresholds);
+
+    if (alarmResult.alarms.length === 0) return;
+
+    setLogs(prev => [
+      ...prev,
+      ...alarmResult.alarms.map(
+        alarm => `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarm}`
+      )
+    ]);
+
+  }, [latestReadingsByMac, selectedMac]);
+
+
+  useEffect(() => {
+    const resetLogTime = 60 * 60 * 1000; // 1 hour
+
+    // Reseting Logs after every 1 hour
+    const logTimer = setInterval(() => {
+      setLogs([]);
+    }, resetLogTime);
+
+    // Stops timer after resetting log =
+    return () => clearInterval(logTimer);
+  }, []);
 
   const toggleFullscreen = () => {
     const iframe = document.querySelector(".camera-iframe");
@@ -990,7 +1068,18 @@ function DashboardView() {
             <p>Select a device to see its historical chart</p>
           )} */}
 
-           
+
+          <div className="log-panel">
+            {logs.length === 0 ? (
+              <p>No logs in last 1 hour</p>
+            ) : (
+              logs.map((line, i) => (
+                <pre key={i} className="log-line">{line}</pre>
+              ))
+            )}
+          </div>
+
+
 
         </div>
 
