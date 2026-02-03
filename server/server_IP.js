@@ -559,9 +559,15 @@ app.post("/api/log-command", (req, res) => {
   //   fs.mkdirSync(outLogDir, { recursive: true });
   // }
 
-  const filePath = path.join(logDir, fileName);
+  const macDir = mac.replace(/[:. ]/g, "_");
+  const deviceCmdDir = path.join(logDir, macDir);
+
+  fs.mkdirSync(deviceCmdDir, { recursive: true });
+
+  const filePath = path.join(deviceCmdDir, fileName);
+
   const timestamp = now.toLocaleString();
-  const logEntry = `[${timestamp}] | MAC:${mac} | ${status}  | COMMAND:"${command}" | MESSAGE:"${message}"\n`;
+  const logEntry = `[${timestamp}] | MAC:${mac} | ${status}  | COMMAND:"${command}" | MESSAGE:"${message}"`;
 
   // ✅ Send response immediately, log in background
   res.json({ message: "Log received" });
@@ -579,6 +585,11 @@ app.post("/api/log-command", (req, res) => {
     `${filePath}`,
     logEntry
   );
+
+});
+
+// ✅ Fetch logs from PC
+app.get("/api/device-logs", (req, res) => {
 
 });
 
@@ -631,6 +642,8 @@ const IncLogDir = process.env.INC_LOG_DIR;
 const outLogDir = process.env.OUT_LOG_DIR;
 const alarmLogDir = process.env.ALARM_LOG_DIR;
 const snapshotOutputDir = process.env.SNAP_DIR;
+
+const logDir = outLogDir;
 
 
 function dirCheck(dir, enabled) {
@@ -762,7 +775,7 @@ function deleteLogFiles() {
   const daysThreshold = 3;
   const thresholdTime = Date.now() - (daysThreshold * 24 * 60 * 60 * 1000);
 
-  fs.readdir(IncLogDir, (err, files) => {
+  fs.readdir(IncLogDir, (err, macDirs) => {
     if (err) {
       // If directory doesn't exist, that's fine - nothing to delete
       if (err.code === 'ENOENT') return;
@@ -770,27 +783,43 @@ function deleteLogFiles() {
       return;
     }
 
-    files.forEach(filename => {
-      if (!filename.endsWith('.inc')) return;
+    macDirs.forEach(macDir => {
 
-      const filePath = path.join(IncLogDir, filename);
+      const fullDir = path.join(IncLogDir, macDir);
 
-      fs.stat(filePath, (err, stats) => {
-        if (err) {
-          console.error(`⚠️ Error getting stats for ${filename}: ${err}`);
-          return;
-        }
+      // fs.stat(filePath, (err, stats) => {
+      //   if (err) {
+      //     console.error(`⚠️ Error getting stats for ${filename}: ${err}`);
+      //     return;
+      //   }
 
-        // Check if file is older than threshold
-        if (stats.mtimeMs < thresholdTime) {
-          fs.unlink(filePath, (err) => {
-            if (err) {
-              console.error(`⚠️ Error deleting ${filename}: ${err}`);
-            } else {
-              console.log(`✅ ${filename} successfully deleted ✅`);
+      //   // Check if file is older than threshold
+      //   if (stats.mtimeMs < thresholdTime) {
+      //     fs.unlink(filePath, (err) => {
+      //       if (err) {
+      //         console.error(`⚠️ Error deleting ${filename}: ${err}`);
+      //       } else {
+      //         console.log(`✅ ${filename} successfully deleted ✅`);
+      //       }
+      //     });
+      //   }
+      // });
+
+      if (!fs.statSync(fullDir).isDirectory()) return;
+
+      fs.readdir(fullDir, (err, files) => {
+        if (err) return;
+
+        files.forEach(file => {
+          if (!file.endsWith('.inc')) return;
+
+          const filePath = path.join(fullDir, file);
+          fs.stat(filePath, (err, stats) => {
+            if (stats.mtimeMs < thresholdTime) {
+              fs.unlink(filePath, () => { });
             }
           });
-        }
+        });
       });
     });
   });
@@ -910,6 +939,13 @@ const server = net.createServer((socket) => {
           .map(h => parseInt(h, 16))
           .join('.');
 
+        // Reject obvious garbage IPs
+        if (!ip.startsWith('192.168.')) {
+          console.warn('🚫 Dropping invalid IP:', ip);
+          socket.buffer = socket.buffer.slice(1);
+          continue;
+        }
+
         console.log("EXTRACTED IP: ", ip);
 
         // wait for full packet
@@ -1001,6 +1037,7 @@ const server = net.createServer((socket) => {
         const failMask = packet[57];
 
         const packetTimestamp = new Date();
+        const macDir = mac.replace(/[:. ]/g, '_');
 
         // Getting HUPS Alarms
         const hupsAlarms = []
@@ -1144,7 +1181,10 @@ const server = net.createServer((socket) => {
           //   batteryBackup: batteryBackup,
           // };
 
-          const IncLogFilePath = path.join(IncLogDir, fileName);
+          const deviceIncDir = path.join(IncLogDir, macDir);
+          fs.mkdirSync(deviceIncDir, { recursive: true });
+
+          const IncLogFilePath = path.join(deviceIncDir, fileName);
           const timestamp = now.toLocaleString();
           const IncLogEntry = `[${timestamp}] | MAC:${mac} | Humid=${humidity} | IT=${insideTemperature} | OT=${outsideTemperature} | IV=${inputVoltage} | OV=${outputVoltage} | BB=${batteryBackup}`;
 
@@ -1274,12 +1314,15 @@ const server = net.createServer((socket) => {
             }_${now.getHours()}_Alarm.inc`;
 
           if (fanStatus.includes(2)) {
-            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}\n`;
+            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}`;
           } else {
-            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}\n`;
+            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}`;
           }
 
-          const alarmFilePath = path.join(alarmLogDir, alarmFileName);
+          const deviceAlarmDir = path.join(alarmLogDir, macDir);
+          fs.mkdirSync(deviceAlarmDir, { recursive: true });
+
+          const alarmFilePath = path.join(deviceAlarmDir, alarmFileName);
 
           // fs.appendFile(alarmFilePath, logAlarm, (err) => {
           //   if (err) {
@@ -1364,7 +1407,7 @@ const server = net.createServer((socket) => {
 
         socket.buffer = socket.buffer.slice(PACKET_LEN);
 
-        debugger;
+        // debugger;
         if (eMS_LOGS) console.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
       }
     } catch (err) {

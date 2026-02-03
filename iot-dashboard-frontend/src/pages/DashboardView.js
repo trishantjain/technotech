@@ -692,9 +692,9 @@ function DashboardView() {
                     {alarmKeys.map((alarm, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                            className={`alarm-led ${latestReading[alarm.key] === 87 ? "wait" : latestReading[alarm.key] ? "active" : ""
-                              }`}
-                          />
+                          className={`alarm-led ${latestReading[alarm.key] === 87 ? "wait" : latestReading[alarm.key] ? "active" : ""
+                            }`}
+                        />
                         <div className="alarm-label">{alarm.Name}</div>
                       </div>
                     ))}
@@ -923,7 +923,7 @@ function DashboardView() {
         {/* Panel 2: Chart */}
         <div className="panel">
           <h2>📈 Historical Data</h2>
-          {selectedMac && historicalData.length > 0 ? (
+          {/* {selectedMac && historicalData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={historicalData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -988,7 +988,10 @@ function DashboardView() {
             </ResponsiveContainer>
           ) : (
             <p>Select a device to see its historical chart</p>
-          )}
+          )} */}
+
+           
+
         </div>
 
         {/* Panel 3: Device Tiles */}
