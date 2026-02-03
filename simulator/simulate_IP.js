@@ -58,10 +58,9 @@ function generateIP(index) {
   return `192.168.0.${(index % 256).toString(10).padStart(2, '0')}`;
 }
 
-function ipStringToBuffer(ip) {
-  return Buffer.from(ip.split('.').map(n => parseInt(n, 10)));
+function ipStringToAsciiHexBuffer(ip) {
+  return Buffer.from(ip.split('.').map(n => parseInt(n, 10).toString(16).padStart(2, '0')).join(''), 'ascii');
 }
-console.log("mac converted: ", ipStringToBuffer("192.168.0.09"));
 
 function toFloatLE(value) {
   const buf = Buffer.alloc(4);
@@ -210,8 +209,8 @@ function sendPacketForRow(client, row, mac, index) {
 
 function startDevice(mac, index) {
   try {
-    const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
-    // const client = net.createConnection({ host: 'localhost', port: 4000 });
+    // const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
+    const client = net.createConnection({ host: 'localhost', port: 4000 });
     console.log("Client connected", mac);
 
     // 🔧 NEW: Store this device in our connected devices map
@@ -333,7 +332,7 @@ function startDevice(mac, index) {
 
           const packet = Buffer.concat([
             // Buffer.from(mac.padEnd(17, ' '), 'utf-8'), //0-16
-            ipStringToBuffer(mac),
+            ipStringToAsciiHexBuffer(mac),
             Buffer.alloc(13, 0x00),   // 13 bytes ZERO padding
             toFloatLE(humidity),  //17-20
             toFloatLE(insideTemp), //21-24
@@ -360,7 +359,6 @@ function startDevice(mac, index) {
             Buffer.from([failMask3]), //56
             Buffer.from([failMask4]), //57
           ]);
-          console.log(`MAC sended: ${ipStringToBuffer(mac)}`)
 
 
           const len = new TextEncoder().encode(JSON.stringify(outputVoltage)).length;
