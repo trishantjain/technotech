@@ -38,7 +38,10 @@ function DashboardView() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState("");
 
-  const [logs, setLogs] = useState([]);
+  // Storing Logs of different device seperately
+  const [logsByMac, setLogsByMac] = useState({});
+  const currentLogs = logsByMac[selectedMac] || [];
+
 
   //Map and marker refs
   const mapRef = useRef(null);
@@ -415,12 +418,21 @@ function DashboardView() {
 
     if (alarmResult.alarms.length === 0) return;
 
-    setLogs(prev => [
-      ...prev,
-      ...alarmResult.alarms.map(
-        alarm => `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarm}`
-      )
-    ]);
+    // Updating logs for selectedMac seperately
+    setLogsByMac(prev => {
+      const prevLogs = prev[selectedMac] || [];
+
+      return {
+        ...prev,
+        [selectedMac]: [
+          ...prevLogs,
+          ...alarmResult.alarms.map(
+            alarm => `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarm}`
+          )
+        ]
+      };
+    });
+
 
   }, [latestReadingsByMac, selectedMac]);
 
@@ -430,7 +442,7 @@ function DashboardView() {
 
     // Reseting Logs after every 1 hour
     const logTimer = setInterval(() => {
-      setLogs([]);
+      setLogsByMac({});
     }, resetLogTime);
 
     // Stops timer after resetting log =
@@ -660,6 +672,7 @@ function DashboardView() {
                 </button>
               </div>
 
+              {/* GAUGES TAB */}
               {activeTab === "gauges" && (
                 <div className="gauges grid-3x3">
                   <Gauge
@@ -739,6 +752,7 @@ function DashboardView() {
                 </div>
               )}
 
+              {/* STATUS TAB */}
               {activeTab === "status" && (
                 <div className="fan-status">
                   <div className="fan-status-line">
@@ -1069,17 +1083,16 @@ function DashboardView() {
           )} */}
 
 
+          {/* LOG SECTION */}
           <div className="log-panel">
-            {logs.length === 0 ? (
+            {Object.keys(logsByMac).length === 0 ? (
               <p>No logs in last 1 hour</p>
             ) : (
-              logs.map((line, i) => (
+              currentLogs.map((line, i) => (
                 <pre key={i} className="log-line">{line}</pre>
               ))
             )}
           </div>
-
-
 
         </div>
 
