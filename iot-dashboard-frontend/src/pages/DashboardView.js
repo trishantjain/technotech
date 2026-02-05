@@ -405,6 +405,7 @@ function DashboardView() {
     };
   }
 
+  // UseEffect for storing Logs based on selectedMac 
   useEffect(() => {
     // If no device is selected
     if (!selectedMac) return;
@@ -436,7 +437,7 @@ function DashboardView() {
 
   }, [latestReadingsByMac, selectedMac]);
 
-
+  // UseEffect for resetting logs every 1 hour
   useEffect(() => {
     const resetLogTime = 60 * 60 * 1000; // 1 hour
 
@@ -784,8 +785,18 @@ function DashboardView() {
                     {alarmKeys.map((alarm, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${latestReading[alarm.key] === 87 ? "wait" : latestReading[alarm.key] ? "active" : ""
-                            }`}
+                          className={`alarm-led ${(
+                            alarm.key === "fireAlarm" &&
+                              latestReading.doorStatus === "CLOSED" &&
+                              latestReading.insideTemperature >= 48 &&
+                              latestReading.insideTemperature < 70
+                              ? ""
+                              : latestReading[alarm.key] === 87
+                                ? "wait"
+                                : latestReading[alarm.key]
+                                  ? "active"
+                                  : ""
+                          )}`}
                         />
                         <div className="alarm-label">{alarm.Name}</div>
                       </div>
