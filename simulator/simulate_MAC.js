@@ -8,7 +8,7 @@ const fs = require('fs');
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = 10;
+const TOTAL_DEVICES = 1;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;

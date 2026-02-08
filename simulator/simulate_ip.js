@@ -3,16 +3,31 @@ const net = require('net');
 const path = require('path');
 const csv = require('csv-parser');
 const fs = require('fs');
+const WebSocket = require('ws');
 // const { connected } = require('process');
 
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = 2;
+const TOTAL_DEVICES = 1;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
-let isCSVMode = false;
+let isCSVMode = false; // Start in CSV mode if data is available, else switch to random mode
+const simulatorState = {
+  insideTemperature: 25,
+  outsideTemperature: 25,
+  outputVoltage: 3.3,
+  inputVoltage: 33,
+  humidity: 60,
+  fireAlarm: false,
+  leakage: false,
+  logging: false,
+  door: false,
+  lock: false,
+  password: false,
+  mode: "manual"
+}
 
 // 🔥 PRE-INDEXING: Fast lookup structure
 let csvDataBySecond = new Map(); // { second → [row1, row2, ...] }
@@ -20,6 +35,36 @@ let csvDataBySecond = new Map(); // { second → [row1, row2, ...] }
 let PADDING_BYTE = 0;
 
 const connectedDevices = new Map();
+const wss = new WebSocket.Server({ port: 8090 });
+
+console.log("📡 WebSocket server started on ws://localhost:8090");
+
+
+wss.on("connection", (ws) => {
+  console.log(" UI Client connected");
+
+  // Sending current 'simulatorState' to UI 
+  ws.send(JSON.stringify(simulatorState));
+
+  ws.on("message", (message) => {
+    try {
+      const updatedData = JSON.parse(message.toString());
+
+      // Update only provided fields in simulatorState
+      Object.assign(simulatorState, updatedData);
+
+      console.log("🔄 Updated simulator state from UI:", simulatorState);
+    } catch (error) {
+      console.error("Error parsing message:", error.stack);
+    }
+  })
+
+  ws.on("close", () => {
+    console.log(" UI Client disconnected");
+  })
+
+});
+
 
 // Single byte padding required by server to trigger picture capture
 // Behavior: send a short pulse of 67 (so outgoing packets include 0x43),
@@ -276,20 +321,23 @@ function startDevice(mac, index) {
           const triggerAlarm = !isHealthyDevice || inAlarmPhase;
 
           // SENSOR DATA GENERATION
-          const humidity = triggerAlarm ? 85 + Math.random() * 10 : 55 + Math.random() * 5;
-          const insideTemp = triggerAlarm ? 55 + Math.random() * 5 : 35 + Math.random() * 3;
-          const outsideTemp = triggerAlarm ? 65 + Math.random() * 5 : 40 + Math.random() * 3;
+          const humidity = simulatorState.mode === 'random' ? triggerAlarm ? 85 + Math.random() * 10 : 55 + Math.random() * 5 : simulatorState.humidity;
+          // const insideTemp = triggerAlarm ? 55 + Math.random() * 5 : 35 + Math.random() * 3;
+          const insideTemp = 27;
+          // const outsideTemp = triggerAlarm ? 65 + Math.random() * 5 : 40 + Math.random() * 3;
+          const outsideTemp = 32.37;
           const lockStatus = Math.random() < 0.5 ? 1 : 0;
-          const doorStatus = Math.random() < 0.5 ? 1 : 0;
+          // const doorStatus = Math.random() < 0.5 ? 1 : 0;
+          const doorStatus = 0;
           const waterLogging = triggerAlarm && Math.random() < 0.2 ? 1 : 0;
           const waterLeakage = !triggerAlarm && Math.random() < 0.2 ? 1 : 0;
-          const outputVoltage = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
+          const outputVoltage = simulatorState.mode === "random" ? triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10 : simulatorState.outputVoltage;
           const hupsDVC = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const inputVoltage = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const hupsBat = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const batteryBackup = triggerAlarm ? 12 + Math.random() * 2 : 20 + Math.random() * 3;
           const alarmActive = waterLogging || waterLeakage;
-          const fireAlarm = 0;
+          const fireAlarm = 1;
 
           const fan1 = Math.random() < 0.9 ? 1 : 0;
           const fan2 = Math.random() < 0.9 ? 1 : 0;

@@ -1107,6 +1107,12 @@ const server = net.createServer((socket) => {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
 
+        // ==== LOGGING EXTRACTED VALUES ====
+        console.log("Humidity: ", humidity);
+        console.log("Output Voltage: ", outputVoltage);
+        // ==== LOGGING EXTRACTED VALUES ====
+
+
 
         if (padding === 0x31 && !alreadyReplied) {
           sendX(socket);
