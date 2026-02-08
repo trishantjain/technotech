@@ -649,6 +649,7 @@ function DashboardView() {
         <div className="panel">
           <h2 className="selected-heading">
             📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
+            <input type="toggle" />
           </h2>
           {latestReading && (
             <div>
@@ -678,7 +679,7 @@ function DashboardView() {
                 <div className="gauges grid-3x3">
                   <Gauge
                     label="Inside Temp"
-                    value={latestReading.insideTemperature}
+                    value={(latestReading.insideTemperature).toFixed(2)}
                     max={100}
                     color="#e63946"
                     alarm={latestReading.insideTemperatureAlarm}

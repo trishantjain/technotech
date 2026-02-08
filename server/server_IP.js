@@ -629,7 +629,7 @@ app.get("/api/device-logs", (req, res) => {
         if (logTime >= cutoffTime) logs.push(line);
       });
     }
-    
+
     res.json({ logs: logs.reverse() });
   } catch (err) {
     console.error("Error fetching device logs:", err?.stack);
