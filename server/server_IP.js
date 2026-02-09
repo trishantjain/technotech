@@ -1357,22 +1357,27 @@ const server = net.createServer((socket) => {
 
         if (waterLogging) {
           activeAlarms.push("Water Logging Alarm");
+          console.log("Water Logging Alarm")
         }
 
         if (waterLeakage) {
           activeAlarms.push("Water Leakage Alarm");
+          console.log("Water Leakage Alarm")
         }
 
-        if (doorStatus) {
+        if (doorStatus === "OPEN") {
           activeAlarms.push("Door Alarm");
+          console.log("Door Alarm")
         }
 
-        if (lockStatus) {
+        if (lockStatus === "OPEN") {
           activeAlarms.push("Lock Alarm");
+          console.log("Lock Alarm")
         }
 
         if (fireAlarm) {
           activeAlarms.push("Fire Alarm");
+          console.log("Fire Alarm")
         }
 
         // Single console output

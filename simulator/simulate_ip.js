@@ -323,21 +323,22 @@ function startDevice(mac, index) {
           // SENSOR DATA GENERATION
           const humidity = simulatorState.mode === 'random' ? triggerAlarm ? 85 + Math.random() * 10 : 55 + Math.random() * 5 : simulatorState.humidity;
           // const insideTemp = triggerAlarm ? 55 + Math.random() * 5 : 35 + Math.random() * 3;
-          const insideTemp = 27;
+          const insideTemp = simulatorState.mode === 'random' ? triggerAlarm ? 55 + Math.random() * 10 : 35 + Math.random() * 5 : simulatorState.insideTemperature;
           // const outsideTemp = triggerAlarm ? 65 + Math.random() * 5 : 40 + Math.random() * 3;
-          const outsideTemp = 32.37;
-          const lockStatus = Math.random() < 0.5 ? 1 : 0;
+          const outsideTemp = simulatorState.mode === 'random' ? triggerAlarm ? 65 + Math.random() * 10 : 40 + Math.random() * 5 : simulatorState.outsideTemperature;
+          const lockStatus = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.lock ? 1 : 0;
           // const doorStatus = Math.random() < 0.5 ? 1 : 0;
-          const doorStatus = 0;
-          const waterLogging = triggerAlarm && Math.random() < 0.2 ? 1 : 0;
-          const waterLeakage = !triggerAlarm && Math.random() < 0.2 ? 1 : 0;
+          console.log("Lock Status: ", lockStatus);
+          const doorStatus = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.door ? 1 : 0;
+          const waterLogging = simulatorState.mode === 'random' ? triggerAlarm && Math.random() < 0.2 ? 1 : 0 : simulatorState.logging ? 1 : 0;
+          const waterLeakage = simulatorState.mode === 'random' ? !triggerAlarm && Math.random() < 0.2 ? 1 : 0 : simulatorState.leakage ? 1 : 0;
           const outputVoltage = simulatorState.mode === "random" ? triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10 : simulatorState.outputVoltage;
           const hupsDVC = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const inputVoltage = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const hupsBat = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const batteryBackup = triggerAlarm ? 12 + Math.random() * 2 : 20 + Math.random() * 3;
           const alarmActive = waterLogging || waterLeakage;
-          const fireAlarm = 1;
+          const fireAlarm = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.fireAlarm ? 1 : 0;
 
           const fan1 = Math.random() < 0.9 ? 1 : 0;
           const fan2 = Math.random() < 0.9 ? 1 : 0;

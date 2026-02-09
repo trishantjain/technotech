@@ -38,15 +38,24 @@ function DashboardView() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState("");
 
-  // Storing Logs of different device seperately
+  const [alarmToggle, setAlarmToggle] = useState(false);
+
+
+  // LOGS
   const [logsByMac, setLogsByMac] = useState({});
   const currentLogs = logsByMac[selectedMac] || [];
+  const _viewportRef = useRef(null);
+  const lastScrollTopRef = useRef(0);
+  const bottomRef = useRef(null);
+  const [autoScroll, setAutoScroll] = useState(true);
 
 
   //Map and marker refs
   const mapRef = useRef(null);
   const markerRefs = useRef({});
   // const isFetchingRef = useRef(false); // TIMING TESTING
+
+
 
   // const latestReadingsByMac = {};
   // readings.forEach((r) => {
@@ -450,6 +459,35 @@ function DashboardView() {
     return () => clearInterval(logTimer);
   }, []);
 
+  useEffect(() => {
+    if (!autoScroll) return;
+
+    if (autoScroll) {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    }
+  }, [currentLogs, autoScroll]);
+
+  const handleScroll = (e) => {
+    const el = e.currentTarget;
+    const currentScrollTop = el.scrollTop;
+
+    // user scrolled UP → lock auto-scroll OFF
+    if (currentScrollTop < lastScrollTopRef.current) {
+      setAutoScroll(false);
+    }
+
+    // user scrolled to bottom → re-enable
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    if (distanceFromBottom <= 2) {
+      setAutoScroll(true);
+    }
+    lastScrollTopRef.current = currentScrollTop;
+
+  }
+
+
   const toggleFullscreen = () => {
     const iframe = document.querySelector(".camera-iframe");
     if (iframe.requestFullscreen) iframe.requestFullscreen();
@@ -645,12 +683,16 @@ function DashboardView() {
         </div>
       </div>
 
+      {/* Dashboard */}
       <div className="dashboard">
         <div className="panel">
           <h2 className="selected-heading">
             📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
-            <input type="toggle" />
-          </h2>
+            <label className="switch">
+              <input type="checkbox" checked={alarmToggle}
+                onChange={(e) => setAlarmToggle(e.target.checked)} />
+              <span className="slider"></span>
+            </label>          </h2>
           {latestReading && (
             <div>
               <div className="tabs">
@@ -681,36 +723,36 @@ function DashboardView() {
                     label="Inside Temp"
                     value={(latestReading.insideTemperature).toFixed(2)}
                     max={100}
-                    color="#e63946"
+                    color={latestReading.insideTemperature < thresholds.insideTemperature.min ? "#ec7632" : latestReading.insideTemperature >= thresholds.insideTemperature.max ? "#fb1616" : "#67b816"}
                     alarm={latestReading.insideTemperatureAlarm}
                   />
                   <Gauge
                     label="Outside Temp"
                     value={(latestReading.outsideTemperature).toFixed(2)}
                     max={100}
-                    color="#fca311"
+                    color={latestReading.outsideTemperature < thresholds.outsideTemperature.min ? "#ec7632" : latestReading.outsideTemperature >= thresholds.outsideTemperature.max ? "#fb1616" : "#67b816"}
                     alarm={latestReading.outsideTemperatureAlarm}
                   />
                   <Gauge
                     label="Humidity"
                     value={latestReading.humidity}
                     max={100}
-                    color="#1d3557"
+                    color={latestReading.humidity < thresholds.humidity.min ? "#ec7632" : latestReading.humidity >= thresholds.humidity.max ? "#fb1616" : "#67b816"}
                     alarm={latestReading.humidityAlarm}
                   />
                   <Gauge
                     label="Input Volt"
                     value={(latestReading.inputVoltage).toFixed(2)}
                     max={100}
-                    color="#06d6a0"
-                    alarm={latestReading.inputVoltageAlarm}
+                    color={latestReading.inputVoltage < thresholds.inputVoltage.min ? "#ec7632" : latestReading.inputVoltage >= thresholds.inputVoltage.max ? "#fb1616" : "#67b816"}
+                    alarm={alarmToggle ?latestReading.inputVoltageAlarm: false}
                   />
                   <Gauge
                     label="Output Volt"
                     value={(latestReading.outputVoltage).toFixed(2)}
                     max={100}
-                    color="#118ab2"
-                    alarm={latestReading.outputVoltageAlarm}
+                    color={latestReading.outputVoltage < thresholds.outputVoltage.min ? "#ec7632" : latestReading.outputVoltage >= thresholds.outputVoltage.max ? "#fb1616" : "#67b816"}
+                    alarm={alarmToggle ?latestReading.outputVoltageAlarm: false}
                   />
                   <Gauge
                     label="DV Current"
@@ -738,7 +780,7 @@ function DashboardView() {
                       label="LockBat(Left..)"
                       value={0}
                       max={12}
-                      color="#ffc107"
+                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
                       alarm={latestReading.batteryBackupAlarm}
                     /> :
                     <Gauge
@@ -746,7 +788,7 @@ function DashboardView() {
                       value={Math.floor(((latestReading.batteryBackup - 9) * 4))}
                       // value={6}
                       max={12}
-                      color="#ffc107"
+                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
                       hoverTitle={"LockBat Left Hours"}
                       alarm={latestReading.batteryBackupAlarm}
                     />
@@ -1024,9 +1066,9 @@ function DashboardView() {
           )}
         </div>
 
-        {/* Panel 2: Chart */}
+        {/* Panel 2: LOGS */}
         <div className="panel">
-          <h2>📈 Historical Data</h2>
+          <h2>📈 Live Logs</h2>
           {/* {selectedMac && historicalData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={historicalData}>
@@ -1096,14 +1138,24 @@ function DashboardView() {
 
 
           {/* LOG SECTION */}
-          <div className="log-panel">
-            {Object.keys(logsByMac).length === 0 ? (
-              <p>No logs in last 1 hour</p>
-            ) : (
-              currentLogs.map((line, i) => (
-                <pre key={i} className="log-line">{line}</pre>
-              ))
-            )}
+          <div className="log-scroll h-64 w-full rounded-md border bg-black overflow-y-auto"
+            onScroll={handleScroll}
+          >
+            {/* <div
+              className="p-3 "
+            > */}
+            <div className="log-panel">
+              {Object.keys(logsByMac).length === 0 ? (
+                <p>No logs in last 1 hour</p>
+              ) : (
+                currentLogs.map((line, i) => (
+                  <pre key={i} className="log-line">{line}</pre>
+                ))
+              )}
+            </div>
+
+            <div ref={bottomRef} />
+            {/* </div> */}
           </div>
 
         </div>
