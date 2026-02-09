@@ -901,6 +901,29 @@ function writeLog(filePath, data) {
   stream.write(data + "\n");
 }
 
+  const tempCalibrationTable = [
+    { min: 0, max: 10, factor: 0 },
+    { min: 11, max: 20, factor: 0 },
+    { min: 21, max: 30, factor: 0 },
+    { min: 31, max: 40, factor: 0.05 },
+    { min: 41, max: 50, factor: 0.07 },
+    { min: 51, max: 60, factor: 0.09 },
+    { min: 61, max: 70, factor: 0.10 },
+  ];
+
+  function calibrateTemperature(temp) {
+    if (typeof temp !== "number") return temp;
+
+    const range = tempCalibrationTable.find(
+      r => temp >= r.min && temp <= r.max
+    );
+
+    if (!range) return temp;
+
+    return temp * (1 + range.factor);
+  }
+
+
 
 const server = net.createServer((socket) => {
   // let buffer = Buffer.alloc(0);
@@ -1053,7 +1076,9 @@ const server = net.createServer((socket) => {
         const mac = ip; //! Converting to LowerCase()
         const humidity = +packet.readFloatLE(17).toFixed(2);
         const insideTemperature = +packet.readFloatLE(21).toFixed(2);
-        const outsideTemperature = +packet.readFloatLE(25).toFixed(2); // "+" converts string to number as toFixed return string
+        const outside = +packet.readFloatLE(25).toFixed(2); // "+" converts string to number as toFixed return string
+
+        const outsideTemperature = calibrateTemperature(outside);
 
         const lockStatus = packet[29] === 1 ? "OPEN" : "CLOSED";
         const doorStatus = packet[30] === 1 ? "OPEN" : "CLOSED";
