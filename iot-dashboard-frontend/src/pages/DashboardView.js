@@ -1177,7 +1177,7 @@ function DashboardView() {
               });
 
               return deviceMeta.map((device) => {
-                const mac = device.mac;
+                const {mac} = device;
                 const reading = latestReadingsByMac[mac];
                 let colorClass = "disconnected"; // default
 
@@ -1254,7 +1254,7 @@ function DashboardView() {
                 <FlyToLocation center={selectedCenter} />
 
                 {deviceMeta.map((device) => {
-                  const mac = device.mac;
+                  const {mac} = device;
                   const reading = latestReadingsByMac[mac];
 
                   let dotClass = "disconnected"; // Default state

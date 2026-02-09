@@ -4,15 +4,32 @@ const path = require('path');
 const csv = require('csv-parser');
 const fs = require('fs');
 // const { connected } = require('process');
+const WebSocket = require('ws');
 
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = 2;
+const TOTAL_DEVICES = 3;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
 let isCSVMode = false;
+
+
+const simulatorState = {
+  insideTemperature: 26,
+  outsideTemperature: 26,
+  outputVoltage: 35,
+  inputVoltage: 33,
+  humidity: 60,
+  fireAlarm: false,
+  leakage: false,
+  logging: false,
+  door: false,
+  lock: false,
+  password: false,
+  mode: "manual"
+}
 
 // 🔥 PRE-INDEXING: Fast lookup structure
 let csvDataBySecond = new Map(); // { second → [row1, row2, ...] }
@@ -20,6 +37,36 @@ let csvDataBySecond = new Map(); // { second → [row1, row2, ...] }
 let PADDING_BYTE = 0;
 
 const connectedDevices = new Map();
+
+const wss = new WebSocket.Server({ port: 8090 });
+
+console.log("📡 WebSocket server started on ws://localhost:8090");
+
+
+wss.on("connection", (ws) => {
+  console.log(" UI Client connected");
+
+  // Sending current 'simulatorState' to UI 
+  ws.send(JSON.stringify(simulatorState));
+
+  ws.on("message", (message) => {
+    try {
+      const updatedData = JSON.parse(message.toString());
+
+      // Update only provided fields in simulatorState
+      Object.assign(simulatorState, updatedData);
+
+      console.log("🔄 Updated simulator state from UI:", simulatorState);
+    } catch (error) {
+      console.error("Error parsing message:", error.stack);
+    }
+  })
+
+  ws.on("close", () => {
+    console.log(" UI Client disconnected");
+  })
+
+});
 
 // Single byte padding required by server to trigger picture capture
 // Behavior: send a short pulse of 67 (so outgoing packets include 0x43),
@@ -293,18 +340,26 @@ function startDevice(mac, index) {
           const hupsBat = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           const batteryBackup = triggerAlarm ? 12 + Math.random() * 2 : 20 + Math.random() * 3;
           const alarmActive = waterLogging || waterLeakage;
-          const fireAlarm = 0;
+          const fireAlarm = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.fireAlarm ? 1 : 0;
 
-          const fan1 = Math.random() < 0.9 ? 1 : 0;
-          const fan2 = Math.random() < 0.9 ? 1 : 0;
-          const fan3 = Math.random() < 0.9 ? 1 : 0;
-          const fan4 = Math.random() < 0.9 ? 1 : 0;
-
-          const fanStatuses = [];
-          for (let i = 0; i < 6; i++) {
-            const rand = Math.random();
-            fanStatuses[i] = rand < 0.4 ? 0 : rand < 0.9 ? 1 : 2;
+          // INDIVIDUAL FAN STATUS (0=OFF, 1=ON, 2=FAIL)
+          let fanStatuses = [];
+          // if (simulatorState.mode === 'random') {
+          if (insideTemp > 60) {
+            fanStatuses = [1, 1, 1, 1, 1, 1];
+          } else if (insideTemp > 35) {
+            fanStatuses = [1, 1, 1, 1, 1, 0];
+          } else if (insideTemp > 25) {
+            fanStatuses = [1, 1, 1, 0, 0, 0];
+          } else {
+            fanStatuses = [0, 0, 0, 0, 0, 0];
           }
+          // } else {
+          //   for (let i = 0; i < 6; i++) {
+          //     const rand = Math.random();
+          //     fanStatuses[i] = rand < 0.4 ? 0 : rand < 0.9 ? 1 : 2;
+          //   }
+          // }
 
           let fanStatusBits = 0;
           for (let i = 0; i < 6; i++) {
@@ -313,7 +368,25 @@ function startDevice(mac, index) {
           const fanStatusBuf = Buffer.alloc(2);
           fanStatusBuf.writeUInt16LE(fanStatusBits, 0);
 
-          console.log(`🎛️ [${mac}] Fans Status: [${fanStatusBuf.join(', ')}]`);
+          console.log(`🎛️ [${mac}] Fans Status: [${fanStatusBits}]`);
+
+
+          // FAN GROUP STATUS
+          let fanGroupStatus = [0, 0, 0, 0];
+
+          if(fanStatusBits === 21){
+            fanGroupStatus = [1, 1, 0, 0];
+          } else if(fanStatusBits === 341){
+            fanGroupStatus = [1, 1, 1, 0];
+          } else if(fanStatusBits === 1365){
+            fanGroupStatus = [1, 1, 1, 1];
+          }
+
+          const fan1 = fanStatusBits === 21 ? 1 : 0; // Example: if all fans are ON, set fan1=1, else 0
+          const fan2 = fanStatusBits === 21 ? 1 : 0; // Example: if all fans are ON, set fan2=1, else 0
+          const fan3 = 1;
+          const fan4 = 1;
+
 
           // let failMask = 0;
           // for (let bit = 0; bit <= 5; bit++) {
@@ -337,7 +410,7 @@ function startDevice(mac, index) {
           const packet = Buffer.concat([
             // Buffer.from(mac.padEnd(17, ' '), 'utf-8'), //0-16
             ipStringToAsciiHexBuffer(mac),
-            Buffer.alloc(13, 0x00),   // 13 bytes ZERO padding
+            Buffer.alloc(9, 0x00),   // 9 bytes ZERO padding
             toFloatLE(humidity),  //17-20
             toFloatLE(insideTemp), //21-24
             toFloatLE(outsideTemp), //25-28
@@ -350,10 +423,10 @@ function startDevice(mac, index) {
             Buffer.from([
               alarmActive ? 1 : 0,
               fireAlarm,
-              fan1,
-              fan2,
-              fan3,
-              fan4,
+              fanGroupStatus[0],
+              fanGroupStatus[1],
+              fanGroupStatus[2],
+              fanGroupStatus[3],
               // PADDING_BYTE0
               0
             ]), //45-51
