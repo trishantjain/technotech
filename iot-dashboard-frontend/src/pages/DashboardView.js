@@ -23,6 +23,12 @@ import thresholds from "./thresholds";
 
 const defaultLocation = [28.6139, 77.209];
 
+const LOG_STORAGE_KEY = "tt.logsByMac.v1";
+const LOG_RESET_MS = 60 * 60 * 1000; // 1 hour
+const MAX_LOGS_PER_DEVICE = 300;
+const LOG_THROTTLE_MS = 5000; // log at most once per 5 seconds per device
+const EMPTY_LOGS = [];
+
 function DashboardView() {
   const [readings, setReadings] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -42,12 +48,79 @@ function DashboardView() {
 
 
   // LOGS
-  const [logsByMac, setLogsByMac] = useState({});
-  const currentLogs = logsByMac[selectedMac] || [];
+  const lastResetAtRef = useRef(Date.now());
+  const lastAlarmLogAtByMacRef = useRef({});
+
+  /**
+   * Reads and parses logs from localStorage with age validation
+   * 
+   * @returns {Object} An object containing logs indexed by MAC address, or an empty object if:
+   *   - localStorage is empty or data is invalid
+   *   - logs have expired based on LOG_RESET_MS window
+   *   - JSON parsing fails
+   * 
+   * @description
+   * Attempts to retrieve logs from localStorage using LOG_STORAGE_KEY.
+   * Validates the stored data structure and checks if logs have exceeded
+   * the reset time window (LOG_RESET_MS). Updates lastResetAtRef.current
+   * with the timestamp if available. Returns empty object on any error.
+   */
+  const readLogsLocalStorage = () => {
+    try {
+      // Reading from local storage
+      const raw = window?.localStorage?.getItem(LOG_STORAGE_KEY);
+      if (!raw) return {};
+      // Parsing JSON
+      const parsed = JSON.parse(raw);
+      const lastResetAt = Number(parsed?.lastResetAt || 0);
+      // Logs by mac
+      const stored = parsed?.logsByMac;
+
+      // If Logs are not correct || not present
+      if (!stored || typeof stored !== "object") return {};
+
+      // If Last Reset variable is fetched than Update 'lastResetAtRef'
+      if (lastResetAt) {
+        lastResetAtRef.current = lastResetAt;
+      }
+
+      // If Logs are older than the reset window, start fresh
+      if (lastResetAt && Date.now() - lastResetAt >= LOG_RESET_MS) {
+        return {};
+      }
+      return stored;
+    } catch {
+      return {};
+    }
+  };
+
+  const saveLogsLocalStorage = (nextLogsByMac) => {
+    try {
+      window?.localStorage?.setItem(
+        LOG_STORAGE_KEY,
+        JSON.stringify({
+          lastResetAt: lastResetAtRef.current,
+          logsByMac: nextLogsByMac,
+        })
+      );
+    } catch {
+      // ignore storage errors (private mode, quota, etc.)
+    }
+  };
+
+  const [logsByMac, setLogsByMac] = useState(() => readLogsLocalStorage());
+
+  // Store logs of selected device 
+  const currentLogs = useMemo(
+    () => logsByMac[selectedMac] || EMPTY_LOGS,
+    [logsByMac, selectedMac]
+  );
+
   const _viewportRef = useRef(null);
   const lastScrollTopRef = useRef(0);
   const bottomRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const persistTimerRef = useRef(null);
 
 
   //Map and marker refs
@@ -92,70 +165,6 @@ function DashboardView() {
   const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
   const latestReading = readings.find((r) => r.mac === selectedMac);
 
-  // console.log(process.env.REACT_APP_API_URL)
-  // console.log("latestR", latestReading.mainStatus)
-  // console.log('All properties:', Object.keys(latestReading));
-
-  // // WebSocket connection - FIXED VERSION
-  // useEffect(() => {
-  //   const connectWebSocket = () => {
-  //     console.log('🔄 Attempting WebSocket connection...');
-
-  //     // Use wss:// if in production, ws:// for development
-  //     const wsUrl = process.env.NODE_ENV === 'production'
-  //       ? `wss://${window.location.host}`
-  //       : 'ws://localhost:8080';
-
-  //     const ws = new WebSocket(wsUrl);
-  //     wsRef.current = ws;
-
-  //     ws.onopen = () => {
-  //       console.log('✅ WebSocket connected successfully');
-  //     };
-
-  //     ws.onmessage = (event) => {
-  //       try {
-  //         const message = JSON.parse(event.data);
-  //         console.log('📨 WebSocket message:', message.type);
-
-  //         if (message.type === 'NEW_READING') {
-  //           const newReading = message.data;
-  //           setReadings(prev => {
-  //             const filtered = prev.filter(r => r.mac !== newReading.mac);
-  //             return [...filtered, newReading].slice(-400);
-  //           });
-  //         }
-  //       } catch (err) {
-  //         console.error('❌ WebSocket message parse error:', err);
-  //       }
-  //     };
-
-  //     ws.onerror = (error) => {
-  //       console.error('❌ WebSocket connection error:', error);
-  //     };
-
-  //     ws.onclose = (event) => {
-  //       console.log(`🔌 WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
-
-  //       // Auto-reconnect after 3 seconds
-  //       setTimeout(() => {
-  //         console.log('🔄 Attempting to reconnect WebSocket...');
-  //         connectWebSocket();
-  //       }, 3000);
-  //     };
-  //   };
-
-  //   // Initial connection
-  //   connectWebSocket();
-
-  //   // Cleanup
-  //   return () => {
-  //     if (wsRef.current) {
-  //       console.log('🛑 Closing WebSocket connection');
-  //       wsRef.current.close(1000, 'Component unmounting');
-  //     }
-  //   };
-  // }, []);
 
   // UseEffect for fetching Data
   useEffect(() => {
@@ -317,7 +326,7 @@ function DashboardView() {
     );
   };
 
-  //! New code for Open Lock (using Sweetalert2)
+  // New code for Open Lock (using Sweetalert2)
   const handleOpenLock = async () => {
     const { value: password } = await swal.fire({
       title: "Enter Admin password",
@@ -377,7 +386,7 @@ function DashboardView() {
     return null;
   }
 
-  // Function
+  // Function: RESETTING PASSWORD ATTEMPT
   const openPassword = () => {
     const pwd = window.prompt("Enter admin password to Open Lock:");
     // const today = new Date();
@@ -396,17 +405,16 @@ function DashboardView() {
     if (reading.waterLogging) alarms.push("Water Logging");
     if (reading.lockStatus === "OPEN") alarms.push("Lock Open");
     if (reading.doorStatus === "OPEN") alarms.push("Door Open");
+    if (reading.pwsFailCount === 3) alarms.push("Password Blocked")
 
-    // threshold-based (same logic as backend)
-    if (reading.insideTemperature > thresholds.insideTemperature.max) {
-      // setLogs([...logs, "High Inside Temperature"]);
-      alarms.push("High Inside Temperature");
-    }
+    // threshold-based
+    if (reading.insideTemperatureAlarm && (reading.insideTemperature < thresholds.insideTemperature.min)) alarms.push("Low Inside Temperature Alarm");
+    if (reading.outsideTemperatureAlarm) alarms.push("Outside Temperature Alamr");
+    if (reading.inputVoltageAlarm) alarms.push("Input Voltage Alarm");
+    if (reading.outputVoltageAlarm) alarms.push("Output Voltage Alarm");
+    if (reading.batteryBackupAlarm) alarms.push("Battery Backup Alarm");
+    if (reading.humidityAlarm) alarms.push("Humidity Alarm");
 
-    if (reading.inputVoltage < thresholds.inputVoltage.min) {
-      // setLogs([...logs, "Low Input Voltage"]);
-      alarms.push("Low Input Voltage");
-    }
 
     return {
       active: alarms.length > 0,
@@ -414,7 +422,7 @@ function DashboardView() {
     };
   }
 
-  // UseEffect for storing Logs based on selectedMac 
+  // STORING LOGS BASED ON SELECTED MAC 
   useEffect(() => {
     // If no device is selected
     if (!selectedMac) return;
@@ -428,37 +436,64 @@ function DashboardView() {
 
     if (alarmResult.alarms.length === 0) return;
 
+    // add log entry per 5 seconds (per MAC)
+    const now = Date.now();
+    const lastAt = lastAlarmLogAtByMacRef.current[selectedMac] || 0;
+    if (now - lastAt < LOG_THROTTLE_MS) return;
+    lastAlarmLogAtByMacRef.current[selectedMac] = now;
+
     // Updating logs for selectedMac seperately
     setLogsByMac(prev => {
       const prevLogs = prev[selectedMac] || [];
+      const entry = `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarmResult.alarms.join(", ")}`;
+      const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
       return {
         ...prev,
-        [selectedMac]: [
-          ...prevLogs,
-          ...alarmResult.alarms.map(
-            alarm => `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarm}`
-          )
-        ]
+        [selectedMac]: nextLogs
       };
     });
 
-
   }, [latestReadingsByMac, selectedMac]);
 
-  // UseEffect for resetting logs every 1 hour
+  // STOPPING LOGS FROM DELETING AT REFRESH
   useEffect(() => {
-    const resetLogTime = 60 * 60 * 1000; // 1 hour
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+    persistTimerRef.current = setTimeout(() => {
+      saveLogsLocalStorage(logsByMac);
+    }, 200);
 
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, [logsByMac]);
+
+  // RESETTING LOGS AFTER EVERY 1 HOUR
+  useEffect(() => {
     // Reseting Logs after every 1 hour
     const logTimer = setInterval(() => {
+      lastResetAtRef.current = Date.now();
       setLogsByMac({});
-    }, resetLogTime);
+      // keep persisted value in sync with in-memory reset
+      try {
+        window?.localStorage?.setItem(
+          LOG_STORAGE_KEY,
+          JSON.stringify({ lastResetAt: lastResetAtRef.current, logsByMac: {} })
+        );
+      } catch {
+        // ignore
+      }
+    }, LOG_RESET_MS);
 
     // Stops timer after resetting log =
     return () => clearInterval(logTimer);
   }, []);
 
+  // LOGS AUTO SCROLL
   useEffect(() => {
     if (!autoScroll) return;
 
@@ -467,6 +502,7 @@ function DashboardView() {
     }
   }, [currentLogs, autoScroll]);
 
+  // LOGS SCROLLING FUNCTION
   const handleScroll = (e) => {
     const el = e.currentTarget;
     const currentScrollTop = el.scrollTop;
@@ -745,14 +781,14 @@ function DashboardView() {
                     value={(latestReading.inputVoltage).toFixed(2)}
                     max={100}
                     color={latestReading.inputVoltage < thresholds.inputVoltage.min ? "#ec7632" : latestReading.inputVoltage >= thresholds.inputVoltage.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ?latestReading.inputVoltageAlarm: false}
+                    alarm={alarmToggle ? latestReading.inputVoltageAlarm : false}
                   />
                   <Gauge
                     label="Output Volt"
                     value={(latestReading.outputVoltage).toFixed(2)}
                     max={100}
                     color={latestReading.outputVoltage < thresholds.outputVoltage.min ? "#ec7632" : latestReading.outputVoltage >= thresholds.outputVoltage.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ?latestReading.outputVoltageAlarm: false}
+                    alarm={alarmToggle ? latestReading.outputVoltageAlarm : false}
                   />
                   <Gauge
                     label="DV Current"
@@ -1177,7 +1213,7 @@ function DashboardView() {
               });
 
               return deviceMeta.map((device) => {
-                const {mac} = device;
+                const { mac } = device;
                 const reading = latestReadingsByMac[mac];
                 let colorClass = "disconnected"; // default
 
@@ -1254,7 +1290,7 @@ function DashboardView() {
                 <FlyToLocation center={selectedCenter} />
 
                 {deviceMeta.map((device) => {
-                  const {mac} = device;
+                  const { mac } = device;
                   const reading = latestReadingsByMac[mac];
 
                   let dotClass = "disconnected"; // Default state
@@ -1340,7 +1376,7 @@ function DashboardView() {
             @ {window.innerWidth}x{window.innerHeight}
           </div>
         </div>
-      </div>
+      </div >
     </>
   );
 }
