@@ -130,6 +130,8 @@ const RegisterUserTab = () => {
       console.error("❌ Failed to fetch users:", err);
     }
   };
+
+  // REGISTER NEW USER
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("");
@@ -377,6 +379,7 @@ const RegisterDeviceTab = () => {
     }
   };
 
+  // REGISTER NEW DEVICE
   const handleRegister = async (e) => {
     e.preventDefault();
     setStatus("");
@@ -401,6 +404,28 @@ const RegisterDeviceTab = () => {
       setStatus("❌ This MAC address already exists.");
       return;
     }
+
+    if(!form.locationId){
+      setStatus("⚠️Provide Location ID")
+      return;
+    }
+    if(!form.address){
+      setStatus("⚠️Provide Address")
+      return;
+    }
+    if(!form.locationId){
+      setStatus("⚠️Provide Latitude")
+      return;
+    }
+    if(!form.locationId){
+      setStatus("⚠️Provide Longitude");
+      return;
+    }
+    if(!form.ipCamera){
+      setStatus("⚠️Provide Camera Make & Camera IP");
+      return;
+    }
+
     try {
       const res = await fetch(
         `${process.env.REACT_APP_API_URL}/api/register-device`,
@@ -496,7 +521,7 @@ const RegisterDeviceTab = () => {
         />
         <input
           type="text"
-          placeholder="IP Camera URL"
+          placeholder="CAMERA_MAKE,CAMERA_IP"
           value={form.ipCamera}
           onChange={(e) => setForm({ ...form, ipCamera: e.target.value })}
         />

@@ -182,8 +182,8 @@ app.post("/api/register-user", async (req, res) => {
     // Saving User in DB
     await user.save();
     res.json({ message: "User registered successfully" });
-  } catch (err) {
-    res.status(500).json({ error: "Error creating user" });
+  } catch (error) {
+    res.status(500).json({ error: "User already exist" });
   }
 });
 
@@ -267,7 +267,7 @@ app.delete("/api/user/:username", async (req, res) => {
 app.post("/api/register-device", async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
-    const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
+    const normalizedMac = mac.toLowerCase(); // Converting to LowerCase()
     let parsedCamera = ipCamera;
 
     if (ipCamera && typeof ipCamera === 'string') {
@@ -278,9 +278,12 @@ app.post("/api/register-device", async (req, res) => {
       }
     }
 
+    const ipMatch = await Device.find({ "ipCamera.ip": parsedCamera.ip });
+    if (ipMatch) (res.status(409).json({ error: "Camera Ip already present" }))
+
     console.log("Parsed Camera: ", parsedCamera);
     const device = new Device({
-      mac: normalizedMac, //! Converting to LowerCase()
+      mac: normalizedMac,
       locationId,
       address,
       latitude,
@@ -901,27 +904,27 @@ function writeLog(filePath, data) {
   stream.write(data + "\n");
 }
 
-  const tempCalibrationTable = [
-    { min: 0, max: 10, factor: 0 },
-    { min: 11, max: 20, factor: 0 },
-    { min: 21, max: 30, factor: 0 },
-    { min: 31, max: 40, factor: 0.05 },
-    { min: 41, max: 50, factor: 0.07 },
-    { min: 51, max: 60, factor: 0.09 },
-    { min: 61, max: 70, factor: 0.10 },
-  ];
+const tempCalibrationTable = [
+  { min: 0, max: 10, factor: 0 },
+  { min: 11, max: 20, factor: 0 },
+  { min: 21, max: 30, factor: 0 },
+  { min: 31, max: 40, factor: 0.05 },
+  { min: 41, max: 50, factor: 0.07 },
+  { min: 51, max: 60, factor: 0.09 },
+  { min: 61, max: 70, factor: 0.10 },
+];
 
-  function calibrateTemperature(temp) {
-    if (typeof temp !== "number") return temp;
+function calibrateTemperature(temp) {
+  if (typeof temp !== "number") return temp;
 
-    const range = tempCalibrationTable.find(
-      r => temp >= r.min && temp <= r.max
-    );
+  const range = tempCalibrationTable.find(
+    r => temp >= r.min && temp <= r.max
+  );
 
-    if (!range) return temp;
+  if (!range) return temp;
 
-    return temp * (1 + range.factor);
-  }
+  return temp * (1 + range.factor);
+}
 
 
 
