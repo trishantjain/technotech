@@ -9,7 +9,7 @@ const WebSocket = require('ws');
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = 3;
+const TOTAL_DEVICES = 2;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
@@ -28,6 +28,13 @@ const simulatorState = {
   door: false,
   lock: false,
   password: false,
+  // Fan overrides from UI: when true, force that fan to status 2 (FAIL) in outgoing packets
+  fan1: false,
+  fan2: false,
+  fan3: false,
+  fan4: false,
+  fan5: false,
+  fan6: false,
   mode: "manual"
 }
 
@@ -52,6 +59,22 @@ wss.on("connection", (ws) => {
   ws.on("message", (message) => {
     try {
       const updatedData = JSON.parse(message.toString());
+
+      console.log("updated data: ", updatedData);
+
+      // Normalize fan values coming from UI (supports legacy boolean and numeric)
+      for (const fanKey of ["fan1", "fan2", "fan3", "fan4", "fan5", "fan6"]) {
+        if (fanKey in updatedData) {
+          const v = updatedData[fanKey];
+          if (typeof v === "boolean") {
+            updatedData[fanKey] = v;
+          } else {
+            // Back-compat: numeric 2 means "true" (force fail)
+            const asNum = Number(v);
+            updatedData[fanKey] = Number.isFinite(asNum) ? asNum === 2 : Boolean(v);
+          }
+        }
+      }
 
       // Update only provided fields in simulatorState
       Object.assign(simulatorState, updatedData);
@@ -344,13 +367,18 @@ function startDevice(mac, index) {
 
           // INDIVIDUAL FAN STATUS (0=OFF, 1=ON, 2=FAIL)
           let fanStatuses = [];
+          let fanGroupStatus = [0, 0, 0, 0];
+
           // if (simulatorState.mode === 'random') {
           if (insideTemp > 60) {
             fanStatuses = [1, 1, 1, 1, 1, 1];
+            fanGroupStatus = [1, 1, 1, 1];
           } else if (insideTemp > 35) {
             fanStatuses = [1, 1, 1, 1, 1, 0];
+            fanGroupStatus = [1, 1, 1, 0];
           } else if (insideTemp > 25) {
             fanStatuses = [1, 1, 1, 0, 0, 0];
+            fanGroupStatus = [1, 1, 0, 0];
           } else {
             fanStatuses = [0, 0, 0, 0, 0, 0];
           }
@@ -360,6 +388,22 @@ function startDevice(mac, index) {
           //     fanStatuses[i] = rand < 0.4 ? 0 : rand < 0.9 ? 1 : 2;
           //   }
           // }
+
+          // Apply UI overrides: if any fan checkbox is true, force that fan to FAIL (2)
+          const uiFanOverrides = [
+            simulatorState.fan1,
+            simulatorState.fan2,
+            simulatorState.fan3,
+            simulatorState.fan4,
+            simulatorState.fan5,
+            simulatorState.fan6,
+          ];
+
+          for (let i = 0; i < 6; i++) {
+            if (uiFanOverrides[i] === true) {
+              fanStatuses[i] = 2;
+            }
+          }
 
           let fanStatusBits = 0;
           for (let i = 0; i < 6; i++) {
@@ -372,13 +416,12 @@ function startDevice(mac, index) {
 
 
           // FAN GROUP STATUS
-          let fanGroupStatus = [0, 0, 0, 0];
 
-          if(fanStatusBits === 21){
+          if (fanStatusBits === 21) {
             fanGroupStatus = [1, 1, 0, 0];
-          } else if(fanStatusBits === 341){
+          } else if (fanStatusBits === 341) {
             fanGroupStatus = [1, 1, 1, 0];
-          } else if(fanStatusBits === 1365){
+          } else if (fanStatusBits === 1365) {
             fanGroupStatus = [1, 1, 1, 1];
           }
 

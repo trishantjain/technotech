@@ -13,6 +13,8 @@ const fs = require("fs");
 const path = require("path");
 const axios = require('axios');
 const { spawn } = require('child_process');
+const { connectRabbit, publishAlarm } = require("./services/rabbit");
+
 
 const app = express();
 const connectedDevices = new Map();
@@ -161,6 +163,17 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err.message));
 
+connectRabbit();
+
+app.get("/test-alarm", (req, res) => {
+  publishAlarm({
+    mac: "TEST_DEVICE",
+    alarms: ["Test Alarm Triggered"],
+    timestamp: new Date()
+  });
+
+  res.send("Test alarm published");
+});
 
 
 
@@ -648,7 +661,7 @@ app.post("/api/log-command", (req, res) => {
 
 });
 
-// ✅ Fetch logs from PC
+//! ✅ Fetch logs from PC - CHECK THIS WHETHER IN USE OR NOT
 app.get("/api/device-logs", (req, res) => {
   try {
     const { mac, type = "inc", hours = 1 } = req.query;
@@ -1191,6 +1204,7 @@ const server = net.createServer((socket) => {
         for (let i = 0; i < 6; i++) {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
+        console.log("Fan status: ", fanStatus);
 
         // ==== LOGGING EXTRACTED VALUES ====
         console.log("Humidity: ", humidity);
@@ -1455,41 +1469,54 @@ const server = net.createServer((socket) => {
 
         // Single console output
         if (activeAlarms.length > 0) {
-          // const alarmLogDir = "C:/CommandLogs/alarm"
+          // ========================== OLD CODE ==========================
+          // // const alarmLogDir = "C:/CommandLogs/alarm"
 
-          // if (!fs.existsSync(alarmLogDir)) {
-          //   fs.mkdirSync(alarmLogDir, { recursive: true });
+          // // if (!fs.existsSync(alarmLogDir)) {
+          // //   fs.mkdirSync(alarmLogDir, { recursive: true });
+          // // }
+
+          // const now = new Date();
+          // const timestamp = now.toLocaleString();
+
+          // const alarmFileName = `${now.getDate()}_${now.getMonth() + 1
+          //   }_${now.getHours()}_Alarm.inc`;
+
+          // if (fanStatus.includes(2)) {
+          //   var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}`;
+          // } else {
+          //   var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}`;
           // }
 
-          const now = new Date();
-          const timestamp = now.toLocaleString();
+          // const deviceAlarmDir = path.join(alarmLogDir, macDir);
+          // fs.mkdirSync(deviceAlarmDir, { recursive: true });
 
-          const alarmFileName = `${now.getDate()}_${now.getMonth() + 1
-            }_${now.getHours()}_Alarm.inc`;
+          // const alarmFilePath = path.join(deviceAlarmDir, alarmFileName);
 
-          if (fanStatus.includes(2)) {
-            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}`;
-          } else {
-            var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}`;
-          }
+          // // fs.appendFile(alarmFilePath, logAlarm, (err) => {
+          // //   if (err) {
+          // //     console.error("Failed to save log:", err);
+          // //   } else {
+          // //     if (eMS_LOGS) console.log(`✅ Log saved: ${alarmFilePath}`);
+          // //   }
+          // // });
 
-          const deviceAlarmDir = path.join(alarmLogDir, macDir);
-          fs.mkdirSync(deviceAlarmDir, { recursive: true });
+          // writeLog(
+          //   `${alarmFilePath}`,
+          //   logAlarm
+          // );
+          // ========================== OLD CODE ==========================
 
-          const alarmFilePath = path.join(deviceAlarmDir, alarmFileName);
+          // ========================== RABBIT MQ ==========================
+          console.log("Running PublishAlarm() worder")
+          publishAlarm({
+            mac,
+            alarms: activeAlarms, 
+            fanStatus, 
+            timestamp: new Date()
+          })
 
-          // fs.appendFile(alarmFilePath, logAlarm, (err) => {
-          //   if (err) {
-          //     console.error("Failed to save log:", err);
-          //   } else {
-          //     if (eMS_LOGS) console.log(`✅ Log saved: ${alarmFilePath}`);
-          //   }
-          // });
-
-          writeLog(
-            `${alarmFilePath}`,
-            logAlarm
-          );
+          // ========================== RABBIT MQ ==========================
         }
 
         socket.deviceId = mac;

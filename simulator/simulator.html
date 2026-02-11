@@ -22,6 +22,7 @@
 
         .row {
             margin-bottom: 14px;
+            display: block;
         }
 
         label {
@@ -47,6 +48,10 @@
         select {
             width: 100%;
             padding: 6px;
+        }
+
+        .line {
+            display: inline-block;
         }
     </style>
 </head>
@@ -121,6 +126,32 @@
             <label for="password">Password</label>
             <input type="checkbox" id="password">
         </div>
+        <div class="row">
+            <div class="line">
+                <label for="fan1">Fan1</label>
+                <input type="checkbox" id="fan1">
+            </div>
+            <div class="line">
+                <label for="fan2">Fan2</label>
+                <input type="checkbox" id="fan2">
+            </div>
+            <div class="line">
+                <label for="fan3">Fan3</label>
+                <input type="checkbox" id="fan3">
+            </div>
+            <div class="line">
+                <label for="fan4">Fan4</label>
+                <input type="checkbox" id="fan4">
+            </div>
+            <div class="line">
+                <label for="fan5">Fan5</label>
+                <input type="checkbox" id="fan5">
+            </div>
+            <div class="line">
+                <label for="fan6">Fan6</label>
+                <input type="checkbox" id="fan6">
+            </div>
+        </div>
 
         <div class="status" id="status">🔴 Disconnected</div>
     </div>
@@ -146,13 +177,19 @@
         const doorInput = document.getElementById("door");
         const lockInput = document.getElementById("lock");
         const passwordInput = document.getElementById("password");
+        const fan1Input = document.getElementById("fan1");
+        const fan2Input = document.getElementById("fan2");
+        const fan3Input = document.getElementById("fan3");
+        const fan4Input = document.getElementById("fan4");
+        const fan5Input = document.getElementById("fan5");
+        const fan6Input = document.getElementById("fan6");
 
         const fireAlarmVal = document.getElementById("fireAlarmVal");
         const leakageVal = document.getElementById("leakageVal");
         const loggingVal = document.getElementById("loggingVal");
         const doorVal = document.getElementById("doorVal");
         const lockVal = document.getElementById("lockVal");
-        const passwordVal = document.getElementById("passwordVal");
+        const fan1Val = document.getElementById("fan1Val");
 
         // Connect to simulator WebSocket
         const ws = new WebSocket("ws://localhost:8090");
@@ -216,6 +253,30 @@
                 passwordInput.checked = state.password;
             }
 
+            if (state.fan1 !== undefined) {
+                fan1Input.checked = Number(state.fan1) === 2 || state.fan1 === true;
+            }
+
+            if (state.fan2 !== undefined) {
+                fan2Input.checked = Number(state.fan2) === 2 || state.fan2 === true;
+            }
+
+            if (state.fan3 !== undefined) {
+                fan3Input.checked = Number(state.fan3) === 2 || state.fan3 === true;
+            }
+
+            if (state.fan4 !== undefined) {
+                fan4Input.checked = Number(state.fan4) === 2 || state.fan4 === true;
+            }
+
+            if (state.fan5 !== undefined) {
+                fan5Input.checked = Number(state.fan5) === 2 || state.fan5 === true;
+            }
+
+            if (state.fan6 !== undefined) {
+                fan6Input.checked = Number(state.fan6) === 2 || state.fan6 === true;
+            }
+
             if (state.mode) {
                 modeSelect.value = state.mode;
             }
@@ -276,9 +337,35 @@
             sendUpdate({ password: e.target.checked });
         });
 
+        fan1Input.addEventListener("change", (e) => {
+            sendUpdate({ fan1: e.target.checked });
+        });
+
+        fan2Input.addEventListener("change", (e) => {
+            sendUpdate({ fan2: e.target.checked });
+        });
+
+        fan3Input.addEventListener("change", (e) => {
+            sendUpdate({ fan3: e.target.checked });
+        });
+
+        fan4Input.addEventListener("change", (e) => {
+            sendUpdate({ fan4: e.target.checked });
+        });
+
+        fan5Input.addEventListener("change", (e) => {
+            sendUpdate({ fan5: e.target.checked });
+        });
+
+        fan6Input.addEventListener("change", (e) => {
+            sendUpdate({ fan6: e.target.checked });
+        });
+
         modeSelect.addEventListener("change", (e) => {
             sendUpdate({ mode: e.target.value });
         });
+
+        
     </script>
 
 </body>
