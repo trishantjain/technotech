@@ -44,6 +44,11 @@ function DashboardView() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState("");
 
+  const selectedMacRef = useRef("");
+  useEffect(() => {
+    selectedMacRef.current = selectedMac;
+  }, [selectedMac]);
+
   const [alarmToggle, setAlarmToggle] = useState(false);
 
 
@@ -606,6 +611,56 @@ function DashboardView() {
     return () => clearInterval(snapshotInterval); // ✅ Cleanup
   }, [selectedMac]);
 
+  // Realtime notification when a snapshot is captured (server-sent events)
+  useEffect(() => {
+    const baseUrl = process.env.REACT_APP_API_URL;
+    if (!baseUrl) return;
+
+    const es = new EventSource(`${baseUrl}/api/events/snapshots`);
+
+    const onSnapshot = (evt) => {
+      try {
+        const payload = JSON.parse(evt.data);
+        const mac = payload?.mac;
+        if (!mac) return;
+
+        swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: `Snapshot captured IP: ${mac}`,
+          // text: `MAC: ${mac}`,
+          timer: 10000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+          showCloseButton: true,
+          backdrop: false,
+          width: 300,
+          height: 100
+        });
+
+        // If user is viewing the same device, refresh the snapshot list
+        if (String(selectedMacRef.current).toLowerCase() === String(mac).toLowerCase()) {
+          fetchSnapshots(selectedMacRef.current);
+        }
+      } catch {
+        // ignore malformed payload
+      }
+    };
+
+    es.addEventListener("snapshot", onSnapshot);
+
+    // cleanup
+    return () => {
+      try {
+        es.removeEventListener("snapshot", onSnapshot);
+        es.close();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
   const alarmKeys = [
     {
       key: "fireAlarm",
@@ -722,13 +777,20 @@ function DashboardView() {
       {/* Dashboard */}
       <div className="dashboard">
         <div className="panel">
-          <h2 className="selected-heading">
-            📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
-            <label className="switch">
-              <input type="checkbox" checked={alarmToggle}
-                onChange={(e) => setAlarmToggle(e.target.checked)} />
-              <span className="slider"></span>
-            </label>          </h2>
+          <div className="rack-header">
+            <h2 className="selected-heading">
+              📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>  }
+            </h2>
+            {/* ALARM TOGGLE */}
+            <div className="alarm-container">
+              <span>Alarm</span>
+              <label className="switch">
+                <input type="checkbox" checked={alarmToggle}
+                  onChange={(e) => setAlarmToggle(e.target.checked)} />
+                <span className="slider"></span>
+              </label>
+            </div>
+          </div>
           {latestReading && (
             <div>
               <div className="tabs">

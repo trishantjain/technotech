@@ -21,6 +21,63 @@ const cors = require("cors");
 app.use(cors());
 
 
+// ===================== SSE: Snapshot Notifications =====================
+const snapshotSseClients = new Set();
+
+function writeSseEvent(res, eventName, data) {
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function broadcastSnapshotCaptured(payload) {
+  for (const client of snapshotSseClients) {
+    try {
+      if (client?.mac && client.mac !== String(payload.mac || "").toLowerCase()) {
+        continue;
+      }
+      writeSseEvent(client.res, "snapshot", payload);
+    } catch (e) {
+      snapshotSseClients.delete(client);
+      try {
+        client?.res?.end();
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+// Client subscribes to receive "snapshot" events
+app.get("/api/events/snapshots", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  // CORS middleware should handle headers, but SSE benefits from explicit keep-alive
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const mac = req.query.mac ? String(req.query.mac).toLowerCase() : "";
+  const client = { res, mac };
+  snapshotSseClients.add(client);
+
+  // initial event so UI can confirm connection
+  writeSseEvent(res, "ready", { ok: true, type: "snapshots", mac });
+
+  const ping = setInterval(() => {
+    try {
+      res.write(`: ping\n\n`);
+    } catch {
+      // ignore
+    }
+  }, 25000);
+
+  req.on("close", () => {
+    clearInterval(ping);
+    snapshotSseClients.delete(client);
+  });
+});
+
+
 const logStreams = {};
 
 // ===================== DEBUG SYSTEM =====================
@@ -1151,6 +1208,7 @@ const server = net.createServer((socket) => {
         // Snapshot Capture Code
         if ((padding === 0x43) && (doorStatus === "OPEN")) {
           // if (true) {
+          const currentMac = mac;
           let timestamp = getFormattedDateTime("path");
           const snapshotFileName = `image_${timestamp}.jpg`;
 
@@ -1184,6 +1242,12 @@ const server = net.createServer((socket) => {
               ffmpeg.on('close', (code) => {
                 if (code === 0) {
                   if (eMS_LOGS) console.log("Captured successfully...");
+                  broadcastSnapshotCaptured({
+                    mac: currentMac,
+                    filename: snapshotFileName,
+                    createdAt: new Date().toISOString(),
+                    source: "camera",
+                  });
                 } else {
                   console.error(`ffmpeg process exited with code ${code}`);
                 }
@@ -1192,7 +1256,13 @@ const server = net.createServer((socket) => {
             } else {
               console.log("⏰ Snapshot for Sparsh Camera ⏰");
 
-              console.log("Timestamp: ", timestamp);
+              broadcastSnapshotCaptured({
+                mac: currentMac,
+                filename: snapshotFileName,
+                createdAt: new Date().toISOString(),
+                source: "camera",
+              });
+
 
               // Extracting Camera IP from DB for Sparsh Camera
               let camIP = cameraDetails.ipCamera.ip.trim();
