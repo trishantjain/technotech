@@ -834,12 +834,13 @@ body {
   cursor: pointer;
 }
 
+/* ============ TOGGLE SWITCH ============ */
 /* Container for the switch */
 .switch {
   position: relative;
   display: inline-block;
-  width: 50px;
-  height: 24px;
+  width: 48px;
+  height: 22px;
 }
 
 /* Hide the default checkbox */
@@ -847,6 +848,19 @@ body {
   opacity: 0;
   width: 0;
   height: 0;
+}
+
+.rack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alarm-container {
+  display: flex;
+  align-items: center;
+  justify-items: center;
+  gap: 8px;
 }
 
 /* Slider background */
@@ -866,8 +880,8 @@ body {
 .slider:before {
   position: absolute;
   content: "";
-  height: 16px;
-  width: 16px;
+  height: 14px;
+  width: 14px;
   left: 4px;
   bottom: 4px;
   background-color: white;
@@ -882,7 +896,7 @@ input:checked + .slider {
 
 /* Move the circle when checked */
 input:checked + .slider:before {
-  transform: translateX(26px);
+  transform: translateX(24px);
 }
 input:not(:checked) + .slider:before { transform: translateX(0); }
 
@@ -890,6 +904,8 @@ input:not(:checked) + .slider:before { transform: translateX(0); }
 .slider:before {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+/* ============ TOGGLE SWITCH ============ */
+
 
 /* .logo-panel{
   background-color: grey;
