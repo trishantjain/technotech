@@ -23,6 +23,8 @@ import thresholds from "./thresholds";
 
 const defaultLocation = [28.6139, 77.209];
 
+const STALE_THRESHOLD_MS = 30000; // 30 seconds
+
 const LOG_STORAGE_KEY = "tt.logsByMac.v1";
 const LOG_RESET_MS = 60 * 60 * 1000; // 1 hour
 const MAX_LOGS_PER_DEVICE = 300;
@@ -154,6 +156,17 @@ function DashboardView() {
     }
     return map;
   }, [readings]);
+
+  const connectedDeviceCount = useMemo(() => {
+    let count = 0;
+    for (const device of deviceMeta) {
+      const reading = latestReadingsByMac[device.mac];
+      if (!reading?.timestamp) continue;
+      const age = Date.now() - new Date(reading.timestamp).getTime();
+      if (age <= STALE_THRESHOLD_MS) count++;
+    }
+    return count;
+  }, [deviceMeta, latestReadingsByMac]);
 
   const frontendAlarmsByMac = useMemo(() => {
     const map = {};
@@ -723,53 +736,14 @@ function DashboardView() {
       {/* Logo */}
       <div className="logo-panel">
 
-        <div
-          style={{
-            display: "flex"
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              left: 300,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              zIndex: 99
-            }}
-          >
-            <img
-              src="/bharatnet_logo.png"
-              alt="BharatNet"
-              style={{ height: "40px", width: "100px", left: "100px" }}
-            />
-            <img
-              src="/BSNL_logo.png"
-              alt="BSNL"
-              style={{ height: "40px", width: "100px", left: "100px" }}
-            />
+        <div className="logo-bar">
+          <div className="logo-group logo-group--left">
+            <img className="logo-img" src="/bharatnet_logo.png" alt="BharatNet" />
+            <img className="logo-img" src="/BSNL_logo.png" alt="BSNL" />
           </div>
-          <div
-            style={{
-              position: "absolute",
-              right: 60,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              zIndex: 99
-            }}
-
-          >
-            <img
-              src="/ITI.png"
-              alt="ITI"
-              style={{ height: "40px", width: "100px" }}
-            />
-            <img
-              src="/technotrendz.png"
-              alt="Technotrendz Logo"
-              style={{ height: "40px", width: "100px" }}
-            />
+          <div className="logo-group logo-group--right">
+            <img className="logo-img" src="/ITI.png" alt="ITI" />
+            <img className="logo-img" src="/technotrendz.png" alt="Technotrendz Logo" />
           </div>
         </div>
       </div>
@@ -1260,7 +1234,10 @@ function DashboardView() {
 
         {/* Panel 3: Device Tiles */}
         <div className="panel device-list">
-          <h2>🟢 Devices</h2>
+          <h2>
+            🟢 Devices:
+            <span style={{ fontWeight: "lighter", fontSize: "20px", marginLeft: "10px" }}>(Connected: {connectedDeviceCount}/{deviceMeta.length})</span>
+          </h2>
           <div className="grid">
             {(() => {
               const latestReadingsByMac = {};
