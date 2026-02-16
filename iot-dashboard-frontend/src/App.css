@@ -907,6 +907,74 @@ input:not(:checked) + .slider:before { transform: translateX(0); }
 /* ============ TOGGLE SWITCH ============ */
 
 
+/* ============ TOP LOGOS ============ */
+.logo-panel {
+  position: relative;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  min-height: 56px;
+}
+
+.logo-bar {
+  position: relative;
+  height: 56px;
+}
+
+.logo-group {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 99;
+}
+
+.logo-group--left {
+  left: 300px;
+}
+
+.logo-group--right {
+  right: 60px;
+}
+
+.logo-img {
+  height: 60px;
+  width: 150px;
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .logo-panel {
+    min-height: auto;
+  }
+
+  .logo-bar {
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    justify-content: center;
+    align-items: center;
+    gap: 8px 14px;
+  }
+
+  /* Let each logo behave as a grid item */
+  .logo-group {
+    position: static;
+    transform: none;
+    z-index: auto;
+    display: contents;
+  }
+
+  .logo-img {
+    object-fit: fill;
+    height: 32px;
+    width: 100px;
+  }
+}
+/* ============ TOP LOGOS ============ */
+
+
 /* .logo-panel{
   background-color: grey;
   display: flex;
