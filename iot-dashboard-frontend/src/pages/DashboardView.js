@@ -796,21 +796,21 @@ function DashboardView() {
                     value={(latestReading.insideTemperature).toFixed(2)}
                     max={100}
                     color={latestReading.insideTemperature < thresholds.insideTemperature.min ? "#ec7632" : latestReading.insideTemperature >= thresholds.insideTemperature.max ? "#fb1616" : "#67b816"}
-                    alarm={latestReading.insideTemperatureAlarm}
+                    alarm={alarmToggle ? latestReading.insideTemperatureAlarm : false}
                   />
                   <Gauge
                     label="Outside Temp"
                     value={(latestReading.outsideTemperature).toFixed(2)}
                     max={100}
                     color={latestReading.outsideTemperature < thresholds.outsideTemperature.min ? "#ec7632" : latestReading.outsideTemperature >= thresholds.outsideTemperature.max ? "#fb1616" : "#67b816"}
-                    alarm={latestReading.outsideTemperatureAlarm}
+                    alarm={alarmToggle ? latestReading.outsideTemperatureAlarm : false}
                   />
                   <Gauge
                     label="Humidity"
                     value={latestReading.humidity}
                     max={100}
                     color={latestReading.humidity < thresholds.humidity.min ? "#ec7632" : latestReading.humidity >= thresholds.humidity.max ? "#fb1616" : "#67b816"}
-                    alarm={latestReading.humidityAlarm}
+                    alarm={alarmToggle ? latestReading.humidityAlarm : false}
                   />
                   <Gauge
                     label="Input Volt"
@@ -831,21 +831,21 @@ function DashboardView() {
                     value={latestReading.batteryBackup}
                     max={45}
                     color="#ffc107"
-                    alarm={latestReading.batteryBackupAlarm}
+                    alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   <Gauge
                     label="Battery %"
                     value={(latestReading.batteryBackup * 1.5).toFixed(2)}
                     max={120}
                     color="#ffc107"
-                    alarm={latestReading.batteryBackupAlarm}
+                    alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   <Gauge
                     label="Battery(Hours)"
                     value={(latestReading.batteryBackup).toFixed(2)}
                     max={120}
                     color="#ffc107"
-                    alarm={latestReading.batteryBackupAlarm}
+                    alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   {latestReading.batteryBackup <= 10 ?
                     <Gauge
@@ -853,7 +853,7 @@ function DashboardView() {
                       value={0}
                       max={12}
                       color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
-                      alarm={latestReading.batteryBackupAlarm}
+                      alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                     /> :
                     <Gauge
                       label="LockBat(Left..)"
@@ -862,7 +862,7 @@ function DashboardView() {
                       max={12}
                       color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
                       hoverTitle={"LockBat Left Hours"}
-                      alarm={latestReading.batteryBackupAlarm}
+                      alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                     />
                   }
                 </div>
