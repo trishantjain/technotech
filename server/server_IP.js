@@ -13,7 +13,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require('axios');
 const { spawn } = require('child_process');
-const { connectRabbit, publishAlarm } = require("./services/rabbit");
+const { connectRabbit, publishAlarm, publishSnapshot, consume, publishLog } = require("./services/rabbit");
 
 
 const app = express();
@@ -21,6 +21,7 @@ const connectedDevices = new Map();
 app.use(bodyParser.json());
 const cors = require("cors");
 app.use(cors());
+const deviceCache = new Map();
 
 
 // ===================== SSE: Snapshot Notifications =====================
@@ -163,7 +164,15 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err.message));
 
-connectRabbit();
+(async () => {
+  await connectRabbit();
+
+  // Worker publishes completion events to this queue.
+  // We translate those to SSE for the UI.
+  await consume("snapshot.done", async (payload) => {
+    broadcastSnapshotCaptured(payload);
+  }, { prefetch: 50 });
+})();
 
 app.get("/test-alarm", (req, res) => {
   publishAlarm({
@@ -174,6 +183,25 @@ app.get("/test-alarm", (req, res) => {
 
   res.send("Test alarm published");
 });
+
+async function loadDeviceCache() {
+  try {
+    const devices = await Device.find({}, { mac: 1, ipCamera: 1 }).lean();
+
+    devices.forEach(d => {
+      deviceCache.set(d.mac.toLowerCase(), {
+        cameraType: d.ipCamera?.type || null,
+        cameraIP: d.ipCamera?.ip || null
+      });
+    });
+
+    console.log(`📦 Device cache loaded: ${deviceCache.size} devices`);
+  } catch (err) {
+    console.error("Failed to load device cache:", err.message);
+  }
+}
+
+loadDeviceCache();
 
 
 
@@ -361,6 +389,12 @@ app.post("/api/register-device", async (req, res) => {
       ipCamera: parsedCamera || "",
     });
     await device.save();
+
+    deviceCache.set(normalizedMac, {
+      cameraType: parsedCamera?.type || null,
+      cameraIP: parsedCamera?.ip || null
+    });
+
     res.json({ message: "Device registered successfully" });
   } catch (err) {
     res.status(500).json({ error: "Error registering device" });
@@ -574,7 +608,7 @@ app.get("/api/readings", async (req, res) => {
   try {
     const readings = await SensorReading.find()
       .sort({ timestamp: -1 })
-      .limit(200);
+      .limit(600);
     res.json(readings);
   } catch (error) {
     console.error("Error fetching readings:", error);
@@ -654,10 +688,21 @@ app.post("/api/log-command", (req, res) => {
   //   }
   // });
 
+  // ===================== Logging Command | OLD =====================
   writeLog(
     `${filePath}`,
     logEntry
   );
+  // ===================== Logging Command | RABBITMQ =====================
+
+  publishLog({
+    type: "out",
+    mac,
+    command,
+    status,
+    message,
+    timestamp: new Date().toISOString()
+  });
 
 });
 
@@ -996,6 +1041,17 @@ function calibrateTemperature(temp) {
   return temp * (1 + range.factor);
 }
 
+setInterval(() => {
+  if (readingBuffer.length === 0) return;
+
+  const toSave = readingBuffer.splice(0, BULK_SAVE_LIMIT);
+
+  SensorReading.insertMany(toSave, { ordered: false })
+    .catch(err =>
+      console.error("Periodic bulk save error:", err.message)
+    );
+
+}, 2000);
 
 
 const server = net.createServer((socket) => {
@@ -1158,9 +1214,9 @@ const server = net.createServer((socket) => {
         const waterLogging = !!packet[31]; // "!!" -> converts true/false to 1/0
         const waterLeakage = !!packet[32];
 
-        const outputVoltage = +packet.readInt16LE(33).toFixed(2);
+        const outputVoltage = (+packet.readInt16LE(33).toFixed(2)) / 100;
         const hupsDVC = packet.readInt16LE(35);
-        const inputVoltage = +packet.readInt16LE(37).toFixed(2);
+        const inputVoltage = (+packet.readInt16LE(37).toFixed(2)) / 100;
         const hupsBatVolt = packet.readInt16LE(39);
         const batteryBackup = +packet.readFloatLE(41).toFixed(2);
 
@@ -1218,42 +1274,34 @@ const server = net.createServer((socket) => {
           alreadyReplied = 40; // Load Balancing
         }
 
-
-        // Snapshot Capture Code
+        // ===================== OLD SNAPSHOT LOGIC (COMMENTED) =====================
+        /*
+        // Snapshot Capture Code (legacy in-process)
+        // NOTE: Kept for future use; RabbitMQ flow below is the active path.
         if ((padding === 0x43) && (doorStatus === "OPEN")) {
-          // if (true) {
           const currentMac = mac;
-          let timestamp = getFormattedDateTime("path");
+          const timestamp = getFormattedDateTime("path");
           const snapshotFileName = `image_${timestamp}.jpg`;
 
-
-          /* 
-            Function that captures snapshots from Hi-Focus and Sparsh Cameras. 
-          */
           try {
-            // console.log("Padding: ", padding)
-            if (eMS_LOGS) console.log("⚡Camera Function runs ...⚡")
-            const cameraDetails = await Device.findOne({ mac }, 'ipCamera').lean();
-            const cameraMake = cameraDetails.ipCamera.type.trim();
+            if (eMS_LOGS) console.log("⚡Camera Function runs ...⚡");
+            const cameraDetails = await Device.findOne({ mac }, "ipCamera").lean();
+            const cameraMake = cameraDetails?.ipCamera?.type?.trim();
             if (eMS_LOGS) console.log("Camera Make: ", cameraMake);
 
-            if (cameraMake === 'H') {
+            if (cameraMake === "H") {
               console.log("⏰ Snapshot for HiFocus Camera ⏰");
-
               const ip = cameraDetails.ipCamera.ip.trim();
-              const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[: ]/g, '_'));
-
-              // Using ffmpeg to capture snapshot from the HI-Focus Camera
+              const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[: ]/g, "_"));
               const args = [
-                '-rtsp_transport', 'tcp',
-                '-i', `rtsp://${ip}/media/video1`,
-                '-frames:v', '1',
+                "-rtsp_transport", "tcp",
+                "-i", `rtsp://${ip}/media/video1`,
+                "-frames:v", "1",
                 `${snapshotOutputDir_MAC}/${snapshotFileName}`
               ];
 
-              const ffmpeg = spawn('ffmpeg', args);
-
-              ffmpeg.on('close', (code) => {
+              const ffmpeg = spawn("ffmpeg", args);
+              ffmpeg.on("close", (code) => {
                 if (code === 0) {
                   if (eMS_LOGS) console.log("Captured successfully...");
                   broadcastSnapshotCaptured({
@@ -1266,10 +1314,8 @@ const server = net.createServer((socket) => {
                   console.error(`ffmpeg process exited with code ${code}`);
                 }
               });
-
             } else {
               console.log("⏰ Snapshot for Sparsh Camera ⏰");
-
               broadcastSnapshotCaptured({
                 mac: currentMac,
                 filename: snapshotFileName,
@@ -1277,19 +1323,13 @@ const server = net.createServer((socket) => {
                 source: "camera",
               });
 
-
-              // Extracting Camera IP from DB for Sparsh Camera
-              let camIP = cameraDetails.ipCamera.ip.trim();
-
-              // Added 3 seconds delay for first snapshot capture to wait for opening the door 
+              const camIP = cameraDetails.ipCamera.ip.trim();
               setTimeout(() => {
-                let url = `https://${camIP}/CGI/command/snap?channel=01`;
+                const url = `https://${camIP}/CGI/command/snap?channel=01`;
                 console.log("📸 Capturing from URL:", url);
 
-                const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[. ]/g, '_'));
+                const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[. ]/g, "_"));
                 const snapshotOutputPath = path.join(snapshotOutputDir_MAC, snapshotFileName);
-
-                if (eMS_LOGS) console.log("🔴outputDir: ", snapshotOutputDir, "🔴");
 
                 try {
                   if (!fs.existsSync(snapshotOutputDir)) {
@@ -1301,18 +1341,17 @@ const server = net.createServer((socket) => {
                 }
 
                 axios({
-                  method: 'GET',
-                  url: url,
-                  responseType: 'stream',
+                  method: "GET",
+                  url,
+                  responseType: "stream",
                   timeout: 10000
                 })
                   .then((response) => {
                     const writer = fs.createWriteStream(snapshotOutputPath);
                     response.data.pipe(writer);
-
                     return new Promise((resolve, reject) => {
-                      writer.on('finish', resolve);
-                      writer.on('error', reject);
+                      writer.on("finish", resolve);
+                      writer.on("error", reject);
                     });
                   })
                   .then(() => {
@@ -1321,52 +1360,88 @@ const server = net.createServer((socket) => {
                   .catch((error) => {
                     console.error(`❌ Error capturing snapshot: ${error.message}`);
                   });
-              }, 3000); // 3 second delay
+              }, 3000);
             }
           } catch (err) {
-            console.error(`Error occured while caputuring snapshots: ${err}`)
+            console.error(`Error occured while caputuring snapshots: ${err}`);
           }
         }
+        */
+        // ===================== OLD SNAPSHOT LOGIC (COMMENTED) =====================
 
+        // ===================== RABBITMQ SNAPSHOT LOGIC =====================
+        if ((padding === 0x43) && (doorStatus === "OPEN")) {
+          const deviceMeta = deviceCache.get(String(mac).toLowerCase());
 
-        // ===================== Logging Incoming Data from Simulator =====================
-        if (INC_LOGS_CMD) {
-          const now = new Date();
-          const fileName = `${now.getDate()}_${now.getMonth() + 1
-            }_${now.getHours()}.inc`;
-
-          // const sensorData = {
-          //   humidity: humidity,
-          //   insideTemperature: insideTemperature,
-          //   outsideTemperature: outsideTemperature,
-          //   inputVoltage: inputVoltage,
-          //   outputVoltage: outputVoltage,
-          //   batteryBackup: batteryBackup,
-          // };
-
-          const deviceIncDir = path.join(IncLogDir, macDir);
-          fs.mkdirSync(deviceIncDir, { recursive: true });
-
-          const IncLogFilePath = path.join(deviceIncDir, fileName);
-          const timestamp = now.toLocaleString();
-          const IncLogEntry = `[${timestamp}] | MAC:${mac} | Humid=${humidity} | IT=${insideTemperature} | OT=${outsideTemperature} | IV=${inputVoltage} | OV=${outputVoltage} | BB=${batteryBackup}`;
-
-          // File writing happens after response
-          // fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
-          //   if (err) {
-          //     console.error("Failed to save log:", err);
-          //   } else {
-          //     if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
-          //   }
-          // });
-
-          writeLog(
-            `${IncLogFilePath}`,
-            IncLogEntry
-          );
-
+          if (!deviceMeta || !deviceMeta.cameraType || !deviceMeta.cameraIP) {
+            console.warn(`⚠ No camera metadata found for ${mac}, skipping snapshot publish`);
+          } else {
+            publishSnapshot({
+              mac,
+              cameraType: String(deviceMeta.cameraType).trim(),
+              cameraIP: String(deviceMeta.cameraIP).trim(),
+              requestedAt: new Date().toISOString()
+            });
+          }
         }
-        // ===================== Logging Incoming Data from Simulator =====================
+        // ===================== RABBITMQ SNAPSHOT LOGIC =====================
+
+
+        // ===================== Logging Incoming Data from Simulator | OLD =====================
+        // if (INC_LOGS_CMD) {
+        //   const now = new Date();
+        //   const fileName = `${now.getDate()}_${now.getMonth() + 1
+        //     }_${now.getHours()}.inc`;
+
+        //   // const sensorData = {
+        //   //   humidity: humidity,
+        //   //   insideTemperature: insideTemperature,
+        //   //   outsideTemperature: outsideTemperature,
+        //   //   inputVoltage: inputVoltage,
+        //   //   outputVoltage: outputVoltage,
+        //   //   batteryBackup: batteryBackup,
+        //   // };
+
+        //   const deviceIncDir = path.join(IncLogDir, macDir);
+        //   fs.mkdirSync(deviceIncDir, { recursive: true });
+
+        //   const IncLogFilePath = path.join(deviceIncDir, fileName);
+        //   const timestamp = now.toLocaleString();
+        //   const IncLogEntry = `[${timestamp}] | MAC:${mac} | Humid=${humidity} | IT=${insideTemperature} | OT=${outsideTemperature} | IV=${inputVoltage} | OV=${outputVoltage} | BB=${batteryBackup}`;
+
+        //   // File writing happens after response
+        //   // fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
+        //   //   if (err) {
+        //   //     console.error("Failed to save log:", err);
+        //   //   } else {
+        //   //     if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
+        //   //   }
+        //   // });
+
+        //   writeLog(
+        //     `${IncLogFilePath}`,
+        //     IncLogEntry
+        //   );
+
+        // }
+        // ===================== Logging Incoming Data from Simulator | OLD =====================
+
+
+        // ===================== Logging Incoming Data from Simulator | RABBITMQ =====================
+        if (INC_LOGS_CMD) {
+          publishLog({
+            type: "inc",
+            mac,
+            humidity,
+            insideTemperature,
+            outsideTemperature,
+            inputVoltage,
+            outputVoltage,
+            batteryBackup,
+            timestamp: new Date().toISOString()
+          });
+        }
+        // ===================== Logging Incoming Data from Simulator | RABBITMQ =====================
 
 
 
@@ -1513,7 +1588,9 @@ const server = net.createServer((socket) => {
             mac,
             alarms: activeAlarms, 
             fanStatus, 
-            timestamp: new Date()
+            timestamp: new Date(),
+            logType: 'alarm',
+            baseDir: alarmLogDir
           })
 
           // ========================== RABBIT MQ ==========================
@@ -1613,21 +1690,21 @@ const server = net.createServer((socket) => {
   });
 
 
-  setInterval(() => {
-    if (readingBuffer.length > 0) {
-      const toSave = [...readingBuffer];
-      readingBuffer = [];
-      SensorReading.insertMany(toSave)
-        .then((docs) => {
-          docs.forEach(doc => {
-            console.log(`✅ Saved reading in DB (periodic): MAC=${doc.mac}, timestamp=${doc.timestamp}`);
-          });
-        })
-        .catch((err) =>
-          console.error("Periodic bulk save error:", err.message)
-        );
-    }
-  }, 5000);
+  // setInterval(() => {
+  //   if (readingBuffer.length > 0) {
+  //     const toSave = [...readingBuffer];
+  //     readingBuffer = [];
+  //     SensorReading.insertMany(toSave)
+  //       .then((docs) => {
+  //         docs.forEach(doc => {
+  //           console.log(`✅ Saved reading in DB (periodic): MAC=${doc.mac}, timestamp=${doc.timestamp}`);
+  //         });
+  //       })
+  //       .catch((err) =>
+  //         console.error("Periodic bulk save error:", err.message)
+  //       );
+  //   }
+  // }, 5000);
 
 });
 
