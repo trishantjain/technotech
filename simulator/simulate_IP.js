@@ -310,8 +310,8 @@ function startDevice(mac, index) {
         // } else if (!isCSVMode === false) {
         console.log(`🔄 ${mac} starting in RANDOM mode`);
 
-        // SENDING 1 PACKET/SECOND/DEVICE
-        const SEND_INTERVAL = 1000; // 1 second
+        // SENDING 1 PACKET / 3 SECONDS / DEVICE
+        const SEND_INTERVAL = 3000; // 3 seconds
         const PHASE_OFFSET_MS = (index * 1000) / TOTAL_DEVICES;
 
         let sendCount = 0;
@@ -507,7 +507,7 @@ function startDevice(mac, index) {
           );
 
           client.write(packet);
-        }, 5000);
+        }, SEND_INTERVAL);
 
         client.on('close', () => {
           console.warn(`🔌 [${mac}] CONNECTION CLOSED`);
@@ -706,7 +706,7 @@ function startDataDispatcher() {
       }
     }
 
-  }, 2000); // Dispatch every 2 seconds
+  }, 3000); // Dispatch every 3 seconds
 }
 
 async function initializeSimulator() {
