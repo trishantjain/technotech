@@ -1239,7 +1239,8 @@ function DashboardView() {
             <span style={{ fontWeight: "lighter", fontSize: "20px", marginLeft: "10px" }}>(Connected: {connectedDeviceCount}/{deviceMeta.length})</span>
           </h2>
           <div className="grid">
-            {(() => {
+            
+            {/* {(() => {
               const latestReadingsByMac = {};
               readings.forEach((r) => {
                 const existing = latestReadingsByMac[r.mac];
@@ -1252,6 +1253,7 @@ function DashboardView() {
               });
 
               return deviceMeta.map((device) => {
+                console.count("dashboard render")
                 const { mac } = device;
                 const reading = latestReadingsByMac[mac];
                 let colorClass = "disconnected"; // default
@@ -1294,7 +1296,53 @@ function DashboardView() {
                   </div>
                 );
               });
-            })()}
+            })()} */}
+
+
+            {deviceMeta.map((device) => {
+              console.count("dashboard render");
+
+              const { mac } = device;
+              const reading = latestReadingsByMac[mac];
+              let colorClass = "disconnected";
+
+              if (reading?.timestamp) {
+                const age = Date.now() - new Date(reading.timestamp).getTime();
+
+                if (age <= STALE_THRESHOLD_MS) {
+                  const hasStatusAlarm = isAlarmActive(reading);
+
+                  const hasGaugeAlarm =
+                    reading.insideTemperatureAlarm ||
+                    reading.outsideTemperatureAlarm ||
+                    reading.humidityAlarm ||
+                    reading.inputVoltageAlarm ||
+                    reading.outputVoltageAlarm ||
+                    reading.batteryBackupAlarm;
+
+                  colorClass = hasStatusAlarm
+                    ? "status-alarm"
+                    : hasGaugeAlarm
+                      ? "gauge-alarm"
+                      : "connected";
+                }
+              }
+
+              return (
+                <div
+                  key={mac}
+                  className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
+                    }`}
+                  onClick={() => {
+                    setSelectedMac(mac);
+                    setSelectedDevice(device.locationId);
+                  }}
+                >
+                  {device.locationId || mac}
+                </div>
+              );
+            })}
+
           </div>
         </div>
 
