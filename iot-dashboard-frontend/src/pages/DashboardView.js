@@ -1210,7 +1210,7 @@ function DashboardView() {
 
 
           {/* LOG SECTION */}
-          <div className="log-scroll h-64 w-full rounded-md border bg-black overflow-y-auto"
+          <div className="w-full h-64 overflow-y-auto bg-black border rounded-md log-scroll"
             onScroll={handleScroll}
           >
             {/* <div
