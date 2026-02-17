@@ -125,7 +125,21 @@ function scheduleCameraClicker(pulseIntervalMs = 60000, pulseDurationMs = 500) {
 // }, 30000);
 
 function generateIP(index) {
-  return `192.168.0.${(index % 256).toString(10).padStart(2, '0')}`;
+  // Previous implementation wrapped at 256, causing duplicate IDs and limiting
+  // effective simulated devices to 256 (connectedDevices map key collisions).
+  // Generate unique IPv4 IDs by spreading across subnets.
+  // Uses host range 1..254 to avoid .0 and .255.
+  const hostsPerSubnet = 254;
+  const subnet = Math.floor(index / hostsPerSubnet); // 0..n
+  const host = (index % hostsPerSubnet) + 1; // 1..254
+
+  if (subnet > 255) {
+    throw new Error(
+      `TOTAL_DEVICES too large for 192.168.x.y scheme: index=${index} subnet=${subnet}`
+    );
+  }
+
+  return `192.168.${subnet}.${host}`;
 }
 
 function ipStringToAsciiHexBuffer(ip) {
