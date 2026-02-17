@@ -17,16 +17,30 @@ async function startWorker() {
         try {
             const data = JSON.parse(msg.content.toString());
 
-            const macDir = data.mac.replace(/[:. ]/g, "_");
-            const deviceAlarmDir = path.join(process.env.ALARM_LOG_DIR, macDir);
+            const { mac, alarms, fanStatus, baseDir } = data;
+
+            if (!mac || !baseDir) {
+                console.error("Invalid alarm message:", data);
+                channel.ack(msg);
+                return;
+            }
+
+            const macDir = mac.replace(/[:. ]/g, "_");
+            const deviceAlarmDir = path.join(baseDir, macDir);
             fs.mkdirSync(deviceAlarmDir, { recursive: true });
 
             const now = new Date();
             const fileName = `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}_Alarm.inc`;
 
-            let logLine = data.fanStatus.includes(2) ?
-                `[${now.toLocaleString()}] | MAC: ${data.mac} | ${data.alarms} | Fans: ${data.fanStatus}` :
-                `[${now.toLocaleString()}] | MAC: ${data.mac} | ${data.alarms}`;
+            let logLine;
+
+            if (Array.isArray(fanStatus) && fanStatus.includes(2)) {
+                logLine =
+                    `[${now.toLocaleString()}] | MAC: ${mac} | ${alarms} | Fans: ${fanStatus}`;
+            } else {
+                logLine =
+                    `[${now.toLocaleString()}] | MAC: ${mac} | ${alarms}`;
+            }
 
             fs.appendFileSync(
                 path.join(deviceAlarmDir, fileName),

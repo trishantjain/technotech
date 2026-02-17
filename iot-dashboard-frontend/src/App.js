@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import DashboardView from './pages/DashboardView';
+import DashboardViewV2 from './pages/DashboardViewV2';
 import AdminDashboard from './pages/AdminDashboard';
 import PrivateRoute from './components/PrivateRoute';
 import OfflinePrompt from './components/OfflinePrompt';
@@ -37,6 +38,15 @@ function App() {
           element={
             <PrivateRoute allowedRoles={['user', 'block', 'gp']}>
               <DashboardView />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard-v2"
+          element={
+            <PrivateRoute allowedRoles={['user', 'block', 'gp']}>
+              <DashboardViewV2 />
             </PrivateRoute>
           }
         />

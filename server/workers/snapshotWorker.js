@@ -1,13 +1,14 @@
+require("dotenv").config();
 const amqp = require("amqplib");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { spawn } = require("child_process");
-require("dotenv").config();
+
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
-
+// Time function
 function getFormattedDateTime() {
     const d = new Date();
     const pad = n => String(n).padStart(2, "0");
@@ -15,6 +16,7 @@ function getFormattedDateTime() {
     return `${pad(d.getDate())}_${pad(d.getMonth() + 1)}_${String(d.getFullYear()).slice(-2)}_${pad(d.getHours())}_${pad(d.getMinutes())}_${pad(d.getSeconds())}`;
 }
 
+// HiFocus Capture
 function captureHiFocus(ip, outputPath) {
     return new Promise((resolve, reject) => {
         const ffmpeg = spawn("ffmpeg", [
@@ -31,7 +33,7 @@ function captureHiFocus(ip, outputPath) {
     });
 }
 
-
+// Sparsh Capture
 async function captureSparsh(ip, outputPath) {
     const response = await axios({
         method: "GET",
@@ -53,6 +55,7 @@ async function captureSparsh(ip, outputPath) {
 
 async function startWorker() {
     const rabbitUrl = process.env.RABBIT_URL;
+    console.log(rabbitUrl);
     if (!rabbitUrl) {
         throw new Error("RABBIT_URL is not set");
     }

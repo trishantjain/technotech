@@ -28,6 +28,8 @@ async function connectRabbit() {
             // Snapshot job queue
             await channel.assertQueue("snapshot.queue", { durable: true });
 
+            await channel.assertQueue("log.queue", { durable: true });
+
             // Snapshot completion events (worker -> API for SSE)
             await channel.assertQueue("snapshot.done", { durable: true });
 
@@ -72,6 +74,11 @@ function publishSnapshotDone(data) {
     publish("snapshot.done", data);
 }
 
+function publishLog(data) {
+    publish("log.queue", data);
+}
+
+
 async function consume(queue, handler, options = {}) {
     const { prefetch = 10 } = options;
     const ch = await ensureChannelReady();
@@ -97,4 +104,7 @@ async function consume(queue, handler, options = {}) {
     });
 }
 
-module.exports = { connectRabbit, publishAlarm, publishSnapshot, publishSnapshotDone, consume };
+module.exports = {
+    connectRabbit, publishAlarm, publishSnapshot, publishSnapshotDone, publishLog,
+    consume
+};
