@@ -1,15 +1,53 @@
 version: "3.8"
 
 services:
+  api:
+    build: ./server
+    container_name: ems-api
+    command: node server_IP.js
+    env_file:
+      - ./server/.env
+    ports:
+      - "5000:5000"
+      - "4000:4000"
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  alarm-worker:
+    build: ./server
+    container_name: ems-alarm-worker
+    command: node workers/alarmWorker.js
+    env_file:
+      - ./server/.env
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  snapshot-worker:
+    build: ./server
+    container_name: ems-snapshot-worker
+    command: node workers/snapshotWorker.js
+    env_file:
+      - ./server/.env
+    depends_on:
+      - rabbitmq
+
+  log-worker:
+    build: ./server
+    container_name: ems-log-worker
+    command: node workers/logWorker.js
+    env_file:
+      - ./server/.env
+    depends_on:
+      - rabbitmq
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: ems-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
-    volumes:
-      - rabbit-data:/var/lib/rabbitmq
-    restart: always
 
   mongo:
     image: mongo:6
@@ -18,8 +56,6 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
-    restart: always
 
 volumes:
   mongo-data:
-  rabbit-data:
