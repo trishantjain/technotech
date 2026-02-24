@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import PasswordPrompt from "../components/PasswordPrompt";
+import { API } from "../config/api.js";
+
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("register-user");
@@ -779,9 +781,8 @@ const HistoricalDataTab = () => {
 
     try {
       const res = await fetch(
-        `${
-        process.env.REACT_APP_API_URL
-        }/api/historical-data?mac=${selectedMac}&datetime=${encodeURIComponent(
+        `${process.env.REACT_APP_API_URL
+        }/${API.historicalData}?mac=${selectedMac}&datetime=${encodeURIComponent(
           datetime
         )}`
       );
