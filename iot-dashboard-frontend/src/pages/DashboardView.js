@@ -4,31 +4,36 @@ import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+// import L from "leaflet";
+// import {
+//   LineChart,
+//   Line,
+//   XAxis,
+//   YAxis,
+//   CartesianGrid,
+//   Tooltip,
+//   Legend,
+//   ResponsiveContainer,
+// } from "recharts";
 import swal from "sweetalert2";
 import { useMemo } from "react";
-import thresholds from "./thresholds";
+import thresholds from "../config/thresholds";
+import DeviceMap from "../components/DeviceMap";
+import DevicePanel from "../components/DevicePanel";
+import { ADMIN_PASSWORD, ALARM_KEYS, HUPS_KEYS, LOG_CONSTANTS, STATUS_KEYS } from "../config/constants.js";
+import { getFormattedDateTime } from "../utils/date.js";
+import { API } from "../config/api.js";
 // import thresholds from "../../../server/thresholds";
 // import GaugeComponent from 'react-gauge-component';
 
-const defaultLocation = [28.6139, 77.209];
+// const defaultLocation = [28.6139, 77.209];
 
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
 
 const LOG_STORAGE_KEY = "tt.logsByMac.v1";
-const LOG_RESET_MS = 60 * 60 * 1000; // 1 hour
-const MAX_LOGS_PER_DEVICE = 300;
-const LOG_THROTTLE_MS = 5000; // log at most once per 5 seconds per device
+const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE, LOG_THROTTLE_MS } = LOG_CONSTANTS; // 1 hour
+// const {  } = CONSTANTS;
+// const LOG_THROTTLE_MS = 5000; // log at most once per 5 seconds per device
 const EMPTY_LOGS = [];
 
 function DashboardView() {
@@ -226,9 +231,9 @@ function DashboardView() {
 
     try {
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
-        fetch(`${process.env.REACT_APP_API_URL}/api/readings`),
-        fetch(`${process.env.REACT_APP_API_URL}/api/all-devices`),
-        fetch(`${process.env.REACT_APP_API_URL}/api/devices-info`),
+        fetch(`${process.env.REACT_APP_API_URL}/${API.readings}`),
+        fetch(`${process.env.REACT_APP_API_URL}/${API.allDevices}`),
+        fetch(`${process.env.REACT_APP_API_URL}/${API.deviceInfo}`),
       ]);
 
       // Fallback to [] if any response fails
@@ -251,6 +256,18 @@ function DashboardView() {
     }
   };
 
+
+  // function shallowEqualDevices(a, b) {
+  //   if (a === b) return true;
+  //   if (!a || !b) return false;
+  //   if (a.length !== b.length) return false;
+
+  //   for (let i = 0; i < a.length; i++) {
+  //     if (a[i].mac !== b[i].mac) return false;
+  //   }
+  //   return true;
+  // }
+
   const handleMapCreated = (mapInstance) => {
     if (!mapRef.current) {
       mapRef.current = mapInstance;
@@ -260,19 +277,19 @@ function DashboardView() {
 
   // added by vats
   // A synchronous function to format the date and time.
-  function getFormattedDateTime() {
-    const today = new Date();
-    const addLeadingZero = (num) => String(num).padStart(2, "0");
+  // function getFormattedDateTime() {
+  //   const today = new Date();
+  //   const addLeadingZero = (num) => String(num).padStart(2, "0");
 
-    const dd = addLeadingZero(today.getDate());
-    const mm = addLeadingZero(today.getMonth() + 1);
-    const yy = String(today.getFullYear()).slice(-2);
-    const HH = addLeadingZero(today.getHours());
-    const MM = addLeadingZero(today.getMinutes());
-    const SS = addLeadingZero(today.getSeconds());
+  //   const dd = addLeadingZero(today.getDate());
+  //   const mm = addLeadingZero(today.getMonth() + 1);
+  //   const yy = String(today.getFullYear()).slice(-2);
+  //   const HH = addLeadingZero(today.getHours());
+  //   const MM = addLeadingZero(today.getMinutes());
+  //   const SS = addLeadingZero(today.getSeconds());
 
-    return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
-  }
+  //   return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
+  // }
 
   // Function to log-commands in system
   const sendToLog = async (status, message, command = "") => {
@@ -285,7 +302,7 @@ function DashboardView() {
     };
 
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/api/log-command`, {
+      await fetch(`${process.env.REACT_APP_API_URL}/${API.logCommand}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(logData),
@@ -301,7 +318,7 @@ function DashboardView() {
       return;
     }
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/command`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/${API.sendCommand}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),
@@ -361,7 +378,7 @@ function DashboardView() {
     });
 
     if (password) {
-      if (password === "admin123") {
+      if (password === ADMIN_PASSWORD) {
         sendCommand(`%L00O${getFormattedDateTime()}$`);
         sendToLog("Password Open Button Clicked");
         setStatus("Lock opened successfully!");
@@ -373,7 +390,7 @@ function DashboardView() {
 
   const handleResetLock = () => {
     const pwd = window.prompt("Enter admin password to reset lock:");
-    if (pwd === "admin123") {
+    if (pwd === ADMIN_PASSWORD) {
       const newLock = window.prompt("Enter new lock value:");
 
       if (/^\d{9}$/.test(newLock)) {
@@ -392,23 +409,23 @@ function DashboardView() {
     }
   };
 
-  function FlyToLocation({ center }) {
-    const map = useMap();
+  // function FlyToLocation({ center }) {
+  //   const map = useMap();
 
-    useEffect(() => {
-      if (center) {
-        map.flyTo(center, map.getZoom(), { duration: 1.2 });
-      }
-    }, [center, map]);
+  //   useEffect(() => {
+  //     if (center) {
+  //       map.flyTo(center, map.getZoom(), { duration: 1.2 });
+  //     }
+  //   }, [center, map]);
 
-    return null;
-  }
+  //   return null;
+  // }
 
   // Function: RESETTING PASSWORD ATTEMPT
   const openPassword = () => {
     const pwd = window.prompt("Enter admin password to Open Lock:");
     // const today = new Date();
-    if (pwd === "admin123") sendCommand(`%L00P${getFormattedDateTime()}$`);
+    if (pwd === ADMIN_PASSWORD) sendCommand(`%L00P${getFormattedDateTime()}$`);
     else setStatus("Wrong password for opening lock!");
   };
 
@@ -674,62 +691,11 @@ function DashboardView() {
     };
   }, []);
 
-  const alarmKeys = [
-    {
-      key: "fireAlarm",
-      Name: "Fire Alarm",
-    },
-    {
-      key: "waterLogging",
-      Name: "Logging",
-    },
-    {
-      key: "waterLeakage",
-      Name: "Leakage",
-    },
-  ];
+  const alarmKeys = ALARM_KEYS;
 
-  const statusKeys = [
-    {
-      key: "lockStatus",
-      Name: "Lock",
-    },
-    {
-      key: "doorStatus",
-      Name: "Door",
-    },
-    {
-      key: "pwsFailCount",
-      Name: "Password",
-    },
-  ];
+  const statusKeys = STATUS_KEYS
 
-  const hupsKeys = [
-    {
-      key: "mainStatus",
-      Name: "Main",
-    },
-    {
-      key: "rectStatus",
-      Name: "Rectfier",
-    },
-    {
-      key: "inveStatus",
-      Name: "Inverter",
-    },
-    {
-      key: "overStatus",
-      Name: "O.Load",
-    },
-    {
-      key: "mptStatus",
-      Name: "MPT",
-    },
-    {
-      key: "mosfStatus",
-      Name: "MOSFET",
-    },
-  ]
+  const hupsKeys = HUPS_KEYS
 
   return (
     <>
@@ -1233,7 +1199,7 @@ function DashboardView() {
         </div>
 
         {/* Panel 3: Device Tiles */}
-        <div className="panel device-list">
+        {/* <div className="panel device-list">
           <h2>
             🟢 Devices:
             <span style={{ fontWeight: "lighter", fontSize: "20px", marginLeft: "10px" }}>(Connected: {connectedDeviceCount}/{deviceMeta.length})</span>
@@ -1296,37 +1262,39 @@ function DashboardView() {
                   </div>
                 );
               });
-            })()} */}
+            })()}
 
 
             {deviceMeta.map((device) => {
               console.count("dashboard render");
 
               const { mac } = device;
-              const reading = latestReadingsByMac[mac];
-              let colorClass = "disconnected";
+              const colorClass = deviceStatusMap[mac] || "disconnected";
 
-              if (reading?.timestamp) {
-                const age = Date.now() - new Date(reading.timestamp).getTime();
+              // const reading = latestReadingsByMac[mac];
+              // let colorClass = deviceStatusMap[mac] || "disconnected";
 
-                if (age <= STALE_THRESHOLD_MS) {
-                  const hasStatusAlarm = isAlarmActive(reading);
+              // if (reading?.timestamp) {
+              //   const age = Date.now() - new Date(reading.timestamp).getTime();
 
-                  const hasGaugeAlarm =
-                    reading.insideTemperatureAlarm ||
-                    reading.outsideTemperatureAlarm ||
-                    reading.humidityAlarm ||
-                    reading.inputVoltageAlarm ||
-                    reading.outputVoltageAlarm ||
-                    reading.batteryBackupAlarm;
+              //   if (age <= STALE_THRESHOLD_MS) {
+              //     const hasStatusAlarm = isAlarmActive(reading);
 
-                  colorClass = hasStatusAlarm
-                    ? "status-alarm"
-                    : hasGaugeAlarm
-                      ? "gauge-alarm"
-                      : "connected";
-                }
-              }
+              //     const hasGaugeAlarm =
+              //       reading.insideTemperatureAlarm ||
+              //       reading.outsideTemperatureAlarm ||
+              //       reading.humidityAlarm ||
+              //       reading.inputVoltageAlarm ||
+              //       reading.outputVoltageAlarm ||
+              //       reading.batteryBackupAlarm;
+
+              //     colorClass = hasStatusAlarm
+              //       ? "status-alarm"
+              //       : hasGaugeAlarm
+              //         ? "gauge-alarm"
+              //         : "connected";
+              //   }
+              // }
 
               return (
                 <div
@@ -1344,10 +1312,20 @@ function DashboardView() {
             })}
 
           </div>
+        </div> */}
+        <div className="panel device-list">
+          <DevicePanel
+            deviceMeta={deviceMeta}
+            deviceStatusMap={deviceStatusMap}
+            selectedMac={selectedMac}
+            onSelectDevice={handleSelectDevice}
+            connectedCount={connectedDeviceCount}
+          />
         </div>
 
+
         {/* Panel 4: Map */}
-        <div className="panel device-map">
+        {/* <div className="panel device-map">
           <h2>🗺️ Device Map</h2>
 
           {(() => {
@@ -1364,7 +1342,7 @@ function DashboardView() {
                 // key={selectedMac || "default-map"}
                 key="device-map"
                 center={selectedCenter}
-                zoom={15}
+                zoom={50}
                 scrollWheelZoom={true}
                 style={{ height: "315px", width: "100%" }}
                 whenCreated={handleMapCreated}
@@ -1462,6 +1440,14 @@ function DashboardView() {
                 : "your browser"}{" "}
             @ {window.innerWidth}x{window.innerHeight}
           </div>
+        </div> */}
+        <div className="panel device-map">
+          <DeviceMap
+            deviceMeta={deviceMeta}
+            deviceStatusMap={deviceStatusMap}
+            selectedMac={selectedMac}
+            onMarkerClick={setSelectedMac}
+          />
         </div>
       </div >
     </>
