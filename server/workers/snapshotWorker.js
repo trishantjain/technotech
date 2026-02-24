@@ -80,7 +80,7 @@ async function startWorker() {
 
     await channel.assertQueue("snapshot.queue", { durable: true });
     await channel.assertQueue("snapshot.done", { durable: true });
-    channel.prefetch(1);
+    channel.prefetch(50);
 
     console.log("📸 Snapshot Worker started");
 
