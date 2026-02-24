@@ -21,7 +21,10 @@ function captureHiFocus(ip, outputPath) {
     return new Promise((resolve, reject) => {
         const ffmpeg = spawn("ffmpeg", [
             "-rtsp_transport", "tcp",
-            "-i", `rtsp://${ip}/media/video1`,
+            // "-i", `rtsp://${ip}/media/video1`,
+
+            // DUMMY IMAGES FOR TESTING
+            "-i", `https://picsum.photos/800/600`,
             "-frames:v", "1",
             outputPath
         ]);
@@ -37,7 +40,10 @@ function captureHiFocus(ip, outputPath) {
 async function captureSparsh(ip, outputPath) {
     const response = await axios({
         method: "GET",
-        url: `https://${ip}/CGI/command/snap?channel=01`,
+        // url: `https://${ip}/CGI/command/snap?channel=01`,
+
+        // DUMMY IMAGES FOR TESTING
+        url: `https://picsum.photos/800/600`,
         responseType: "stream",
         timeout: 10000
     });

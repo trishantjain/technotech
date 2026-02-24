@@ -94,30 +94,48 @@ wss.on("connection", (ws) => {
 // Single byte padding required by server to trigger picture capture
 // Behavior: send a short pulse of 67 (so outgoing packets include 0x43),
 // then reset to 0 immediately; schedule a repeating pulse every 1 minute.
-function scheduleCameraClicker(pulseIntervalMs = 60000, pulseDurationMs = 500) {
-  function sendPulse() {
-    PADDING_BYTE = 67;
-    console.log(`🔔 Padding pulse ON (0x${PADDING_BYTE.toString(16)})`);
+// function scheduleCameraClicker(pulseIntervalMs = 60000, pulseDurationMs = 500) {
+//   function sendPulse() {
+//     PADDING_BYTE = 67;
+//     console.log(`🔔 Padding pulse ON (0x${PADDING_BYTE.toString(16)})`);
 
-    // After a short duration, reset back to 0
-    setTimeout(() => {
-      PADDING_BYTE = 0;
-      console.log('🔕 Padding reset to 0');
-    }, pulseDurationMs);
-  }
+//     // After a short duration, reset back to 0
+//     setTimeout(() => {
+//       PADDING_BYTE = 0;
+//       console.log('🔕 Padding reset to 0');
+//     }, pulseDurationMs);
+//   }
 
-  // Send immediate pulse once when called
-  sendPulse();
+//   // Send immediate pulse once when called
+//   sendPulse();
 
-  // Then schedule repeating pulses every `pulseIntervalMs`
-  const interval = setInterval(() => {
-    sendPulse();
-  }, pulseIntervalMs);
+//   // Then schedule repeating pulses every `pulseIntervalMs`
+//   const interval = setInterval(() => {
+//     sendPulse();
+//   }, pulseIntervalMs);
 
-  return {
-    stop: () => clearInterval(interval)
-  };
+//   return {
+//     stop: () => clearInterval(interval)
+//   };
+// }
+
+function startPaddingPulse() {
+  console.log("🕒 Starting padding pulse (toggle every second)");
+
+  let second = 0;
+
+  setInterval(() => {
+    // even second → 0
+    // odd second → 63
+    PADDING_BYTE = (second % 2 === 0) ? 0x00 : 0x43;
+
+    console.log(`🔁 Second ${second} → Padding ${PADDING_BYTE}`);
+
+    second++;
+  }, 3000);
 }
+
+startPaddingPulse();
 
 // Start pulse schedule after 30s (previous behavior), returning controller if needed
 // setTimeout(() => {
@@ -485,6 +503,7 @@ function startDevice(mac, index) {
               fanGroupStatus[2],
               fanGroupStatus[3],
               // PADDING_BYTE0
+              // 0x43
               0
             ]), //45-51
             fanStatusBuf, //52-53
