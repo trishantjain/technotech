@@ -476,7 +476,7 @@ const RegisterDeviceTab = () => {
       <form onSubmit={handleRegister} className="admin-form">
         <input
           type="text"
-          placeholder="MAC Address"
+          placeholder="IP Address"
           value={form.mac}
           maxLength={17}
           pattern="^192\.168\.0\.(\d{1,3})$"
@@ -535,7 +535,7 @@ const RegisterDeviceTab = () => {
       <table className="device-table">
         <thead>
           <tr>
-            <th>MAC</th>
+            <th>IP</th>
             <th>Location ID</th>
             <th>Address</th>
             <th>Latitude</th>
