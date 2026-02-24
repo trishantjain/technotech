@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { KeyRound, LockKeyhole, Power, RotateCcw } from "lucide-react";
 import "../styles/dashboard-v2.css";
-import thresholds from "./thresholds";
+import thresholds from "../config/thresholds";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
