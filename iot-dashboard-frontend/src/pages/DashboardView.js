@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import "../App.css";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
@@ -52,6 +52,11 @@ function DashboardView() {
   const [selectedDevice, setSelectedDevice] = useState("");
 
   const selectedMacRef = useRef("");
+  const deviceStatusRef = useRef({});
+
+  const [deviceStatusMap, setDeviceStatusMap] = useState({});
+
+
   useEffect(() => {
     selectedMacRef.current = selectedMac;
   }, [selectedMac]);
@@ -164,14 +169,13 @@ function DashboardView() {
 
   const connectedDeviceCount = useMemo(() => {
     let count = 0;
-    for (const device of deviceMeta) {
-      const reading = latestReadingsByMac[device.mac];
-      if (!reading?.timestamp) continue;
-      const age = Date.now() - new Date(reading.timestamp).getTime();
-      if (age <= STALE_THRESHOLD_MS) count++;
+    for (const mac in deviceStatusMap) {
+      if (deviceStatusMap[mac] !== "disconnected") {
+        count++;
+      }
     }
     return count;
-  }, [deviceMeta, latestReadingsByMac]);
+  }, [deviceStatusMap]);
 
   const frontendAlarmsByMac = useMemo(() => {
     const map = {};
@@ -225,6 +229,19 @@ function DashboardView() {
     }
   }, [zoom, rotation]);
 
+  function shallowEqualDevices(a, b) {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+
+    for (let i = 0; i < a.length; i++) {
+      if (a[i].mac !== b[i].mac) return false;
+    }
+    return true;
+  }
+
+
+  // FETCH DATA
   const fetchData = async () => {
     // if (isFetchingRef.current) return;   // ⛔ prevent overlap
     // isFetchingRef.current = true;
@@ -247,7 +264,18 @@ function DashboardView() {
 
       setReadings(Array.isArray(readingsData) ? readingsData : []);
       setDevices(Array.isArray(devicesData) ? devicesData : []);
-      setDeviceMeta(Array.isArray(metadata) ? metadata : []);
+      // setDeviceMeta(Array.isArray(metadata) ? metadata : []);
+
+      setDeviceMeta(prev => {
+        const next = Array.isArray(metadata) ? metadata : [];
+
+        if (shallowEqualDevices(prev, next)) {
+          return prev; // ✅ KEEP SAME REFERENCE
+        }
+
+        return next;
+      });
+
       // console.log("readingData", readingsData);
     } catch (err) {
       console.error("❌Error fetching data:", err);
@@ -274,6 +302,12 @@ function DashboardView() {
       // console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
     }
   };
+
+  const handleSelectDevice = useCallback((mac, locationId) => {
+    setSelectedMac(mac);
+    setSelectedDevice(locationId);
+  }, []);
+
 
   // added by vats
   // A synchronous function to format the date and time.
@@ -456,6 +490,84 @@ function DashboardView() {
       alarms,
     };
   }
+
+  function computeColor(reading, staleThresholdMs) {
+    if (!reading?.timestamp) return "disconnected";
+
+    const age = Date.now() - new Date(reading.timestamp).getTime();
+
+    // IF READING NOT RECEIVED FOR MORE THAN STALE SECONDS THAN 'DISCONNECTED'
+    if (age > staleThresholdMs) {
+      return "disconnected";
+    }
+
+    // STATUS ALARMS
+    const hasStatusAlarm =
+      reading.fireAlarm ||
+      reading.waterLeakage ||
+      reading.waterLogging ||
+      reading.lockStatus === "OPEN" ||
+      reading.doorStatus === "OPEN" ||
+      [1, 2, 3].includes(reading.password);
+
+    if (hasStatusAlarm) return "status-alarm";
+
+    // GAUGE ALARMS
+    const hasGaugeAlarm =
+      reading.insideTemperatureAlarm ||
+      reading.outsideTemperatureAlarm ||
+      reading.humidityAlarm ||
+      reading.inputVoltageAlarm ||
+      reading.outputVoltageAlarm ||
+      reading.batteryBackupAlarm;
+
+    if (hasGaugeAlarm) return "gauge-alarm";
+
+    return "connected";
+  }
+
+
+  // DEVICE STATUS COMPUTATION FOR MAP & DEVICE PANEL
+  useEffect(() => {
+    const now = Date.now();
+    // STORING CURRENT DEVICES STATUS
+    const prevMap = deviceStatusRef.current;
+    const nextMap = {};
+
+    let changed = false;
+
+
+    // const nextStatusMap = {};
+    // let hasAnyChange = false;
+
+    for (const device of deviceMeta) {
+      const mac = device.mac;
+      const reading = latestReadingsByMac[mac];
+
+      // COMPUTING DEVICE STATUS
+      const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
+      nextMap[mac] = newStatus;
+
+      // CHECKING PREVIOUS AND CURRENT DEVICE STATUS
+      if (prevMap[mac] !== newStatus) {
+        changed = true;
+      }
+    }
+
+    // if (changed) {
+    //   const prevKeys = Object.keys(prevMap);
+    //   const nextKeys = Object.keys(nextMap);
+    //   if (prevKeys.length !== nextKeys.length) {
+    //     changed = true;
+    //   }
+    // }
+
+    if (changed) {
+      deviceStatusRef.current = nextMap;
+      setDeviceStatusMap(nextMap);
+    }
+  }, [deviceMeta, latestReadingsByMac]);
+
 
   // STORING LOGS BASED ON SELECTED MAC 
   useEffect(() => {
