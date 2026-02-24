@@ -1,7 +1,9 @@
+require("dotenv").config({
+    path: require("path").resolve(__dirname, "../.env")
+});
 const amqp = require("amqplib");
 const fs = require("fs");
 const path = require("path");
-require("dotenv").config();
 
 async function startWorker() {
     const connection = await amqp.connect(process.env.RABBIT_URL);
