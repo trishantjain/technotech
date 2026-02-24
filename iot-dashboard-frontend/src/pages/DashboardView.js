@@ -906,23 +906,23 @@ function DashboardView() {
                   />
                   <Gauge
                     label="DV Current"
-                    value={latestReading.batteryBackup}
+                    value={(latestReading.inputVoltage).toFixed(2)}
                     max={45}
-                    color="#ffc107"
-                    alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
+                    color={latestReading.inputVoltage < thresholds.inputVoltage.min ? "#ec7632" : latestReading.inputVoltage >= thresholds.inputVoltage.max ? "#fb1616" : "#67b816"}
+                    alarm={alarmToggle ? latestReading.inputVoltageAlarm : false}
                   />
                   <Gauge
                     label="Battery %"
                     value={(latestReading.batteryBackup * 1.5).toFixed(2)}
                     max={120}
-                    color="#ffc107"
+                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   <Gauge
                     label="Battery(Hours)"
                     value={(latestReading.batteryBackup).toFixed(2)}
                     max={120}
-                    color="#ffc107"
+                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   {latestReading.batteryBackup <= 10 ?
