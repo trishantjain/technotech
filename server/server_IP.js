@@ -385,7 +385,15 @@ app.post("/api/register-device", async (req, res) => {
     }
 
     const ipMatch = await Device.find({ "ipCamera.ip": parsedCamera.ip });
-    if (ipMatch) (res.status(409).json({ error: "Camera Ip already present" }))
+    if (ipMatch && ipMatch.length > 0) {
+      return res.status(409).json({ error: "Camera Ip already present" });
+    }
+
+    const existingMac = await Device.findOne({ mac: normalizedMac });
+
+    if (existingMac) {
+      return res.status(409).json({ error: "Device IP already exists" });
+    }
 
     // console.log("Parsed Camera: ", parsedCamera);
     const device = new Device({
