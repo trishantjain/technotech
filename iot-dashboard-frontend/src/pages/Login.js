@@ -52,6 +52,7 @@ function Login() {
           onChange={(e) => setUsername(e.target.value)}
           autoFocus
           required
+          maxLength={20}
         />
         <input
           type="password"
@@ -59,6 +60,7 @@ function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          maxLength={20}
         />
         <button type="submit">Login</button>
         <p>{status}</p>

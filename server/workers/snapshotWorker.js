@@ -100,6 +100,8 @@ async function startWorker() {
         const cameraType = data?.cameraType;
         const cameraIP = data?.cameraIP;
 
+        console.log(mac, cameraIP, cameraType);
+
         if (!mac || !cameraType || !cameraIP) {
             console.error("Invalid snapshot message (missing mac/cameraType/cameraIP), dropping:", data);
             channel.ack(msg);
@@ -117,15 +119,18 @@ async function startWorker() {
 
             const make = String(cameraType).trim().toUpperCase();
 
+            console.log("snapshot request came :", mac)
+
             if (make === "H") {
                 console.log("⏰ Snapshot for HiFocus Camera ⏰", mac);
                 await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
             } else {
                 console.log("⏰ Snapshot for Sparsh Camera ⏰", mac);
-                await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
+                // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
                 await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
             }
 
+            console.log("sending to done queue" , mac)
             channel.sendToQueue(
                 "snapshot.done",
                 Buffer.from(JSON.stringify({

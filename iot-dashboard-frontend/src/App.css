@@ -1,10 +1,16 @@
 /*  🔄🔍📈✅📡⚠️❌🔴🟢🔧🌡️🌀🧪🚨📢⚙️🕛⏰🔌⚡*/
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background-color: #000;
   color: #fff;
+  height: 100%;
+  overflow: hidden;
+
 }
 
 /* Grid layout for dashboard */
@@ -14,6 +20,7 @@ body {
   /* grid-template-rows: minmax(min-content, auto); */
   /* grid-auto-rows: auto;
   align-content: start; */
+  grid-template-rows: 1fr 1fr;
   gap: 12px;
   height: 100vh;
   width: 100%;
@@ -39,6 +46,7 @@ body {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
+
 }
 
 .panel h2.selected-heading {
@@ -119,6 +127,7 @@ body {
 }
 
 @keyframes blink {
+
   0%,
   100% {
     border-color: transparent;
@@ -170,10 +179,13 @@ body {
   color: #ccc;
   margin-top: 2px;
   text-wrap: wrap;
-  max-width: 80px; /* Limit width to force wrapping */
-  word-break: break-word; /* Allow long words to break */
+  max-width: 80px;
+  /* Limit width to force wrapping */
+  word-break: break-word;
+  /* Allow long words to break */
   text-align: center;
-  line-height: 1.2; /* Improve readability of wrapped text */
+  line-height: 1.2;
+  /* Improve readability of wrapped text */
 }
 
 .alarm-attempt {
@@ -187,6 +199,7 @@ body {
   animation: blinkAlarm 1s infinite alternate;
   content: "0 Attempts Left";
 }
+
 /* 
 .alarm-led.pass-active {
   background-color: red;
@@ -200,6 +213,7 @@ body {
   animation: blinkAlarm 1s infinite alternate;
   content: "1 Attempts Left";
 }
+
 .alarm-led.danger {
   background-color: yellow;
   box-shadow: 0 0 12px yellow;
@@ -299,8 +313,7 @@ body {
 }
 
 .power-btn.active::before {
-  filter: brightness(0) saturate(100%) invert(48%) sepia(98%) saturate(1733%)
-    hue-rotate(82deg);
+  filter: brightness(0) saturate(100%) invert(48%) sepia(98%) saturate(1733%) hue-rotate(82deg);
 }
 
 .lock-btn {
@@ -328,6 +341,7 @@ body {
 
 .snapshot-label {
   font-size: 11px;
+  justify-content: center;
 }
 
 /* Devices */
@@ -385,19 +399,29 @@ body {
 
 .device-tile.disconnected {
   order: 1;
-} /* Show online devices first */
+}
+
+/* Show online devices first */
 .device-tile.status-alarm {
   order: 2;
-} /* Then offline devices */
+}
+
+/* Then offline devices */
 .device-tile.gauge-alarm {
   order: 3;
-} /* Then warning state */
+}
+
+/* Then warning state */
 .device-tile.connected {
   order: 3;
-} /* Then warning state */
+}
+
+/* Then warning state */
 .device-tile.disconnected {
   order: 0;
-} /* Selected device always on top */
+}
+
+/* Selected device always on top */
 
 /* Map markers */
 .custom-marker {
@@ -440,6 +464,7 @@ body {
   .admin-dashboard {
     flex-direction: column;
   }
+
   .sidebar {
     position: fixed;
     top: 0;
@@ -452,19 +477,23 @@ body {
     transition: transform 0.3s ease;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
   }
+
   .sidebar.open {
     transform: translateX(0);
   }
+
   .sidebar.collapsed {
     width: 60px;
     min-width: 60px;
   }
+
   .sidebar .collapse-toggle {
     position: fixed;
     left: 10px;
     top: 10px;
     z-index: 1100;
   }
+
   .sidebar-backdrop {
     position: fixed;
     top: 0;
@@ -475,6 +504,7 @@ body {
     z-index: 1000;
     display: block;
   }
+
   .tab-content {
     padding: 60px;
     margin-left: 0;
@@ -585,6 +615,27 @@ body {
   border: 1px solid #444;
 }
 
+/* Admin: allow scrolling only inside the register-user table area */
+.register-user-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.register-device-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.admin-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .device-table th,
 .device-table td {
   padding: 8px 12px;
@@ -604,20 +655,29 @@ body {
 
 .admin-dashboard {
   display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
   width: 220px;
   background-color: #000;
   color: white;
-  height: 100vh;
+  height: 100%;
   transition: width 0.3s ease;
   position: relative;
-  padding-top: 1rem;
+  overflow: hidden;
+  /* leave space for the absolute-positioned collapse button */
+  padding-top: 3rem;
+}
+
+.sidebar h3 {
+  margin-top: 0;
 }
 
 .sidebar.collapsed {
-  width: 60px;
+  width: 90px;
 }
 
 .sidebar .collapse-toggle {
@@ -652,14 +712,17 @@ body {
   background-color: #111;
   /* or #000, depending on your original layout */
   color: white;
+  height: 100%;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .historical-data-tab .chart-box {
   padding: 0.75rem;
   background: #1e1e1e;
-  margin: 1rem;
+  margin: 0rem;
   border-radius: 10px;
-  box-shadow: 0 0 10px #333;
+  box-shadow: 0 0 3px #333;
   width: 90%;
   max-width: 400px;
 }
@@ -890,20 +953,24 @@ body {
 }
 
 /* Checked state */
-input:checked + .slider {
+input:checked+.slider {
   background-color: #4CAF50;
 }
 
 /* Move the circle when checked */
-input:checked + .slider:before {
+input:checked+.slider:before {
   transform: translateX(24px);
 }
-input:not(:checked) + .slider:before { transform: translateX(0); }
+
+input:not(:checked)+.slider:before {
+  transform: translateX(0);
+}
 
 /* Optional shadow for better look */
 .slider:before {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
+
 /* ============ TOGGLE SWITCH ============ */
 
 
@@ -972,6 +1039,7 @@ input:not(:checked) + .slider:before { transform: translateX(0); }
     width: 100px;
   }
 }
+
 /* ============ TOP LOGOS ============ */
 
 
@@ -992,3 +1060,72 @@ input:not(:checked) + .slider:before { transform: translateX(0); }
 .logo-right{
   justify-content: right;
 } */
+
+.device-panel-header {
+  position: sticky;
+}
+
+.device-counts {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 5px;
+}
+
+.count {
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.count.connected {
+  background-color: rgba(0, 200, 0, 0.2);
+  color: #4caf50;
+}
+
+.count.status-alarm {
+  background-color: rgba(255, 0, 0, 0.2);
+  color: #ff4d4f;
+}
+
+.count.gauge-alarm {
+  background-color: rgba(255, 140, 0, 0.2);
+  color: #ffa500;
+}
+
+.count.disconnected {
+  background-color: rgba(120, 120, 120, 0.2);
+  color: #aaa;
+}
+
+.count.total {
+  background-color: rgba(0, 140, 255, 0.2);
+  color: #4da6ff;
+}
+
+.count {
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.count:hover {
+  transform: scale(1.05);
+}
+
+.active-filter {
+  border: 2px solid white;
+}
+
+.device-search {
+  margin: 10px 0;
+}
+
+.device-search input {
+  width: 95%;
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+  background: #1e1e1e;
+  color: white;
+}

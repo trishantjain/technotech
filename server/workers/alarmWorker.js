@@ -7,6 +7,7 @@ const path = require("path");
 
 async function startWorker() {
     const connection = await amqp.connect(process.env.RABBIT_URL);
+    console.log(process.env.RABBIT_URL);
     const channel = await connection.createChannel();
 
     await channel.assertQueue("alarm.queue", { durable: true });

@@ -13,6 +13,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require('axios');
 const { spawn } = require('child_process');
+const readline = require("readline");
 const { connectRabbit, publishAlarm, publishSnapshot, consume, publishLog } = require("./services/rabbit");
 
 
@@ -226,35 +227,42 @@ app.get("/ping", async (req, res) => {
    username "admin" and role "admin" and sends it back in the response along with the role "admin". 
 */
 app.post("/api/login", async (req, res) => {
-  const { username, password } = req.body;
+  try {
 
-  // Admin login
-  if (
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD
-  ) {
+    const { username, password } = req.body;
+
+    // Admin login
+    if (
+      username === process.env.ADMIN_USERNAME &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      const token = jwt.sign(
+        { username: "admin", role: "admin" },
+        process.env.JWT_SECRET,
+        { expiresIn: "2h" }
+      );
+      return res.json({ role: "admin", token });
+    }
+
+    // User login from DB
+    const user = await User.findOne({ username: username });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
+
     const token = jwt.sign(
-      { username: "admin", role: "admin" },
+      { username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "2h" }
     );
-    return res.json({ role: "admin", token });
+
+    res.json({ role: user.role, token }); // ✅ return role and token
+  } catch (error) {
+    console.error("Failed to fetch users:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 
-  // User login from DB
-  const user = await User.findOne({ username: username });
-  if (!user) return res.status(401).json({ error: "Invalid credentials" });
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
-
-  const token = jwt.sign(
-    { username: user.username, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "2h" }
-  );
-
-  res.json({ role: user.role, token }); // ✅ return role and token
 });
 
 // *====================  USER API  ========================
@@ -263,7 +271,7 @@ app.post("/api/register-user", async (req, res) => {
   const { username, password, role } = req.body;
 
   if (!["admin", "block", "gp", "user"].includes(role)) {
-    return res.status(400).json({ error: "Invalid role" });
+    return res.status(401).json({ error: "Invalid role" });
   }
 
   try {
@@ -279,7 +287,7 @@ app.post("/api/register-user", async (req, res) => {
 
     // Saving User in DB
     await user.save();
-    res.json({ message: "User registered successfully" });
+    res.status(200).json({ message: "User registered successfully" });
   } catch (error) {
     res.status(500).json({ error: "User already exist" });
   }
@@ -379,7 +387,7 @@ app.post("/api/register-device", async (req, res) => {
     const ipMatch = await Device.find({ "ipCamera.ip": parsedCamera.ip });
     if (ipMatch) (res.status(409).json({ error: "Camera Ip already present" }))
 
-    console.log("Parsed Camera: ", parsedCamera);
+    // console.log("Parsed Camera: ", parsedCamera);
     const device = new Device({
       mac: normalizedMac,
       locationId,
@@ -410,7 +418,7 @@ app.get("/api/devices-info", async (req, res) => {
       ...device._doc,
       mac: device.mac.toLowerCase() //! Converting to LowerCase()
     }));
-    res.json(normalizedDevices); //! Converting to LowerCase()
+    res.json(normalizedDevices);
   } catch (err) {
     res.status(500).json({ error: "Error fetching devices" });
   }
@@ -418,7 +426,11 @@ app.get("/api/devices-info", async (req, res) => {
 
 // ✅ Get connected MACs
 app.get("/api/devices", (req, res) => {
-  res.json(Array.from(connectedDevices.keys()).map(mac => mac.toLowerCase())); //! Converting to LowerCase()
+  try {
+    res.json(Array.from(connectedDevices.keys()).map(mac => mac.toLowerCase())); //! Converting to LowerCase()
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching devices" });
+  }
 });
 
 // ✅ Update device by MAC
@@ -506,7 +518,7 @@ app.get("/api/device/:mac", async (req, res) => {
     res.json(latest);
   } catch (err) {
     console.error("Error fetching device data:", err.message);
-    res.status(500).json({ error: "Failed to fetch data" });
+    res.status(500).json({ error: "Failed to fetch reading" });
   }
 });
 // *====================  DEVICE API  ====================== 
@@ -520,6 +532,10 @@ app.get("/api/snapshots/:imageName", (req, res) => {
     const rawMac = req.query.mac;
     const macSuffix = rawMac.slice(8).replace(/[. ]/g, "_"); // Gets characters 9-16 (0-indexed)
 
+    /**
+     * Constructs the full file path for a snapshot image by joining the snapshot output directory,
+     * MAC address suffix, and image name.
+     */
     const imagePath = path.join(`${snapshotOutputDir}/${macSuffix}`, imageName);
 
     // Check if file exists
@@ -531,11 +547,11 @@ app.get("/api/snapshots/:imageName", (req, res) => {
     res.sendFile(imagePath);
   } catch (err) {
     console.error("Error reading snapshots:", err);
-    res.status(500).json({ error: "Failed to read snapshots" });
+    res.status(500).json({ error: "Failed to read snapshot" });
   }
 });
 
-// ✅ Get list of available snapshots
+// ✅ Get list of last 15 snapshots
 app.get("/api/snapshots", (req, res) => {
   try {
     const rawMac = req.query.mac;
@@ -549,6 +565,7 @@ app.get("/api/snapshots", (req, res) => {
     const macSuffix = rawMac.slice(8).replace(/[. ]/g, "_"); // Gets characters 9-16 (0-indexed)
     // console.log("MAC ADDRESS: ", macSuffix);
 
+
     const snapshotsDir = `${snapshotOutputDir}/${macSuffix}`;
     let files = [];
     try {
@@ -559,7 +576,7 @@ app.get("/api/snapshots", (req, res) => {
         .sort((a, b) => {
           // Extract YYMMDDHHMMSS format for comparison
           const getKey = (filename) => {
-            const match = filename.match(/_(\d{2})_(\d{2})_(\d{2})_(\d{2}f)_(\d{2})_(\d{2})\./);
+            const match = filename.match(/_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})\./);
             return match ? match[3] + match[2] + match[1] + match[4] + match[5] + match[6] : '0';
           };
           return getKey(b).localeCompare(getKey(a));
@@ -581,26 +598,33 @@ app.get("/api/snapshots", (req, res) => {
 
 // ✅ Command endpoint
 app.post("/command", (req, res) => {
-  const { mac, command } = req.body;
-  const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
-  const deviceSocket = connectedDevices.get(normalizedMac);
+  try {
 
-  if (!deviceSocket || deviceSocket.destroyed) {
-    connectedDevices.delete(normalizedMac);
-    return res.status(404).json({ message: `Device ${normalizedMac} not connected` });
+    const { mac, command } = req.body;
+    const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
+    const deviceSocket = connectedDevices.get(normalizedMac);
+
+    if (!deviceSocket || deviceSocket.destroyed) {
+      connectedDevices.delete(normalizedMac);
+      return res.status(404).json({ message: `Device ${normalizedMac} not connected` });
+    }
+
+    const buffer = Buffer.from(command, "utf-8");
+    deviceSocket.write(buffer, (err) => {
+      if (err) {
+        console.error(`Failed to send command to ${normalizedMac}:`, err.message);
+        return res
+          .status(500)
+          .json({ message: `Error sending command to ${normalizedMac}` });
+      }
+      console.log(`Sent command "${command}" to ${normalizedMac}`);
+      res.json({ message: `${command} sent to ${normalizedMac}` });
+    });
+  } catch (error) {
+    console.error("Failed to write command to the device: ", err);
+    res.status(500).json({ error: "Failed to write command to the device" });
   }
 
-  const buffer = Buffer.from(command, "utf-8");
-  deviceSocket.write(buffer, (err) => {
-    if (err) {
-      console.error(`Failed to send command to ${normalizedMac}:`, err.message);
-      return res
-        .status(500)
-        .json({ message: `Error sending command to ${normalizedMac}` });
-    }
-    console.log(`Sent command "${command}" to ${normalizedMac}`);
-    res.json({ message: `${command} sent to ${normalizedMac}` });
-  });
 });
 
 // ✅ Get last 100 readings
@@ -652,122 +676,247 @@ app.get("/api/readings", async (req, res) => {
 
 // ✅ Get logs saved in PC
 app.post("/api/log-command", (req, res) => {
-  console.log("Log API Called");
-  const { date, mac, command, status, message } = req.body;
+  try {
 
-  console.log(date, mac, command, status, message);
+    const { date, mac, command, status, message } = req.body;
 
-  const now = new Date();
-  const fileName = `${now.getDate()}_${now.getMonth() + 1
-    }_${now.getHours()}.out`;
-  // const outLogDir = "C:/CommandLogs/out";
+    // console.log(date, mac, command, status, message);
 
-  // if (!fs.existsSync(outLogDir)) {
-  //   fs.mkdirSync(outLogDir, { recursive: true });
-  // }
+    const now = new Date();
+    const fileName = `${now.getDate()}_${now.getMonth() + 1
+      }_${now.getHours()}.out`;
+    // const outLogDir = "C:/CommandLogs/out";
 
-  const macDir = mac.replace(/[:. ]/g, "_");
-  const deviceCmdDir = path.join(logDir, macDir);
+    // if (!fs.existsSync(outLogDir)) {
+    //   fs.mkdirSync(outLogDir, { recursive: true });
+    // }
 
-  fs.mkdirSync(deviceCmdDir, { recursive: true });
+    const macDir = mac.replace(/[:. ]/g, "_");
+    const deviceCmdDir = path.join(logDir, macDir);
 
-  const filePath = path.join(deviceCmdDir, fileName);
+    fs.mkdirSync(deviceCmdDir, { recursive: true });
 
-  const timestamp = now.toLocaleString();
-  const logEntry = `[${timestamp}] | MAC:${mac} | ${status}  | COMMAND:"${command}" | MESSAGE:"${message}"`;
+    const filePath = path.join(deviceCmdDir, fileName);
 
-  // ✅ Send response immediately, log in background
-  res.json({ message: "Log received" });
+    const timestamp = now.toLocaleString();
+    const logEntry = `[${timestamp}] | MAC:${mac} | ${status}  | COMMAND:"${command}" | MESSAGE:"${message}"`;
 
-  // File writing happens after response
-  // fs.appendFile(filePath, logEntry, (err) => {
-  //   if (err) {
-  //     console.error("Failed to save log:", err);
-  //   } else {
-  //     if (eMS_LOGS) console.log(`✅ Log saved: ${filePath}`);
-  //   }
-  // });
+    // ✅ Send response immediately, log in background
 
-  // ===================== Logging Command | OLD =====================
-  writeLog(
-    `${filePath}`,
-    logEntry
-  );
-  // ===================== Logging Command | RABBITMQ =====================
+    // File writing happens after response
+    // fs.appendFile(filePath, logEntry, (err) => {
+    //   if (err) {
+    //     console.error("Failed to save log:", err);
+    //   } else {
+    //     if (eMS_LOGS) console.log(`✅ Log saved: ${filePath}`);
+    //   }
+    // });
 
-  publishLog({
-    type: "out",
-    mac,
-    command,
-    status,
-    message,
-    timestamp: new Date().toISOString()
-  });
+    // ===================== Logging Command | OLD =====================
+    //   writeLog(
+    //   `${filePath}`,
+    //   logEntry
+    // );
+    // ===================== Logging Command | RABBITMQ =====================
+
+    publishLog({
+      type: "out",
+      mac,
+      command,
+      status,
+      message,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ message: "Log received" });
+  } catch (error) {
+    console.error("Error fetching readings:", error);
+    res.status(500).json({ error: "Failed to log" });
+  }
 
 });
 
 //! ✅ Fetch logs from PC - CHECK THIS WHETHER IN USE OR NOT
-app.get("/api/device-logs", (req, res) => {
+// app.get("/api/device-logs", (req, res) => {
+//   try {
+//     const { mac, type = "inc", hours = 1 } = req.query;
+
+//     if (!mac) return res.status(400).json({ error: "MAC required" });
+
+//     const macDir = mac.replace(/[:. ]/g, "_");
+
+//     let baseDir;
+//     if (type === "inc") baseDir = IncLogDir;
+//     else if (type === "out") baseDir = outLogDir;
+//     else if (type === "alarm") baseDir = alarmLogDir;
+//     else return res.status(400).json({ error: "Invalid log type" });
+
+//     const deviceDir = path.join(baseDir, macDir);
+
+//     if (!fs.existsSync(deviceDir)) {
+//       return res.json({ logs: [] });
+//     }
+
+//     const cutoffTime = Date.now() - hours * 60 * 60 * 1000;
+//     const logs = [];
+
+//     const files = fs.readdirSync(deviceDir)
+//       .filter(f => f.endsWith(type === "out" ? ".out" : ".inc"))
+//       .sort()
+//       .reverse(); // latest first
+
+//     for (const file of files) {
+//       const filePath = path.join(deviceDir, file);
+//       const content = fs.readFileSync(filePath, "utf-8");
+
+//       content.split("\n").forEach(line => {
+//         const match = line.match(/^\[(.*?)\]/);
+//         if (!match) return;
+
+//         const logTime = new Date(match[1]).getTime();
+//         if (logTime >= cutoffTime) logs.push(line);
+//       });
+//     }
+
+//     res.json({ logs: logs.reverse() });
+//   } catch (err) {
+//     console.error("Error fetching device logs:", err?.stack);
+//   }
+
+
+// });
+
+app.get("/api/alarm-history", async (req, res) => {
   try {
-    const { mac, type = "inc", hours = 1 } = req.query;
+    const { mac, from, to } = req.query;
 
-    if (!mac) return res.status(400).json({ error: "MAC required" });
-
-    const macDir = mac.replace(/[:. ]/g, "_");
-
-    let baseDir;
-    if (type === "inc") baseDir = IncLogDir;
-    else if (type === "out") baseDir = outLogDir;
-    else if (type === "alarm") baseDir = alarmLogDir;
-    else return res.status(400).json({ error: "Invalid log type" });
-
-    const deviceDir = path.join(baseDir, macDir);
-
-    if (!fs.existsSync(deviceDir)) {
-      return res.json({ logs: [] });
+    if (!mac || !from || !to) {
+      return res.status(400).json({ error: "Missing mac, from or to" });
     }
 
-    const cutoffTime = Date.now() - hours * 60 * 60 * 1000;
-    const logs = [];
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
 
-    const files = fs.readdirSync(deviceDir)
-      .filter(f => f.endsWith(type === "out" ? ".out" : ".inc"))
-      .sort()
-      .reverse(); // latest first
+    if (isNaN(fromDate) || isNaN(toDate)) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
 
-    for (const file of files) {
-      const filePath = path.join(deviceDir, file);
-      const content = fs.readFileSync(filePath, "utf-8");
+    const macFolder = mac.replace(/[:. ]/g, "_");
+    const baseDir = `C:/CommandLogs/alarm/${macFolder}`;
 
-      content.split("\n").forEach(line => {
-        const match = line.match(/^\[(.*?)\]/);
-        if (!match) return;
+    if (!fs.existsSync(baseDir)) {
+      console.log("Sending empty")
+      return res.json({ mac, alarms: [] });
+    }
 
-        const logTime = new Date(match[1]).getTime();
-        if (logTime >= cutoffTime) logs.push(line);
+    // 🟢 Generate all hour blocks between from and to
+    const filesToScan = [];
+    let current = new Date(fromDate);
+
+    while (current <= toDate) {
+      const dd = current.getDate();
+      const mm = current.getMonth() + 1;
+      const hh = current.getHours();
+
+      const fileName = `${dd}_${mm}_${hh}_Alarm.inc`;
+      const filePath = `${baseDir}/${fileName}`;
+
+      if (fs.existsSync(filePath)) {
+        filesToScan.push(filePath);
+      }
+
+      current.setHours(current.getHours() + 1);
+    }
+
+    const events = [];
+
+    // 🟢 Stream each file
+    for (const filePath of filesToScan) {
+      console.log("file loop")
+      const rl = readline.createInterface({
+        input: fs.createReadStream(filePath),
+        crlfDelay: Infinity,
+      });
+
+      for await (const line of rl) {
+        const parts = line.split("|").map((p) => p.trim());
+        if (parts.length < 4) continue;
+
+        const timestamp = new Date(parts[0]);
+
+        if (timestamp < fromDate || timestamp > toDate) continue;
+
+        const type = parts[2];
+        const state = parts[3];
+
+        events.push({
+          timestamp,
+          type,
+          state,
+        });
+      }
+
+      // 🔥 Reconstruct durations
+      const active = {};
+      const results = [];
+
+      for (const event of events) {
+        if (event.state === "ON") {
+          active[event.type] = event.timestamp;
+        }
+
+        if (event.state === "OFF" && active[event.type]) {
+          const start = active[event.type];
+          const end = event.timestamp;
+
+          results.push({
+            type: event.type,
+            start,
+            end,
+            durationSeconds: Math.floor((end - start) / 1000),
+          });
+
+          delete active[event.type];
+        }
+      }
+
+      res.json({
+        mac,
+        from,
+        to,
+        alarms: results,
       });
     }
 
-    res.json({ logs: logs.reverse() });
-  } catch (err) {
-    console.error("Error fetching device logs:", err?.stack);
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      message: "Error in fetching alarm logs"
+    })
   }
+})
 
-
-});
-
+// HISTORICAL DATA
 app.get("/api/historical-data", async (req, res) => {
   const { mac, datetime } = req.query;
+  console.log("MAC: ", mac, " | Date ", datetime);
+
   if (!mac || !datetime)
     return res.status(400).json({ error: "Missing mac or datetime" });
+
   const normalizedMac = mac.toLowerCase(); //! Converting to LowerCase()
   const datetimeObj = new Date(datetime);
+
   if (isNaN(datetimeObj.getTime()))
     return res.status(400).json({ error: "Invalid datetime format" });
+
   const selectedDate = new Date(datetimeObj);
   selectedDate.setHours(0, 0, 0, 0);
   const nextDate = new Date(selectedDate);
   nextDate.setDate(nextDate.getDate() + 1);
+
+  console.log("Date passing to DB: ", selectedDate, nextDate);
+
   try {
     const readings = await SensorReading.find({
       mac: normalizedMac,
@@ -794,7 +943,7 @@ let readingBuffer = [];
 let alreadyReplied = 0;
 
 const eMS_LOGS = process.env.eMS_LOGS === "true";
-console.log(`[BOOT] eMS_LOGS is`, eMS_LOGS);
+// console.log(`[BOOT] eMS_LOGS is`, eMS_LOGS);
 
 const INC_LOGS_CMD = process.env.INC_LOGS_CMD === "true";
 const OUT_LOGS_CMD = process.env.OUT_LOGS_CMD === "true";
@@ -1063,8 +1212,8 @@ const server = net.createServer((socket) => {
   const connStart = Date.now();
   if (eMS_LOGS) {
     console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
-    // console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
   }
+  console.log(`[LOG] New TCP Connection from ${clientInfo} at ${new Date(connStart).toISOString()}`);
   console.log(`New TCP Connection from`, clientInfo);
 
   socket.on("data", async (data) => {
@@ -1082,6 +1231,7 @@ const server = net.createServer((socket) => {
       // debug.bufferStats.discardedBytes.totalBytes += data.length;
 
       console.log(`Raw data received ${data.toString('hex')} with length (${data.length} bytes) from`, clientInfo);
+      // console.log("Raw data received")
       // console.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
 
       // buffer = Buffer.concat([buffer, data]);
@@ -1092,7 +1242,7 @@ const server = net.createServer((socket) => {
         packetCount++;
         // const packet = socket.buffer.slice(0, PACKET_LEN);
 
-        // console.log(`[eMS_LOGS] Parsing packet #${packetCount} in this data event, buffer.length=${buffer.length}`);
+        console.log(`[eMS_LOGS] Parsing packet #${packetCount} in this data event, socket.buffer.length=${socket.buffer.length}`);
 
         // if (buffer.length < 4) break;
 
@@ -1143,7 +1293,7 @@ const server = net.createServer((socket) => {
           continue;
         }
 
-        console.log("EXTRACTED IP: ", ip);
+        // console.log("EXTRACTED IP: ", ip);
 
         // wait for full packet
         if (socket.buffer.length < 58) break;
@@ -1235,6 +1385,9 @@ const server = net.createServer((socket) => {
         const hupsRes = packet[56];
         const failMask = packet[57];
 
+        // console.log("Padding: ", padding);
+        console.log("pwsFailCount: ", pwsFailCount);
+
         const packetTimestamp = new Date();
         const macDir = mac.replace(/[:. ]/g, '_');
 
@@ -1260,11 +1413,11 @@ const server = net.createServer((socket) => {
         for (let i = 0; i < 6; i++) {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
-        console.log("Fan status: ", fanStatus);
+        // console.log("Fan status: ", fanStatus);
 
         // ==== LOGGING EXTRACTED VALUES ====
-        console.log("Humidity: ", humidity);
-        console.log("Output Voltage: ", outputVoltage);
+        // console.log("Humidity: ", humidity);
+        // console.log("Input Voltage: ", inputVoltage);
         // ==== LOGGING EXTRACTED VALUES ====
 
 
@@ -1371,11 +1524,13 @@ const server = net.createServer((socket) => {
 
         // ===================== RABBITMQ SNAPSHOT LOGIC =====================
         if ((padding === 0x43) && (doorStatus === "OPEN")) {
+          console.log("Inside snapshot", mac)
           const deviceMeta = deviceCache.get(String(mac).toLowerCase());
 
           if (!deviceMeta || !deviceMeta.cameraType || !deviceMeta.cameraIP) {
             console.warn(`⚠ No camera metadata found for ${mac}, skipping snapshot publish`);
           } else {
+            console.log("publish snapshot", mac)
             publishSnapshot({
               mac,
               cameraType: String(deviceMeta.cameraType).trim(),
@@ -1448,10 +1603,10 @@ const server = net.createServer((socket) => {
         if (alreadyReplied) alreadyReplied--;
 
         // Extracting Fans Status
-        console.log("fanStatus", fanStatusBits);
+        // console.log("fanStatus", fanStatusBits);
 
 
-        console.log("Password Bit: ", pwsFailCount)// <-- Critical offset //Password
+        // console.log("Password Bit: ", pwsFailCount)// <-- Critical offset //Password
 
         const floats = [
           humidity,
@@ -1468,13 +1623,13 @@ const server = net.createServer((socket) => {
           // continue;
         }
 
-        if (Math.random() < 0.01) {
-          if (eMS_LOGS) console.log(
-            `📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(
-              16
-            )}h`
-          );
-        }
+        // if (Math.random() < 0.01) {
+        //   if (eMS_LOGS) console.log(
+        //     `📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(
+        //       16
+        //     )}h`
+        //   );
+        // }
 
         // Threshold-based alarms
         const thresholdAlarms = {
@@ -1519,27 +1674,27 @@ const server = net.createServer((socket) => {
 
         if (waterLogging) {
           activeAlarms.push("Water Logging Alarm");
-          console.log("Water Logging Alarm")
+          // console.log("Water Logging Alarm")
         }
 
         if (waterLeakage) {
           activeAlarms.push("Water Leakage Alarm");
-          console.log("Water Leakage Alarm")
+          // console.log("Water Leakage Alarm")
         }
 
         if (doorStatus === "OPEN") {
           activeAlarms.push("Door Alarm");
-          console.log("Door Alarm")
+          // console.log("Door Alarm")
         }
 
         if (lockStatus === "OPEN") {
           activeAlarms.push("Lock Alarm");
-          console.log("Lock Alarm")
+          // console.log("Lock Alarm")
         }
 
         if (fireAlarm) {
           activeAlarms.push("Fire Alarm");
-          console.log("Fire Alarm")
+          // console.log("Fire Alarm")
         }
 
         // Single console output
@@ -1583,11 +1738,11 @@ const server = net.createServer((socket) => {
           // ========================== OLD CODE ==========================
 
           // ========================== RABBIT MQ ==========================
-          console.log("Running PublishAlarm() worder")
+          // console.log("Running PublishAlarm() worder")
           publishAlarm({
             mac,
-            alarms: activeAlarms, 
-            fanStatus, 
+            alarms: activeAlarms,
+            fanStatus,
             timestamp: new Date(),
             logType: 'alarm',
             baseDir: alarmLogDir
@@ -1642,8 +1797,8 @@ const server = net.createServer((socket) => {
 
         // readingBuffer = readingBuffer.filter(r => r.mac !== mac);
         readingBuffer.push(reading);
-        console.log(`[BUFFER] pushed reading; readingBuffer.length=${readingBuffer.length}`);
-        console.log(`[eMS_LOGS] Finished parsing packet for MAC: ${mac}`);
+        // console.log(`[BUFFER] pushed reading; readingBuffer.length=${readingBuffer.length}`);
+        // console.log(`[eMS_LOGS] Finished parsing packet for MAC: ${mac}`);
 
         if (readingBuffer.length >= BULK_SAVE_LIMIT) {
           const toSave = [...readingBuffer];
@@ -1652,8 +1807,6 @@ const server = net.createServer((socket) => {
             .catch((err) =>
               console.error("Bulk save error:", err.message)
             );
-
-          buffer = buffer.slice(58);
         }
 
         // setImmediate(async () => {
@@ -1663,10 +1816,10 @@ const server = net.createServer((socket) => {
         //   }
         // });
 
-        socket.buffer = socket.buffer.slice(PACKET_LEN);
+        // socket.buffer = socket.buffer.slice(PACKET_LEN);
 
         // debugger;
-        if (eMS_LOGS) console.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
+        // if (eMS_LOGS) console.log(`✅ Packet processed successfully for MAC: ${mac}`, `Time: ${getFormattedDateTime()}`);
       }
     } catch (err) {
       console.error("Packet parsing failed:", err.message);

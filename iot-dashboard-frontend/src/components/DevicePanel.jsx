@@ -7,17 +7,73 @@ const DevicePanel = React.memo(function DevicePanel({
     deviceStatusMap,
     selectedMac,
     onSelectDevice,
-    connectedCount
+    connectedCount,
+    statusFilter,
+    setStatusFilter,
+    searchTerm,
+    setSearchTerm,
+    filteredDevices
 }) {
     console.log("📦 DevicePanel render");
 
     return (
         <>
-            <div style={{ "display": "inline" }}>
-                Device List: {connectedCount}
+            <div className="device-panel-header">
+
+                <div className="device-counts">
+
+                    <div
+                        className={`count connected ${statusFilter === "connected" ? "active-filter" : ""}`}
+                        onClick={() => setStatusFilter("connected")}
+                    >
+                        Healthy : {connectedCount.connected}
+                    </div>
+
+                    <div
+                        className={`count status-alarm ${statusFilter === "status-alarm" ? "active-filter" : ""}`}
+                        onClick={() => setStatusFilter("status-alarm")}
+                    >
+                        Status Alarm: {connectedCount.statusAlarm}
+                    </div>
+
+                    <div
+                        className={`count gauge-alarm ${statusFilter === "gauge-alarm" ? "active-filter" : ""}`}
+                        onClick={() => setStatusFilter("gauge-alarm")}
+                    >
+                        Gauge Alarm: {connectedCount.gaugeAlarm}
+                    </div>
+
+                    <div
+                        className={`count disconnected ${statusFilter === "disconnected" ? "active-filter" : ""}`}
+                        onClick={() => setStatusFilter("disconnected")}
+                    >
+                        Disconnected: {connectedCount.disconnected}
+                    </div>
+
+                    <div
+                        className={`count total ${statusFilter === "all" ? "active-filter" : ""}`}
+                        onClick={() => setStatusFilter("all")}
+                    >
+                        Total: {connectedCount.total}
+                    </div>
+
+                </div>
+
+                <div className="device-search">
+                    <input
+                        type="text"
+                        placeholder="🔍 Search by Location ID or MAC..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </div>
+
+            {/* <div style={{ "display": "inline" }}>
+                Device List: {connectedCount.total}
+            </div> */}
             <div className="grid">
-                {deviceMeta.map((device) => {
+                {filteredDevices.map((device) => {
                     const { mac, locationId } = device;
 
                     const status = deviceStatusMap[mac] || "disconnected";

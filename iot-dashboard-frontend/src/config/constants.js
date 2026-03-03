@@ -38,16 +38,28 @@ export const STATUS_KEYS = [
 
 export const HUPS_KEYS = [
     {
-        key: "lockStatus",
-        Name: "Lock",
+        key: "mainStatus",
+        Name: "Main",
     },
     {
-        key: "doorStatus",
-        Name: "Door",
+        key: "rectStatus",
+        Name: "Rectfier",
     },
     {
-        key: "pwsFailCount",
-        Name: "Password",
+        key: "inveStatus",
+        Name: "Inverter",
+    },
+    {
+        key: "overStatus",
+        Name: "O.Load",
+    },
+    {
+        key: "mptStatus",
+        Name: "MPT",
+    },
+    {
+        key: "mosfStatus",
+        Name: "MOSFET",
     },
 ];
 

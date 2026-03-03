@@ -56,6 +56,9 @@ function DashboardView() {
 
   const [deviceStatusMap, setDeviceStatusMap] = useState({});
 
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
 
   useEffect(() => {
     selectedMacRef.current = selectedMac;
@@ -127,7 +130,7 @@ function DashboardView() {
 
   const [logsByMac, setLogsByMac] = useState(() => readLogsLocalStorage());
 
-  // Store logs of selected device 
+  // STORING LOG OF SELECTED DEVICE 
   const currentLogs = useMemo(
     () => logsByMac[selectedMac] || EMPTY_LOGS,
     [logsByMac, selectedMac]
@@ -168,14 +171,30 @@ function DashboardView() {
   }, [readings]);
 
   const connectedDeviceCount = useMemo(() => {
+    let connected = 0;
+    let statusAlarm = 0;
+    let gaugeAlarm = 0;
+    let disconnected = 0;
+
     let count = 0;
     for (const mac in deviceStatusMap) {
-      if (deviceStatusMap[mac] !== "disconnected") {
-        count++;
-      }
+      const status = deviceStatusMap[mac];
+
+      if (status === "connected") connected++;
+      else if (status === "status-alarm") statusAlarm++;
+      else if (status === "gauge-alarm") gaugeAlarm++;
+      else if (status === "disconnected") disconnected++;
     }
-    return count;
-  }, [deviceStatusMap]);
+
+    return {
+      connected,
+      statusAlarm,
+      gaugeAlarm,
+      disconnected,
+      total: deviceMeta.length
+    };
+
+  }, [deviceStatusMap, deviceMeta.length]);
 
   const frontendAlarmsByMac = useMemo(() => {
     const map = {};
@@ -243,9 +262,6 @@ function DashboardView() {
 
   // FETCH DATA
   const fetchData = async () => {
-    // if (isFetchingRef.current) return;   // ⛔ prevent overlap
-    // isFetchingRef.current = true;
-
     try {
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
         fetch(`${process.env.REACT_APP_API_URL}/${API.readings}`),
@@ -325,7 +341,7 @@ function DashboardView() {
   //   return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
   // }
 
-  // Function to log-commands in system
+  // LOGGING COMMANDS IN SYSTEM
   const sendToLog = async (status, message, command = "") => {
     const logData = {
       date: new Date().toLocaleString(),
@@ -463,26 +479,26 @@ function DashboardView() {
     else setStatus("Wrong password for opening lock!");
   };
 
-  // Centralized alarm computation function
+  // CENTRALIZED ALARM COMPUTATION FUNCTION
   function alarmComputation(reading, thresholds) {
     if (!reading) return { active: false, alarms: [] };
 
     const alarms = [];
 
-    if (reading.fireAlarm) alarms.push("Fire Alarm");
-    if (reading.waterLeakage) alarms.push("Water Leakage");
-    if (reading.waterLogging) alarms.push("Water Logging");
-    if (reading.lockStatus === "OPEN") alarms.push("Lock Open");
-    if (reading.doorStatus === "OPEN") alarms.push("Door Open");
-    if (reading.pwsFailCount === 3) alarms.push("Password Blocked")
+    if (reading.fireAlarm) alarms.push("Fire ");
+    if (reading.waterLeakage) alarms.push("Leakage ");
+    if (reading.waterLogging) alarms.push("Logging ");
+    if (reading.lockStatus === "OPEN") alarms.push("Lock Open ");
+    if (reading.doorStatus === "OPEN") alarms.push("Door Open ");
+    if (reading.pwsFailCount === 3) alarms.push("Password Blocked ")
 
     // threshold-based
-    if (reading.insideTemperatureAlarm && (reading.insideTemperature < thresholds.insideTemperature.min)) alarms.push("Low Inside Temperature Alarm");
-    if (reading.outsideTemperatureAlarm) alarms.push("Outside Temperature Alamr");
-    if (reading.inputVoltageAlarm) alarms.push("Input Voltage Alarm");
-    if (reading.outputVoltageAlarm) alarms.push("Output Voltage Alarm");
-    if (reading.batteryBackupAlarm) alarms.push("Battery Backup Alarm");
-    if (reading.humidityAlarm) alarms.push("Humidity Alarm");
+    if (reading.insideTemperatureAlarm && (reading.insideTemperature < thresholds.insideTemperature.min)) alarms.push("Low In. Temp. ");
+    if (reading.outsideTemperatureAlarm) alarms.push("Out. Temp. ");
+    if (reading.inputVoltageAlarm) alarms.push("Inp. Volt. ");
+    if (reading.outputVoltageAlarm) alarms.push("Out. Volt. ");
+    if (reading.batteryBackupAlarm) alarms.push("Batt. Backup ");
+    if (reading.humidityAlarm) alarms.push("Humid. ");
 
 
     return {
@@ -592,7 +608,7 @@ function DashboardView() {
     // Updating logs for selectedMac seperately
     setLogsByMac(prev => {
       const prevLogs = prev[selectedMac] || [];
-      const entry = `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarmResult.alarms.join(", ")}`;
+      const entry = `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarmResult.alarms.join("| ")}`;
       const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
       return {
@@ -803,6 +819,30 @@ function DashboardView() {
     };
   }, []);
 
+  const filteredDevices = useMemo(() => {
+    let list = deviceMeta;
+
+    // Status filter
+    if (statusFilter !== "all") {
+      list = list.filter(device => {
+        const status = deviceStatusMap[device.mac] || "disconnected";
+        return status === statusFilter;
+      });
+    }
+
+    // Search filter
+    if (searchTerm.trim() !== "") {
+      const lower = searchTerm.toLowerCase();
+
+      list = list.filter(device =>
+        device.locationId?.toLowerCase().includes(lower) ||
+        device.mac?.toLowerCase().includes(lower)
+      );
+    }
+
+    return list;
+  }, [deviceMeta, deviceStatusMap, statusFilter, searchTerm]);
+
   const alarmKeys = ALARM_KEYS;
 
   const statusKeys = STATUS_KEYS
@@ -812,7 +852,7 @@ function DashboardView() {
   return (
     <>
       {/* Logo */}
-      <div className="logo-panel">
+      {/* <div className="logo-panel">
 
         <div className="logo-bar">
           <div className="logo-group logo-group--left">
@@ -824,14 +864,14 @@ function DashboardView() {
             <img className="logo-img" src="/technotrendz.png" alt="Technotrendz Logo" />
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Dashboard */}
       <div className="dashboard">
         <div className="panel">
           <div className="rack-header">
             <h2 className="selected-heading">
-              📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>  }
+              📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
             </h2>
             {/* ALARM TOGGLE */}
             <div className="alarm-container">
@@ -915,14 +955,14 @@ function DashboardView() {
                     label="Battery %"
                     value={(latestReading.batteryBackup * 1.5).toFixed(2)}
                     max={120}
-                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
+                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   <Gauge
                     label="Battery(Hours)"
                     value={(latestReading.batteryBackup).toFixed(2)}
                     max={120}
-                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
+                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   {latestReading.batteryBackup <= 10 ?
@@ -930,7 +970,7 @@ function DashboardView() {
                       label="LockBat(Left..)"
                       value={0}
                       max={12}
-                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
+                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
                       alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                     /> :
                     <Gauge
@@ -938,7 +978,7 @@ function DashboardView() {
                       value={Math.floor(((latestReading.batteryBackup - 9) * 4))}
                       // value={6}
                       max={12}
-                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#fb1616" : "#67b816"}
+                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
                       hoverTitle={"LockBat Left Hours"}
                       alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                     />
@@ -1203,7 +1243,7 @@ function DashboardView() {
                                 "https://via.placeholder.com/120x90?text=Error";
                             }}
                           />
-                          <div className="snapshot-label">{filename}</div>
+                          <div className="snapshot-label">{filename.slice(0, 23)}</div>
                         </div>
                       ))
                     ) : (
@@ -1231,7 +1271,7 @@ function DashboardView() {
                   tick={{ fontSize: 10, fill: "#ccc" }}
                 />
                 <YAxis />
-                <Tooltip />
+                <Tooltip />0
                 <Legend />
                 <Line
                   type="monotone"
@@ -1317,7 +1357,7 @@ function DashboardView() {
             <span style={{ fontWeight: "lighter", fontSize: "20px", marginLeft: "10px" }}>(Connected: {connectedDeviceCount}/{deviceMeta.length})</span>
           </h2>
           <div className="grid">
-            
+
             {/* {(() => {
               const latestReadingsByMac = {};
               readings.forEach((r) => {
@@ -1377,7 +1417,7 @@ function DashboardView() {
             })()}
 
 
-            {deviceMeta.map((device) => {
+         {deviceMeta.map((device) => {
               console.count("dashboard render");
 
               const { mac } = device;
@@ -1432,6 +1472,12 @@ function DashboardView() {
             selectedMac={selectedMac}
             onSelectDevice={handleSelectDevice}
             connectedCount={connectedDeviceCount}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            filteredDevices={filteredDevices}
+
           />
         </div>
 

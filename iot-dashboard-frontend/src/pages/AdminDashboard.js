@@ -212,7 +212,7 @@ const RegisterUserTab = () => {
   };
 
   return (
-    <div>
+    <div className="register-user-tab">
       <h2>👤 Register New User</h2>
       <form onSubmit={handleSubmit} className="admin-form">
         <input
@@ -228,6 +228,7 @@ const RegisterUserTab = () => {
           type="password"
           placeholder="Password"
           value={form.password}
+          maxLength={25}
           title="Min 8 chars: 1 uppercase, 1 lowercase, 1 number, 1 special char"
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           required
@@ -246,32 +247,34 @@ const RegisterUserTab = () => {
       </form>
 
       <h3>📋 Registered Users</h3>
-      <table className="device-table">
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Edit</th>
-            <th>Delete</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.isArray(users) && users.length > 0 ? (
-            users.map((user) => (
-              <UserRow
-                key={user._id}
-                user={user}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))
-          ) : (
+      <div className="admin-table-scroll">
+        <table className="device-table">
+          <thead>
             <tr>
-              <td colSpan="4">⚠️ No users available or failed to load.</td>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Edit</th>
+              <th>Delete</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {Array.isArray(users) && users.length > 0 ? (
+              users.map((user) => (
+                <UserRow
+                  key={user._id}
+                  user={user}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4">⚠️ No users available or failed to load.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {showPrompt && (
         <PasswordPrompt
@@ -391,7 +394,7 @@ const RegisterDeviceTab = () => {
       {1,3} -> Allows from 1 digit to 3 digit values
       \. -> Match for dot
     */
-    const macRegex = /^192\.168\.0\.(\d{1,3})$/;
+    const macRegex = /^192\.168\.(\d{1})\.(\d{1,3})$/;
     const cleanedMac = form.mac.trim();
     console.log(cleanedMac);
     if (!macRegex.test(cleanedMac)) {
@@ -403,27 +406,27 @@ const RegisterDeviceTab = () => {
       (device) => device.mac.toLowerCase() === cleanedMac.toLowerCase()
     );
     if (macExists) {
-      setStatus("❌ This MAC address already exists.");
+      setStatus("❌ This IP address already exists.");
       return;
     }
 
-    if(!form.locationId){
+    if (!form.locationId) {
       setStatus("⚠️Provide Location ID")
       return;
     }
-    if(!form.address){
+    if (!form.address) {
       setStatus("⚠️Provide Address")
       return;
     }
-    if(!form.locationId){
+    if (!form.latitude) {
       setStatus("⚠️Provide Latitude")
       return;
     }
-    if(!form.locationId){
+    if (!form.longitude) {
       setStatus("⚠️Provide Longitude");
       return;
     }
-    if(!form.ipCamera){
+    if (!form.ipCamera) {
       setStatus("⚠️Provide Camera Make & Camera IP");
       return;
     }
@@ -461,6 +464,29 @@ const RegisterDeviceTab = () => {
     }
   };
 
+  const handleIPChange = (e) => {
+    let value = e.target.value;
+
+    // allow only digits and dots
+    value = value.replace(/[^0-9.]/g, "");
+
+    const parts = value.split(".");
+
+    // max 4 octets
+    if (parts.length > 4) return;
+
+    // each octet max 255 and max 3 digits
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].length > 3) return;
+      if (Number(parts[i]) > 255) return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      mac: value
+    }))
+  };
+
   // Update deviceList instantly with backend response
   const handleDeviceUpdated = (updatedDevice) => {
     setDeviceList((prevDevices) =>
@@ -471,7 +497,7 @@ const RegisterDeviceTab = () => {
   };
 
   return (
-    <div>
+    <div className="register-device-tab">
       <h2>📡 Register New Device</h2>
       <form onSubmit={handleRegister} className="admin-form">
         <input
@@ -479,9 +505,10 @@ const RegisterDeviceTab = () => {
           placeholder="IP Address"
           value={form.mac}
           maxLength={17}
-          pattern="^192\.168\.0\.(\d{1,3})$"
-          title="Format: XX:XX:XX:XX:XX:XX (hex digits only)"
-          onChange={(e) => setForm({ ...form, mac: e.target.value })}
+          pattern="^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$"
+          inputMode="decimal"
+          title="Format: 192.168.0.XXX (numbers only)"
+          onChange={handleIPChange}
           required
         />
 
@@ -532,35 +559,37 @@ const RegisterDeviceTab = () => {
       </form>
 
       <h3>📋 Registered Devices</h3>
-      <table className="device-table">
-        <thead>
-          <tr>
-            <th>IP</th>
-            <th>Location ID</th>
-            <th>Address</th>
-            <th>Latitude</th>
-            <th>Longitude</th>
-            <th>Camera</th>
-            <th>Action</th>
-            <th>Edit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.isArray(deviceList) && deviceList.length > 0 ? (
-            deviceList.map((device) => (
-              <EditableRow
-                key={device.mac}
-                device={device}
-                onUpdated={handleDeviceUpdated}
-              />
-            ))
-          ) : (
+      <div className="admin-table-scroll">
+        <table className="device-table">
+          <thead>
             <tr>
-              <td colSpan="8">⚠️ No devices available or failed to load.</td>
+              <th>IP</th>
+              <th>Location ID</th>
+              <th>Address</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Camera</th>
+              <th>Action</th>
+              <th>Edit</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {Array.isArray(deviceList) && deviceList.length > 0 ? (
+              deviceList.map((device) => (
+                <EditableRow
+                  key={device.mac}
+                  device={device}
+                  onUpdated={handleDeviceUpdated}
+                />
+              ))
+            ) : (
+              <tr>
+                <td colSpan="8">⚠️ No devices available or failed to load.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
@@ -703,7 +732,13 @@ const EditableRow = ({ device, onUpdated }) => {
             type="text"
             name="ipCamera"
             value={formData.ipCamera.ip}
-            onChange={handleChange}
+            inputMode="decimal"
+            pattern="^[0-9.]*$"
+            title="Numbers and '.' only"
+            onChange={(e) => {
+              const sanitized = e.target.value.replace(/[^0-9.]/g, "");
+              handleChange({ ...e, target: { ...e.target, value: sanitized } });
+            }}
           />
         ) : device.ipCamera.ip ? (
           <a href={`https://${device.ipCamera.ip}`} target="_blank" rel="noopener noreferrer">
@@ -780,21 +815,20 @@ const HistoricalDataTab = () => {
     setLoading(true);
 
     try {
+      console.log("Datetime: ", encodeURIComponent(datetime));
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL
-        }/${API.historicalData}?mac=${selectedMac}&datetime=${encodeURIComponent(
-          datetime
-        )}`
-      );
-      const data = await res.json();
+        `${process.env.REACT_APP_API_URL}/api/alarm-history?mac=192.168.0.10&from=2026-02-20T11:27:00&to=2026-02-20T12:00:00`
+      ); const data = await res.json();
+      console.log("Data: ", data);
       if (!res.ok)
         throw new Error(data.error || "Failed to fetch historical data");
 
-      const hourlyReadings = downsampleHourly(data.readings);
-      setReadings(hourlyReadings);
-      setSpecificReading(data.atSelectedTime);
+      // const hourlyReadings = downsampleHourly(data.alarms);
+      setReadings(data.alarms);
+      // setSpecificReading(data.atSelectedTime);
+      // console.log("specific: ", specificReading)
     } catch (err) {
-      alert(`❌ ${err.message}`);
+      alert(`❌ ${err?.stack}`);
     } finally {
       setLoading(false);
     }
@@ -853,6 +887,7 @@ const HistoricalDataTab = () => {
         </button>
       </div>
 
+
       {loading ? (
         <div className="loader">⏳ Loading data...</div>
       ) : (
@@ -905,7 +940,23 @@ const HistoricalDataTab = () => {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+
             ))}
+          </div>
+
+          <div>
+            {readings.length === 0 ? (
+              <p>No alarms found</p>
+            ) : (
+              readings.map((alarm, index) => (
+                <div key={index} style={{ marginBottom: "10px", borderBottom: "1px solid #ccc" }}>
+                  <p><strong>Type:</strong> {alarm.type}</p>
+                  <p><strong>Start:</strong> {new Date(alarm.start).toLocaleString()}</p>
+                  <p><strong>End:</strong> {new Date(alarm.end).toLocaleString()}</p>
+                  <p><strong>Duration:</strong> {alarm.durationSeconds} sec</p>
+                </div>
+              ))
+            )}
           </div>
 
           {specificReading && (

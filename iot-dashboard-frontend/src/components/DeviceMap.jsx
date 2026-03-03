@@ -77,16 +77,18 @@ const DeviceMap = React.memo(function DeviceMap({
         <MapContainer
             key="device-map"
             center={selectedCenter}
-            zoom={18}
+            zoom={14}
             scrollWheelZoom={true}
             style={{ height: "315px", width: "100%" }}
         >
             <TileLayer
-                url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
-                attribution="&copy; Stadia Maps"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                // attribution="&copy; OpenStreetMap & CartoDB"
+                // subdomains="abcd"
+
             />
 
-            <FlyToLocation center={selectedCenter} zoom={18} />
+            <FlyToLocation center={selectedCenter} zoom={17} />
 
             {markers}
         </MapContainer>
