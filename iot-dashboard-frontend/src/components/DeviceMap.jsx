@@ -60,12 +60,21 @@ const DeviceMap = React.memo(function DeviceMap({
                     key={mac}
                     position={[lat, lon]}
                     icon={icon}
+                    // eventHandlers={{
+                    //     hover: () => onMarkerClick(mac),
+                    // }}
                     eventHandlers={{
-                        click: () => onMarkerClick(mac),
+                        mouseover: (e) => {
+                            e.target.openPopup();
+                        },
+                        mouseout: (e) => {
+                            e.target.closePopup();
+                        },
                     }}
                 >
                     <Popup>
-                        {device.locationId || mac}
+                        {device.locationId || mac} <br />
+                        {device.address}
                     </Popup>
                 </Marker>
             );
