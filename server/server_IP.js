@@ -289,7 +289,7 @@ app.post("/api/register-user", async (req, res) => {
     await user.save();
     res.status(200).json({ message: "User registered successfully" });
   } catch (error) {
-    res.status(500).json({ error: "User already exist" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
