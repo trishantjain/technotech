@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const deviceSchema = new mongoose.Schema({
-  mac: String,
+  mac: {type: String, unique: true, required: true},
   locationId: String,
   address: String,
   latitude: Number,
