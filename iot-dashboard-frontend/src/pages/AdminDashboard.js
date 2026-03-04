@@ -498,65 +498,92 @@ const RegisterDeviceTab = () => {
 
   return (
     <div className="register-device-tab">
-      <h2>📡 Register New Device</h2>
-      <form onSubmit={handleRegister} className="admin-form">
-        <input
-          type="text"
-          placeholder="IP Address"
-          value={form.mac}
-          maxLength={17}
-          pattern="^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$"
-          inputMode="decimal"
-          title="Format: 192.168.0.XXX (numbers only)"
-          onChange={handleIPChange}
-          required
-        />
+      <div className="device-header">
+        <h2>📡 Register New Device</h2>
 
-        <input
-          type="text"
-          placeholder="Location ID"
-          value={form.locationId}
-          maxLength={17}
-          title="Maximum 17 characters"
-          onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Address"
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          step="0.000001"
-          pattern="^-?\d{1,2}\.\d{1,6}$"
-          title="Latitude must be a number with up to 6 decimals"
-          placeholder="Latitude"
-          value={form.latitude}
-          onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          step="0.000001"
-          pattern="^-?\d{1,3}\.\d{1,6}$"
-          title="Longitude must be a number with up to 6 decimals"
-          placeholder="Longitude"
-          value={form.longitude}
-          onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-          required
-        />
-        <input
-          type="text"
-          placeholder="CAMERA_MAKE,CAMERA_IP"
-          value={form.ipCamera}
-          onChange={(e) => setForm({ ...form, ipCamera: e.target.value })}
-        />
-        <button type="submit">Register Device</button>
-        {status && <p>{status}</p>}
-      </form>
+        <button
+          className="toggle-form-btn"
+          onClick={() => setShowForm(prev => !prev)}
+        >
+          {showForm ? "➖ Hide Form" : "➕ Add New Device"}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleRegister} className="device-form-grid">
+          <input
+            className="full-width"
+            type="text"
+            placeholder="IP Address"
+            value={form.mac}
+            maxLength={17}
+            pattern="^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$"
+            inputMode="decimal"
+            title="Format: 192.168.0.XXX (numbers only)"
+            onChange={handleIPChange}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Location ID"
+            value={form.locationId}
+            maxLength={17}
+            title="Maximum 17 characters"
+            onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Address"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            required
+          />
+          <input
+            type="number"
+            step="0.000001"
+            pattern="^-?\d{1,2}\.\d{1,6}$"
+            title="Latitude must be a number with up to 6 decimals"
+            placeholder="Latitude"
+            value={form.latitude}
+            onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+            required
+          />
+          <input
+            type="number"
+            step="0.000001"
+            pattern="^-?\d{1,3}\.\d{1,6}$"
+            title="Longitude must be a number with up to 6 decimals"
+            placeholder="Longitude"
+            value={form.longitude}
+            onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Camera Make"
+            value={form.ipCameraMake}
+            onChange={(e) =>
+              setForm({ ...form, ipCameraMake: e.target.value })
+            }
+            required
+          />
+          <input
+            type="text"
+            placeholder="Camera IP"
+            value={form.ipCameraIp}
+            inputMode="decimal"
+            pattern="^[0-9.]*$"
+            title="Enter valid IP address"
+            onChange={(e) => {
+              const sanitized = e.target.value.replace(/[^0-9.]/g, "");
+              setForm({ ...form, ipCameraIp: sanitized });
+            }}
+            required
+          />
+          <button type="submit">Register Device</button>
+          {status && <p>{status}</p>}
+        </form>)}
 
       <h3>📋 Registered Devices</h3>
       <div className="admin-table-scroll">

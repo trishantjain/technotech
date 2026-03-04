@@ -1145,3 +1145,97 @@ input:not(:checked)+.slider:before {
   background: #1e1e1e;
   color: white;
 }
+
+/* ================= REGISTER DEVICE REDESIGN ================= */
+
+.register-device-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Card style container */
+.device-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  background: #1a1a1a;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  margin-bottom: 20px;
+  width: 100%;
+}
+.full-width {
+  grid-column: span 2;
+}
+
+/* Full width rows */
+.device-form-grid .full-width {
+  grid-column: span 2;
+}
+
+.device-form-grid input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #111;
+  color: white;
+  height: 38px;
+}
+
+.device-form-grid button {
+  grid-column: span 2;
+  padding: 12px;
+  border-radius: 6px;
+  border: none;
+  background: #1a73e8;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.device-form-grid button:hover {
+  background: #155ab6;
+}
+
+/* Make table section occupy remaining space */
+.admin-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+
+.device-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.toggle-form-btn {
+  background: #1a73e8;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: 0.2s ease;
+}
+
+.toggle-form-btn:hover {
+  background: #155ab6;
+}
+
+/* Scroll only tab content inside first panel */
+.panel-content-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #444 #111;            
+}
