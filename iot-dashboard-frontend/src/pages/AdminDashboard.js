@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import PasswordPrompt from "../components/PasswordPrompt";
-import { API } from "../config/api.js";
+// import { API } from "../config/api.js";
 import Spinner from "../components/Spinner.jsx";
 
 
@@ -369,6 +369,8 @@ const RegisterDeviceTab = () => {
   const [deviceList, setDeviceList] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loadingDevices, setLoadingDevices] = useState(false);
+
+  // eslint-disable-next-line
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -688,6 +690,7 @@ const EditableRow = ({ device, onUpdated }) => {
     if (editMode) {
       setFormData({ ...device });
     }
+    // eslint-disable-next-line 
   }, [editMode]);
 
   const askAdminPassword = async () => {
@@ -880,6 +883,8 @@ const HistoricalDataTab = () => {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [readings, setReadings] = useState([]);
+
+  // eslint-disable-next-line
   const [specificReading, setSpecificReading] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -890,6 +895,7 @@ const HistoricalDataTab = () => {
       .catch((err) => console.error("Error fetching devices:", err));
   }, []);
 
+  // eslint-disable-next-line
   function downsampleHourly(readings) {
     const seenHours = new Set();
     return readings.filter((reading) => {

@@ -79,6 +79,7 @@ const DeviceMap = React.memo(function DeviceMap({
                 </Marker>
             );
         });
+        // eslint-disable-next-line
     }, [deviceMeta, deviceStatusMap, onMarkerClick]);
 
 

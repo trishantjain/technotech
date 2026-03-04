@@ -38,14 +38,16 @@ const EMPTY_LOGS = [];
 
 function DashboardView() {
   const [readings, setReadings] = useState([]);
+
+  // eslint-disable-next-line
   const [devices, setDevices] = useState([]);
   const [deviceMeta, setDeviceMeta] = useState([]);
   const [selectedMac, setSelectedMac] = useState("");
   const [status, setStatus] = useState("");
   const [activeTab, setActiveTab] = useState("gauges");
   const [activeFanBtns, setActiveFanBtns] = useState([]);
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
+  // const [zoom, setZoom] = useState(1);
+  // const [rotation, setRotation] = useState(0);
   const [snapshots, setSnapshots] = useState([]);
   // const [videosCaptured, setVideosCaptured] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -242,12 +244,12 @@ function DashboardView() {
     }
   }, [selectedMac, deviceMeta]);
 
-  useEffect(() => {
-    const iframe = document.querySelector(".camera-iframe");
-    if (iframe) {
-      iframe.style.transform = `scale(${zoom}) rotate(${rotation}deg)`;
-    }
-  }, [zoom, rotation]);
+  // useEffect(() => {
+  //   const iframe = document.querySelector(".camera-iframe");
+  //   if (iframe) {
+  //     iframe.style.transform = `scale(${zoom}) rotate(${rotation}deg)`;
+  //   }
+  // }, [zoom, rotation]);
 
   function shallowEqualDevices(a, b) {
     if (a === b) return true;
