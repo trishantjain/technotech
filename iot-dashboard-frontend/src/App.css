@@ -385,7 +385,7 @@ body {
 }
 
 .device-tile.status-alarm {
-  background-color: yellow;
+  background-color: rgb(255, 255, 0);
   color: #000;
 }
 
@@ -644,6 +644,13 @@ body {
   padding: 8px 12px;
   border: 1px solid #333;
   text-align: left;
+}
+
+.device-table td:nth-child(3) {
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 280px;
+  line-height: 1.4;
 }
 
 .device-table th {

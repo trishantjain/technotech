@@ -362,7 +362,8 @@ const RegisterDeviceTab = () => {
     address: "",
     latitude: "",
     longitude: "",
-    ipCamera: "",
+    ipCameraMake: "",
+    ipCameraIp: "",
   });
   const [status, setStatus] = useState("");
   const [deviceList, setDeviceList] = useState([]);
@@ -410,7 +411,6 @@ const RegisterDeviceTab = () => {
     */
     const macRegex = /^192\.168\.(\d{1})\.(\d{1,3})$/;
     const cleanedMac = form.mac.trim();
-    console.log(cleanedMac);
     if (!macRegex.test(cleanedMac)) {
       setStatus("❌ Invalid MAC address format. Use XXX:XXX:X:X");
       return;
@@ -425,22 +425,24 @@ const RegisterDeviceTab = () => {
     }
 
     if (!form.locationId) {
-      setStatus("⚠️Provide Location ID")
+      setStatus("⚠️Provide Location ID");
       return;
     }
     if (!form.address) {
-      setStatus("⚠️Provide Address")
+      setStatus("⚠️Provide Address");
       return;
     }
-    if (!form.latitude) {
-      setStatus("⚠️Provide Latitude")
+    const lat = parseFloat(form.latitude);
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      setStatus("⚠️ Latitude must be between -90 and 90");
       return;
     }
-    if (!form.longitude) {
-      setStatus("⚠️Provide Longitude");
+    const lng = parseFloat(form.longitude);
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      setStatus("⚠️ Longitude must be between -180 and 180");
       return;
     }
-    if (!form.ipCamera) {
+    if (!form.ipCameraMake || !form.ipCameraIp) {
       setStatus("⚠️Provide Camera Make & Camera IP");
       return;
     }
@@ -457,7 +459,10 @@ const RegisterDeviceTab = () => {
             address: form.address,
             latitude: +form.latitude,
             longitude: +form.longitude,
-            ipCamera: form.ipCamera,
+            ipCamera: {
+              type: form.ipCameraMake,
+              ip: form.ipCameraIp,
+            },
           }),
         }
       );
@@ -470,7 +475,8 @@ const RegisterDeviceTab = () => {
         address: "",
         latitude: "",
         longitude: "",
-        ipCamera: "",
+        ipCameraMake: "",
+        ipCameraIp: "",
       });
       fetchDevices();
     } catch (err) {
@@ -806,20 +812,46 @@ const EditableRow = ({ device, onUpdated }) => {
       </td>
       <td>
         {editMode ? (
-          <input
-            type="text"
-            name="ipCamera"
-            value={formData.ipCamera.ip}
-            inputMode="decimal"
-            pattern="^[0-9.]*$"
-            title="Numbers and '.' only"
-            onChange={(e) => {
-              const sanitized = e.target.value.replace(/[^0-9.]/g, "");
-              handleChange({ ...e, target: { ...e.target, value: sanitized } });
-            }}
-          />
-        ) : device.ipCamera.ip ? (
-          <a href={`https://${device.ipCamera.ip}`} target="_blank" rel="noopener noreferrer">
+          <>
+            <input
+              type="text"
+              name="ipCameraMake"
+              placeholder="Camera Make"
+              value={formData.ipCamera?.type || ""}
+              onChange={(e) =>
+                setFormData(prev => ({
+                  ...prev,
+                  ipCamera: {
+                    ...prev.ipCamera,
+                    type: e.target.value
+                  }
+                }))
+              }
+            />
+            <input
+              type="text"
+              placeholder="Camera IP"
+              value={formData.ipCamera?.ip || ""}
+              inputMode="decimal"
+              pattern="^[0-9.]*$"
+              onChange={(e) => {
+                const sanitized = e.target.value.replace(/[^0-9.]/g, "");
+                setFormData(prev => ({
+                  ...prev,
+                  ipCamera: {
+                    ...prev.ipCamera,
+                    ip: sanitized
+                  }
+                }));
+              }}
+            />
+          </>
+        ) : device.ipCamera?.ip ? (
+          <a
+            href={`https://${device.ipCamera.ip}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             📷 View
           </a>
         ) : (
