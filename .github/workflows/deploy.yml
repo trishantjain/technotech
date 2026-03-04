@@ -14,20 +14,17 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # Install Node for build
     - name: Setup Node
       uses: actions/setup-node@v3
       with:
         node-version: 18
 
-    # Install frontend dependencies
-    - name: Install Frontend Dependencies
+    - name: Install frontend dependencies
       run: |
         cd iot-dashboard-frontend
         npm install
 
-    # Build React App
-    - name: Build Frontend
+    - name: Build React
       run: |
         cd iot-dashboard-frontend
         npm run build
@@ -38,23 +35,21 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
-        source: "iot-dashboard-frontend/build"
-        target: "/home/ubuntu/technotech/iot-dashboard-frontend/"
+        source: "iot-dashboard-frontend/build/*"
+        target: "/var/www/ems/"
 
-    - name: Deploy to EC2
+    - name: Deploy Backend
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
-        port: 22
         script: |
-          cd /home/ubuntu/technotech/
-          
+          cd /home/ubuntu/technotech
+
           git fetch origin
           git reset --hard origin/master
 
-          cd server
-          npm install
+          docker-compose up -d --build
 
-          pm2 restart all
+          docker system prune -f
