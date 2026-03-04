@@ -14,12 +14,18 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
+    - name: Decode SSH key
+      run: |
+        echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d > key.pem
+        chmod 600 key.pem
+
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
+        username: ubuntu
+        key_path: key.pem
+        port: 22
         script: |
           cd /home/ubuntu/technotech/
           git pull origin master
