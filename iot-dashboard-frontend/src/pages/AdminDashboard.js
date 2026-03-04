@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import PasswordPrompt from "../components/PasswordPrompt";
 import { API } from "../config/api.js";
+import Spinner from "../components/Spinner.jsx";
 
 
 const AdminDashboard = () => {
@@ -365,15 +366,23 @@ const RegisterDeviceTab = () => {
   });
   const [status, setStatus] = useState("");
   const [deviceList, setDeviceList] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    fetchDevices();
-    const interval = setInterval(fetchDevices, 30000);
+    fetchDevices(true);
+    const interval = setInterval(() => {
+      fetchDevices(false);
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchDevices = async () => {
+  const fetchDevices = async (showLoader = false) => {
     try {
+      if (showLoader) setLoadingDevices(true);
+
       const res = await fetch(
         `${process.env.REACT_APP_API_URL}/api/devices-info`
       );
@@ -381,8 +390,13 @@ const RegisterDeviceTab = () => {
       setDeviceList(data);
     } catch (err) {
       console.error("Failed to fetch devices:", err);
-    }
-  };
+    } finally {
+      if (showLoader) {
+        setLoadingDevices(false);
+        setIsInitialLoad(false);
+      }
+    };
+  }
 
   // REGISTER NEW DEVICE
   const handleRegister = async (e) => {
@@ -600,9 +614,16 @@ const RegisterDeviceTab = () => {
               <th>Edit</th>
             </tr>
           </thead>
+
           <tbody>
-            {Array.isArray(deviceList) && deviceList.length > 0 ? (
-              deviceList.map((device) => (
+            {loadingDevices ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: "center", padding: "30px" }}>
+                  <Spinner />
+                </td>
+              </tr>
+            ) : Array.isArray(deviceList) && deviceList.length > 0 ? (
+              filteredDevices.map((device) => (
                 <EditableRow
                   key={device.mac}
                   device={device}
