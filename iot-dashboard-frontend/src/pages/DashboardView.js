@@ -58,6 +58,7 @@ function DashboardView() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [loadingDevices, setLoadingDevices] = useState(true);
 
 
   useEffect(() => {
@@ -263,6 +264,8 @@ function DashboardView() {
   // FETCH DATA
   const fetchData = async () => {
     try {
+      setLoadingDevices(true);
+
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
         fetch(`${process.env.REACT_APP_API_URL}/${API.readings}`),
         fetch(`${process.env.REACT_APP_API_URL}/${API.allDevices}`),
@@ -296,7 +299,7 @@ function DashboardView() {
     } catch (err) {
       console.error("❌Error fetching data:", err);
     } finally {
-      // isFetchingRef.current = false
+      setLoadingDevices(false);
     }
   };
 
@@ -1477,7 +1480,7 @@ function DashboardView() {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             filteredDevices={filteredDevices}
-
+            loading={loadingDevices}
           />
         </div>
 
