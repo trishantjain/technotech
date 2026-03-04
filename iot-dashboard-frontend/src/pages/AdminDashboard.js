@@ -510,6 +510,16 @@ const RegisterDeviceTab = () => {
     );
   };
 
+  const filteredDevices = deviceList.filter((device) => {
+    const term = searchTerm.toLowerCase();
+
+    return (
+      device.mac?.toLowerCase().includes(term) ||
+      device.locationId?.toLowerCase().includes(term) ||
+      device.address?.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div className="register-device-tab">
       <div className="device-header">
@@ -600,6 +610,26 @@ const RegisterDeviceTab = () => {
         </form>)}
 
       <h3>📋 Registered Devices</h3>
+      {/* Search Bar */}
+      <div style={{ marginBottom: "10px", display: "flex", gap: "10px" }}>
+        <input
+          type="text"
+          placeholder="🔍 Search by IP, Location ID or Address..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            padding: "8px",
+            width: "300px",
+            borderRadius: "6px",
+            border: "1px solid #ccc"
+          }}
+        />
+        {searchTerm && (
+          <button onClick={() => setSearchTerm("")}>
+            ❌ Clear
+          </button>
+        )}
+      </div>
       <div className="admin-table-scroll">
         <table className="device-table">
           <thead>
