@@ -552,7 +552,7 @@ function DashboardView() {
 
   // DEVICE STATUS COMPUTATION FOR MAP & DEVICE PANEL
   useEffect(() => {
-    const now = Date.now();
+    // const now = Date.now();
     // STORING CURRENT DEVICES STATUS
     const prevMap = deviceStatusRef.current;
     const nextMap = {};
@@ -694,12 +694,12 @@ function DashboardView() {
   }
 
 
-  const toggleFullscreen = () => {
-    const iframe = document.querySelector(".camera-iframe");
-    if (iframe.requestFullscreen) iframe.requestFullscreen();
-    else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
-    else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
-  };
+  // const toggleFullscreen = () => {
+  //   const iframe = document.querySelector(".camera-iframe");
+  //   if (iframe.requestFullscreen) iframe.requestFullscreen();
+  //   else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
+  //   else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
+  // };
 
   // const zoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 2));
   // const zoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 1));
