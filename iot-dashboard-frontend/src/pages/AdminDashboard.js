@@ -623,6 +623,7 @@ const RegisterDeviceTab = () => {
           placeholder="🔍 Search by IP, Location ID or Address..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          pattern="^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$"
           style={{
             padding: "8px",
             width: "300px",

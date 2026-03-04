@@ -363,27 +363,27 @@ export default function DashboardViewV2() {
     };
   }, []);
 
-  const selectedLastSeen = selectedReading?.timestamp
-    ? new Date(selectedReading.timestamp).toLocaleTimeString()
-    : "No data";
+  // const selectedLastSeen = selectedReading?.timestamp
+  //   ? new Date(selectedReading.timestamp).toLocaleTimeString()
+  //   : "No data";
 
-  const selectedAge = selectedReading?.timestamp
-    ? Date.now() - new Date(selectedReading.timestamp).getTime()
-    : Infinity;
+  // const selectedAge = selectedReading?.timestamp
+  //   ? Date.now() - new Date(selectedReading.timestamp).getTime()
+  //   : Infinity;
 
-  const selectedState = selectedAge > STALE_THRESHOLD_MS
-    ? "Disconnected"
-    : selectedAlarmResult.active
-      ? "Alarm"
-      : "Healthy";
+  // const selectedState = selectedAge > STALE_THRESHOLD_MS
+  //   ? "Disconnected"
+  //   : selectedAlarmResult.active
+  //     ? "Alarm"
+  //     : "Healthy";
 
-  const selectedStateClass = selectedState === "Healthy"
-    ? "state-healthy"
-    : selectedState === "Alarm"
-      ? "state-alarm"
-      : "state-disconnected";
+  // const selectedStateClass = selectedState === "Healthy"
+  //   ? "state-healthy"
+  //   : selectedState === "Alarm"
+  //     ? "state-alarm"
+  //     : "state-disconnected";
 
-  const focusMonitoringMode = !showDeviceList && !showMap;
+  // const focusMonitoringMode = !showDeviceList && !showMap;
 
   const gaugeItems = selectedReading
     ? [

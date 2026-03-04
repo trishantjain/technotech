@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import "../App.css";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+// import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 // import L from "leaflet";
 // import {
@@ -59,7 +59,7 @@ function DashboardView() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingDevices, setLoadingDevices] = useState(true);
-
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     selectedMacRef.current = selectedMac;
@@ -137,7 +137,7 @@ function DashboardView() {
     [logsByMac, selectedMac]
   );
 
-  const _viewportRef = useRef(null);
+  // const _viewportRef = useRef(null);
   const lastScrollTopRef = useRef(0);
   const bottomRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -146,7 +146,7 @@ function DashboardView() {
 
   //Map and marker refs
   const mapRef = useRef(null);
-  const markerRefs = useRef({});
+  // const markerRefs = useRef({});
   // const isFetchingRef = useRef(false); // TIMING TESTING
 
 
@@ -264,7 +264,9 @@ function DashboardView() {
   // FETCH DATA
   const fetchData = async () => {
     try {
-      setLoadingDevices(true);
+      if (!hasLoadedOnceRef.current) {
+        setLoadingDevices(true);
+      }
 
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
         fetch(`${process.env.REACT_APP_API_URL}/${API.readings}`),
@@ -291,7 +293,6 @@ function DashboardView() {
         if (shallowEqualDevices(prev, next)) {
           return prev; // ✅ KEEP SAME REFERENCE
         }
-
         return next;
       });
 
@@ -299,7 +300,10 @@ function DashboardView() {
     } catch (err) {
       console.error("❌Error fetching data:", err);
     } finally {
-      setLoadingDevices(false);
+      if (!hasLoadedOnceRef.current) {
+        setLoadingDevices(false);
+        hasLoadedOnceRef.current = true;
+      }
     }
   };
 
@@ -697,38 +701,38 @@ function DashboardView() {
     else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
   };
 
-  const zoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 2));
-  const zoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 1));
-  const rotateFeed = () => setRotation((prev) => (prev + 90) % 360);
+  // const zoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 2));
+  // const zoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 1));
+  // const rotateFeed = () => setRotation((prev) => (prev + 90) % 360);
 
-  const isAlarmActive = (reading) =>
-    reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
+  // const isAlarmActive = (reading) =>
+  //   reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
 
 
   // const CHART_DELAY_MS = 2 * 60 * 1000; // 2 minutes
   // const chartCutoffTime = Date.now() - CHART_DELAY_MS;
-  const historicalData = readings
+  // const historicalData = readings
 
-    .filter((r) => r.mac === selectedMac && r.timestamp)
-    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // oldest to latest
-    .slice(-15)
-    .map((r) => {
-      const d = new Date(r.timestamp);
+  //   .filter((r) => r.mac === selectedMac && r.timestamp)
+  //   .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // oldest to latest
+  //   .slice(-15)
+  //   .map((r) => {
+  //     const d = new Date(r.timestamp);
 
-      return {
-        time:
-          `${d.getHours().toString().padStart(2, "0")}:` +
-          `${d.getMinutes().toString().padStart(2, "0")}:` +
-          `${d.getSeconds().toString().padStart(2, "0")}.` +
-          `${d.getMilliseconds().toString().padStart(3, "0")}`, // tenths of a second,
-        insideTemperature: Number(r.insideTemperature.toFixed(2)),
-        outsideTemperature: Number(r.outsideTemperature.toFixed(2)),
-        humidity: Number(r.humidity.toFixed(2)),
-        inputVoltage: Number(r.inputVoltage.toFixed(2)),
-        outputVoltage: Number(r.outputVoltage.toFixed(2)),
-        batteryBackup: Number(r.batteryBackup.toFixed(2)),
-      }
-    });
+  //     return {
+  //       time:
+  //         `${d.getHours().toString().padStart(2, "0")}:` +
+  //         `${d.getMinutes().toString().padStart(2, "0")}:` +
+  //         `${d.getSeconds().toString().padStart(2, "0")}.` +
+  //         `${d.getMilliseconds().toString().padStart(3, "0")}`, // tenths of a second,
+  //       insideTemperature: Number(r.insideTemperature.toFixed(2)),
+  //       outsideTemperature: Number(r.outsideTemperature.toFixed(2)),
+  //       humidity: Number(r.humidity.toFixed(2)),
+  //       inputVoltage: Number(r.inputVoltage.toFixed(2)),
+  //       outputVoltage: Number(r.outputVoltage.toFixed(2)),
+  //       batteryBackup: Number(r.batteryBackup.toFixed(2)),
+  //     }
+  //   });
 
   // UPDATED FOR TIMING ISSUE TESTING
   // const historicalData = useMemo(() => {
