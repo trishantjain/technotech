@@ -312,12 +312,12 @@ function DashboardView() {
   //   return true;
   // }
 
-  const handleMapCreated = (mapInstance) => {
-    if (!mapRef.current) {
-      mapRef.current = mapInstance;
-      // console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
-    }
-  };
+  // const handleMapCreated = (mapInstance) => {
+  //   if (!mapRef.current) {
+  //     mapRef.current = mapInstance;
+  //     // console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
+  //   }
+  // };
 
   const handleSelectDevice = useCallback((mac, locationId) => {
     setSelectedMac(mac);
@@ -884,7 +884,7 @@ function DashboardView() {
             </div>
           </div>
           {latestReading && (
-            <div>
+            <div className="panel-content-scroll">
               <div className="tabs">
                 <button
                   className={activeTab === "gauges" ? "active" : ""}
@@ -955,14 +955,14 @@ function DashboardView() {
                     label="Battery %"
                     value={(latestReading.batteryBackup * 1.5).toFixed(2)}
                     max={120}
-                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
+                    color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   <Gauge
                     label="Battery(Hours)"
                     value={(latestReading.batteryBackup).toFixed(2)}
                     max={120}
-                    color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
+                    color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   {latestReading.batteryBackup <= 10 ?
@@ -970,7 +970,7 @@ function DashboardView() {
                       label="LockBat(Left..)"
                       value={0}
                       max={12}
-                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
+                      color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
                       alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                     /> :
                     <Gauge
@@ -978,7 +978,7 @@ function DashboardView() {
                       value={Math.floor(((latestReading.batteryBackup - 9) * 4))}
                       // value={6}
                       max={12}
-                      color={latestReading.batteryBackup <= latestReading.batteryBackup.min ? "#ec7632" : "#67b816"}
+                      color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
                       hoverTitle={"LockBat Left Hours"}
                       alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                     />

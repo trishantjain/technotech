@@ -26,21 +26,21 @@ const DevicePanel = React.memo(function DevicePanel({
                         className={`count connected ${statusFilter === "connected" ? "active-filter" : ""}`}
                         onClick={() => setStatusFilter("connected")}
                     >
-                        Healthy : {connectedCount.connected}
+                        Healthy: {connectedCount.connected}
                     </div>
 
                     <div
                         className={`count status-alarm ${statusFilter === "status-alarm" ? "active-filter" : ""}`}
                         onClick={() => setStatusFilter("status-alarm")}
                     >
-                        Status Alarm: {connectedCount.statusAlarm}
+                        Status: {connectedCount.statusAlarm}
                     </div>
 
                     <div
                         className={`count gauge-alarm ${statusFilter === "gauge-alarm" ? "active-filter" : ""}`}
                         onClick={() => setStatusFilter("gauge-alarm")}
                     >
-                        Gauge Alarm: {connectedCount.gaugeAlarm}
+                        Gauge: {connectedCount.gaugeAlarm}
                     </div>
 
                     <div
@@ -72,7 +72,7 @@ const DevicePanel = React.memo(function DevicePanel({
             {/* <div style={{ "display": "inline" }}>
                 Device List: {connectedCount.total}
             </div> */}
-            <div className="grid">
+            <div className="grid device-list-wrapper">
                 {filteredDevices.map((device) => {
                     const { mac, locationId } = device;
 

@@ -42,10 +42,13 @@ body {
   background-color: #111;
   padding: 12px;
   border-radius: 16px;
-  overflow: auto;
+  overflow: hidden;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
+    height: 100%;
+  min-height: 0;
+
 
 }
 
@@ -1062,13 +1065,26 @@ input:not(:checked)+.slider:before {
 } */
 
 .device-panel-header {
-  position: sticky;
+  display: flex;
+  flex-direction: column;
+  /* gap: 12px; */
+  margin-bottom: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.device-list-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #444 #111;            
 }
 
 .device-counts {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   font-size: 14px;
   font-weight: 500;
   gap: 5px;
@@ -1085,23 +1101,23 @@ input:not(:checked)+.slider:before {
 }
 
 .count.status-alarm {
-  background-color: rgba(255, 0, 0, 0.2);
-  color: #ff4d4f;
+  background-color: rgba(255, 255, 0, 0.2);
+  color: #ffff4d;
 }
 
 .count.gauge-alarm {
   background-color: rgba(255, 140, 0, 0.2);
-  color: #ffa500;
+  color: #c58714;
 }
 
 .count.disconnected {
-  background-color: rgba(120, 120, 120, 0.2);
-  color: #aaa;
+  background-color: rgba(149, 59, 59, 0.2);
+  color: #de2f2f;
 }
 
 .count.total {
-  background-color: rgba(0, 140, 255, 0.2);
-  color: #4da6ff;
+  background-color: rgba(178, 189, 196, 0.2);
+  color: #ffffff;
 }
 
 .count {
