@@ -177,7 +177,7 @@ function DashboardView() {
     let gaugeAlarm = 0;
     let disconnected = 0;
 
-    let count = 0;
+    // let count = 0;
     for (const mac in deviceStatusMap) {
       const status = deviceStatusMap[mac];
 
@@ -197,19 +197,19 @@ function DashboardView() {
 
   }, [deviceStatusMap, deviceMeta.length]);
 
-  const frontendAlarmsByMac = useMemo(() => {
-    const map = {};
-    for (const mac in latestReadingsByMac) {
-      map[mac] = alarmComputation(
-        latestReadingsByMac[mac],
-        thresholds
-      );
-    }
-    return map;
-  }, [latestReadingsByMac]);
+  // const frontendAlarmsByMac = useMemo(() => {
+  //   const map = {};
+  //   for (const mac in latestReadingsByMac) {
+  //     map[mac] = alarmComputation(
+  //       latestReadingsByMac[mac],
+  //       thresholds
+  //     );
+  //   }
+  //   return map;
+  // }, [latestReadingsByMac]);
 
 
-  const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
+  // const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
   const latestReading = readings.find((r) => r.mac === selectedMac);
 
 
@@ -227,7 +227,7 @@ function DashboardView() {
       clearInterval(interval);
     };
 
-  }, []);
+  });
 
   // 🔄 Auto-focus map on selected device
   useEffect(() => {
