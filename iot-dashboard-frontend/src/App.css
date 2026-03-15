@@ -46,7 +46,7 @@ body {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
-    height: 100%;
+  height: 100%;
   min-height: 0;
 
 
@@ -1085,7 +1085,7 @@ input:not(:checked)+.slider:before {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #444 #111;            
+  scrollbar-color: #444 #111;
 }
 
 .device-counts {
@@ -1174,6 +1174,7 @@ input:not(:checked)+.slider:before {
   margin-bottom: 20px;
   width: 100%;
 }
+
 .full-width {
   grid-column: span 2;
 }
@@ -1190,6 +1191,24 @@ input:not(:checked)+.slider:before {
   background: #111;
   color: white;
   height: 38px;
+}
+
+.device-form-grid .location-id-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.device-form-grid .location-id-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-form-grid .scanner-btn {
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 14px;
 }
 
 .device-form-grid button {
@@ -1244,5 +1263,5 @@ input:not(:checked)+.slider:before {
   overflow-y: auto;
   padding-right: 6px;
   scrollbar-width: thin;
-  scrollbar-color: #444 #111;            
+  scrollbar-color: #444 #111;
 }

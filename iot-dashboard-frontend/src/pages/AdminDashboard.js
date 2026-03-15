@@ -12,6 +12,7 @@ import {
 import PasswordPrompt from "../components/PasswordPrompt";
 // import { API } from "../config/api.js";
 import Spinner from "../components/Spinner.jsx";
+import Scanner from "../components/Scanner.js";
 
 
 const AdminDashboard = () => {
@@ -369,6 +370,7 @@ const RegisterDeviceTab = () => {
   const [deviceList, setDeviceList] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // eslint-disable-next-line
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -555,15 +557,26 @@ const RegisterDeviceTab = () => {
             onChange={handleIPChange}
             required
           />
-          <input
-            type="text"
-            placeholder="Location ID"
-            value={form.locationId}
-            maxLength={17}
-            title="Maximum 17 characters"
-            onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-            required
-          />
+          <div className="location-id-row">
+            <input
+              className="location-id-input"
+              type="text"
+              placeholder="Location ID"
+              value={form.locationId}
+              maxLength={17}
+              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+              required
+            />
+
+            <button
+              className="scanner-btn"
+              type="button"
+              onClick={() => setShowScanner(true)}
+            >
+              📷
+            </button>
+          </div>
+
           <input
             type="text"
             placeholder="Address"
@@ -616,6 +629,16 @@ const RegisterDeviceTab = () => {
           <button type="submit">Register Device</button>
           {status && <p>{status}</p>}
         </form>)}
+
+      {showScanner && (
+        <Scanner
+          onScan={(value) => {
+            setForm(prev => ({ ...prev, locationId: value }));
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       <h3>📋 Registered Devices</h3>
       {/* Search Bar */}
