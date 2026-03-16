@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/ping",
-      "destination": "http://98.88.250.83:5000/ping"
-    },
-    {
       "source": "/api/:path*",
       "destination": "http://98.88.250.83:5000/api/:path*"
     }
