@@ -645,22 +645,17 @@ const RegisterDeviceTab = () => {
 
       <h3>📋 Registered Devices</h3>
       {/* Search Bar */}
-      <div style={{ marginBottom: "10px", display: "flex", gap: "10px" }}>
+      <div className="device-search-row">
         <input
           type="text"
+          className="device-search-input"
           placeholder="🔍 Search by IP, Location ID or Address..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           pattern="^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$"
-          style={{
-            padding: "8px",
-            width: "300px",
-            borderRadius: "6px",
-            border: "1px solid #ccc"
-          }}
         />
         {searchTerm && (
-          <button onClick={() => setSearchTerm("")}>
+          <button className="device-search-clear-btn" onClick={() => setSearchTerm("")}>
             ❌ Clear
           </button>
         )}

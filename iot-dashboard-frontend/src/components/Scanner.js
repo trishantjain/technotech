@@ -4,19 +4,32 @@ import { useEffect } from "react";
 function Scanner({ onScan, onClose }) {
 
     useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        const size = Math.min(220, Math.max(150, Math.floor(window.innerWidth * 0.55)));
 
         const scanner = new Html5QrcodeScanner(
-            "scanner",
-            { fps: 10, qrbox: 250 },
+            "scanner",   // ✅ correct element ID
+            {
+                fps: 10,
+                qrbox: { width: size, height: size },
+                rememberLastUsedCamera: true,
+                supportedScanTypes: [0]
+            },
             false
         );
 
-        scanner.render((decodedText) => {
-            onScan(decodedText);
-            scanner.clear();
-        });
 
+        scanner.render(
+            (decodedText) => {
+                onScan(decodedText);
+                scanner.clear();
+            },
+            () => { }
+        );
         return () => {
+            document.body.style.overflow = previousOverflow;
             scanner.clear().catch(() => { });
         };
     }, [onScan]);
@@ -25,7 +38,7 @@ function Scanner({ onScan, onClose }) {
         <div className="scanner-modal">
             <div className="scanner-box">
                 <div id="scanner"></div>
-                <button onClick={onClose}>Close</button>
+                <button className="scanner-close-btn" onClick={onClose}>Close</button>
             </div>
         </div>
     );
