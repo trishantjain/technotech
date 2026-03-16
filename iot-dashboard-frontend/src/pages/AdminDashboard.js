@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../App.css";
 import DashboardView from "./DashboardView";
 import {
@@ -19,6 +20,7 @@ const API = "/api";
 
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("register-user");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -41,6 +43,12 @@ const AdminDashboard = () => {
     else setSidebarCollapsed((prev) => !prev);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    navigate("/");
+  };
+
   return (
     <div className={`admin-dashboard${sidebarCollapsed ? " collapsed" : ""}`}>
       {/* Hamburger for mobile */}
@@ -59,7 +67,11 @@ const AdminDashboard = () => {
       )}
       <aside
         className={`sidebar${sidebarCollapsed ? " collapsed" : ""}${isMobile ? (sidebarOpen ? " open" : "") : ""}`}
-        style={isMobile ? { position: "fixed" } : {}}
+        style={{
+          ...(isMobile ? { position: "fixed" } : {}),
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         {/* Hide close button on mobile, use hamburger to toggle */}
         {!isMobile && (
@@ -96,6 +108,10 @@ const AdminDashboard = () => {
           >
             📈 {sidebarCollapsed && !isMobile ? "" : "Historical Data"}
           </li>
+        </ul>
+
+        <ul style={{ marginTop: "auto" }}>
+          <li onClick={handleLogout}>🚪 {sidebarCollapsed && !isMobile ? "" : "Logout"}</li>
         </ul>
       </aside>
 
