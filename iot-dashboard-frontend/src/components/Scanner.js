@@ -15,7 +15,7 @@ function Scanner({ onScan, onClose }) {
                 fps: 10,
                 qrbox: { width: size, height: size },
                 rememberLastUsedCamera: true,
-                supportedScanTypes: [0,1]
+                supportedScanTypes: [0, 1]
             },
             false
         );
@@ -33,7 +33,7 @@ function Scanner({ onScan, onClose }) {
             document.body.style.overflow = previousOverflow;
             scanner.clear().catch(() => { });
         };
-    }, [onScan]);
+    }, [onScan, onClose]);
 
     return (
         <div className="scanner-modal">
