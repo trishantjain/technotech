@@ -10,12 +10,12 @@ function Scanner({ onScan, onClose }) {
         const size = Math.min(220, Math.max(150, Math.floor(window.innerWidth * 0.55)));
 
         const scanner = new Html5QrcodeScanner(
-            "scanner",   // ✅ correct element ID
+            "scanner",
             {
                 fps: 10,
                 qrbox: { width: size, height: size },
                 rememberLastUsedCamera: true,
-                supportedScanTypes: [0]
+                supportedScanTypes: [0,1]
             },
             false
         );
@@ -25,6 +25,7 @@ function Scanner({ onScan, onClose }) {
             (decodedText) => {
                 onScan(decodedText);
                 scanner.clear();
+                onClose();
             },
             () => { }
         );
