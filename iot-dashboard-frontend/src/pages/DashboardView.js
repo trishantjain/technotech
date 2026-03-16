@@ -36,6 +36,8 @@ const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE, LOG_THROTTLE_MS } = LOG_CONSTANTS; //
 // const LOG_THROTTLE_MS = 5000; // log at most once per 5 seconds per device
 const EMPTY_LOGS = [];
 
+const PAPI = "/api";
+
 function DashboardView() {
   const [readings, setReadings] = useState([]);
 
@@ -271,9 +273,9 @@ function DashboardView() {
       }
 
       const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
-        fetch(`${process.env.REACT_APP_API_URL}/${API.readings}`),
-        fetch(`${process.env.REACT_APP_API_URL}/${API.allDevices}`),
-        fetch(`${process.env.REACT_APP_API_URL}/${API.deviceInfo}`),
+        fetch(`${PAPI}/${API.readings}`),
+        fetch(`${PAPI}/${API.allDevices}`),
+        fetch(`${PAPI}/${API.deviceInfo}`),
       ]);
 
       // Fallback to [] if any response fails
@@ -361,7 +363,7 @@ function DashboardView() {
     };
 
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/${API.logCommand}`, {
+      await fetch(`${API}/${API.logCommand}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(logData),
@@ -377,7 +379,7 @@ function DashboardView() {
       return;
     }
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/${API.sendCommand}`, {
+      const res = await fetch(`${API}/${API.sendCommand}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),
@@ -754,7 +756,7 @@ function DashboardView() {
       // setActiveTab("snapshots");
       if (selectedMac) {
         let response = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/snapshots/?mac=${selectedMac}`
+          `${API}/api/snapshots/?mac=${selectedMac}`
         );
         const snapshotFiles = await response.json();
         setSnapshots(snapshotFiles);
@@ -780,7 +782,7 @@ function DashboardView() {
 
   // Realtime notification when a snapshot is captured (server-sent events)
   useEffect(() => {
-    const baseUrl = process.env.REACT_APP_API_URL;
+    const baseUrl = API;
     if (!baseUrl) return;
 
     const es = new EventSource(`${baseUrl}/api/events/snapshots`);
@@ -1167,7 +1169,7 @@ function DashboardView() {
                       {selectedImage.split("/").pop()} (
                       {snapshots.findIndex(
                         (img) =>
-                          `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` ===
+                          `${API}/api/snapshots/${img}` ===
                           selectedImage
                       ) + 1}{" "}
                       of {snapshots.length})
@@ -1183,14 +1185,14 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` ===
+                              `${API}/api/snapshots/${img}` ===
                               selectedImage
                           );
                           const prevIndex =
                             (currentIndex - 1 + snapshots.length) %
                             snapshots.length;
                           setSelectedImage(
-                            `${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[prevIndex]}`
+                            `${API}/api/snapshots/${snapshots[prevIndex]}`
                           );
                         }}
                       >
@@ -1202,13 +1204,13 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${process.env.REACT_APP_API_URL}/api/snapshots/${img}` ===
+                              `${API}/api/snapshots/${img}` ===
                               selectedImage
                           );
                           const nextIndex =
                             (currentIndex + 1) % snapshots.length;
                           setSelectedImage(
-                            `${process.env.REACT_APP_API_URL}/api/snapshots/${snapshots[nextIndex]}`
+                            `${API}/api/snapshots/${snapshots[nextIndex]}`
                           );
                         }}
                       >
@@ -1239,13 +1241,13 @@ function DashboardView() {
                           className="snapshot-item"
                           onClick={() =>
                             setSelectedImage(
-                              `${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`
+                              `${API}/api/snapshots/${filename}?mac=${selectedMac}`
                             )
                           }
                         >
                           <img
                             key={i}
-                            src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`}
+                            src={`${API}/api/snapshots/${filename}?mac=${selectedMac}`}
                             alt={`snapshot-${i + 1}`}
                             onError={(e) => {
                               e.target.src =

@@ -15,6 +15,9 @@ import Spinner from "../components/Spinner.jsx";
 import Scanner from "../components/Scanner.js";
 
 
+const API = "/api";
+
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("register-user");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -127,7 +130,7 @@ const RegisterUserTab = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/users`);
+      const res = await fetch(`${API}/users`);
       const data = await res.json();
       setUsers(data);
     } catch (err) {
@@ -141,7 +144,7 @@ const RegisterUserTab = () => {
     setStatus("");
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/register-user`,
+        `${API}/register-user`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -167,7 +170,7 @@ const RegisterUserTab = () => {
     requestPassword(async (adminPassword) => {
       try {
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/user/${user._id}`,
+          `${API}/user/${user._id}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -196,7 +199,7 @@ const RegisterUserTab = () => {
     requestPassword(async (adminPassword) => {
       try {
         const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/user/${user.username}`,
+          `${API}/user/${user.username}`,
           {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
@@ -389,7 +392,7 @@ const RegisterDeviceTab = () => {
       if (showLoader) setLoadingDevices(true);
 
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/devices-info`
+        `${API}/devices-info`
       );
       const data = await res.json();
       setDeviceList(data);
@@ -453,7 +456,7 @@ const RegisterDeviceTab = () => {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/register-device`,
+        `${API}/register-device`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -736,7 +739,7 @@ const EditableRow = ({ device, onUpdated }) => {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/device/${device.mac}`,
+        `${API}/device/${device.mac}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -763,7 +766,7 @@ const EditableRow = ({ device, onUpdated }) => {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/device/delete/${device.mac}`,
+        `${API}/device/delete/${device.mac}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -912,7 +915,7 @@ const HistoricalDataTab = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/api/devices-info`)
+    fetch(`${API}/devices-info`)
       .then((res) => res.json())
       .then(setDevices)
       .catch((err) => console.error("Error fetching devices:", err));
@@ -957,7 +960,7 @@ const HistoricalDataTab = () => {
     try {
       console.log("Datetime: ", encodeURIComponent(datetime));
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/alarm-history?mac=192.168.0.10&from=2026-02-20T11:27:00&to=2026-02-20T12:00:00`
+        `${API}/alarm-history?mac=192.168.0.10&from=2026-02-20T11:27:00&to=2026-02-20T12:00:00`
       ); const data = await res.json();
       console.log("Data: ", data);
       if (!res.ok)

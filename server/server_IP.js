@@ -211,7 +211,7 @@ loadDeviceCache();
    If the ping is successful, it will respond with "pong". If the ping fails, it will log an error message and
    respond with "MongoDB unreachable" along with a status code of 500. 
 */
-app.get("/ping", async (req, res) => {
+app.get("/api/ping", async (req, res) => {
   try {
     await mongoose.connection.db.admin().ping();
     res.send("pong");

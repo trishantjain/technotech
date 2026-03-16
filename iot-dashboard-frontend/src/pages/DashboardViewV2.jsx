@@ -14,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 const STALE_THRESHOLD_MS = 30000;
 const defaultLocation = [28.6139, 77.209];
 
+const API = "/api";
+
 function alarmComputation(reading, thresholdConfig) {
   if (!reading) return { active: false, alarms: [] };
 
@@ -154,8 +156,8 @@ export default function DashboardViewV2() {
     const fetchData = async () => {
       try {
         const [readingsRes, metaRes] = await Promise.all([
-          fetch(`${process.env.REACT_APP_API_URL}/api/readings`),
-          fetch(`${process.env.REACT_APP_API_URL}/api/devices-info`),
+          fetch(`${API}/api/readings`),
+          fetch(`${API}/api/devices-info`),
         ]);
 
         const readingsData = readingsRes.ok ? await readingsRes.json() : [];
@@ -232,7 +234,7 @@ export default function DashboardViewV2() {
     };
 
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/api/log-command`, {
+      await fetch(`${API}/api/log-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(logData),
@@ -248,7 +250,7 @@ export default function DashboardViewV2() {
       return;
     }
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/command`, {
+      const res = await fetch(`${API}/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),
@@ -320,7 +322,7 @@ export default function DashboardViewV2() {
         setSnapshots([]);
         return;
       }
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/snapshots/?mac=${mac}`);
+      const response = await fetch(`${API}/api/snapshots/?mac=${mac}`);
       const snapshotFiles = await response.json();
       setSnapshots(Array.isArray(snapshotFiles) ? snapshotFiles : []);
     } catch {
@@ -337,7 +339,7 @@ export default function DashboardViewV2() {
   }, [selectedMac]);
 
   useEffect(() => {
-    const baseUrl = process.env.REACT_APP_API_URL;
+    const baseUrl = API;
     if (!baseUrl) return;
     const es = new EventSource(`${baseUrl}/api/events/snapshots`);
     const onSnapshot = (evt) => {
@@ -387,67 +389,67 @@ export default function DashboardViewV2() {
 
   const gaugeItems = selectedReading
     ? [
-        {
-          label: "Inside Temp",
-          value: Number(selectedReading.insideTemperature).toFixed(2),
-          max: 100,
-          color: gaugeColor(selectedReading.insideTemperature, thresholds.insideTemperature.min, thresholds.insideTemperature.max),
-        },
-        {
-          label: "Outside Temp",
-          value: Number(selectedReading.outsideTemperature).toFixed(2),
-          max: 100,
-          color: gaugeColor(selectedReading.outsideTemperature, thresholds.outsideTemperature.min, thresholds.outsideTemperature.max),
-        },
-        {
-          label: "Humidity",
-          value: Number(selectedReading.humidity).toFixed(2),
-          max: 100,
-          color: gaugeColor(selectedReading.humidity, thresholds.humidity.min, thresholds.humidity.max),
-        },
-        {
-          label: "Input Volt",
-          value: Number(selectedReading.inputVoltage).toFixed(2),
-          max: 100,
-          color: gaugeColor(selectedReading.inputVoltage, thresholds.inputVoltage.min, thresholds.inputVoltage.max),
-        },
-        {
-          label: "Output Volt",
-          value: Number(selectedReading.outputVoltage).toFixed(2),
-          max: 100,
-          color: gaugeColor(selectedReading.outputVoltage, thresholds.outputVoltage.min, thresholds.outputVoltage.max),
-        },
-        {
-          label: "Battery %",
-          value: Number(selectedReading.batteryBackup * 1.5).toFixed(2),
-          max: 120,
-          color: "#facc15",
-        },
-        {
-          label: "Battery(Hours)",
-          value: Number(selectedReading.batteryBackup).toFixed(2),
-          max: 120,
-          color: "#facc15",
-        },
-        {
-          label: "DV Current",
-          value: Number(selectedReading.batteryBackup).toFixed(2),
-          max: 45,
-          color: "#facc15",
-        },
-        {
-          label: "LockBat(Left..)",
-          value:
-            Number(selectedReading.batteryBackup) <= 10
-              ? 0
-              : Math.floor((Number(selectedReading.batteryBackup) - 9) * 4),
-          max: 12,
-          color:
-            Number(selectedReading.batteryBackup) <= thresholds.batteryBackup.min
-              ? "#ef4444"
-              : "#84cc16",
-        },
-      ]
+      {
+        label: "Inside Temp",
+        value: Number(selectedReading.insideTemperature).toFixed(2),
+        max: 100,
+        color: gaugeColor(selectedReading.insideTemperature, thresholds.insideTemperature.min, thresholds.insideTemperature.max),
+      },
+      {
+        label: "Outside Temp",
+        value: Number(selectedReading.outsideTemperature).toFixed(2),
+        max: 100,
+        color: gaugeColor(selectedReading.outsideTemperature, thresholds.outsideTemperature.min, thresholds.outsideTemperature.max),
+      },
+      {
+        label: "Humidity",
+        value: Number(selectedReading.humidity).toFixed(2),
+        max: 100,
+        color: gaugeColor(selectedReading.humidity, thresholds.humidity.min, thresholds.humidity.max),
+      },
+      {
+        label: "Input Volt",
+        value: Number(selectedReading.inputVoltage).toFixed(2),
+        max: 100,
+        color: gaugeColor(selectedReading.inputVoltage, thresholds.inputVoltage.min, thresholds.inputVoltage.max),
+      },
+      {
+        label: "Output Volt",
+        value: Number(selectedReading.outputVoltage).toFixed(2),
+        max: 100,
+        color: gaugeColor(selectedReading.outputVoltage, thresholds.outputVoltage.min, thresholds.outputVoltage.max),
+      },
+      {
+        label: "Battery %",
+        value: Number(selectedReading.batteryBackup * 1.5).toFixed(2),
+        max: 120,
+        color: "#facc15",
+      },
+      {
+        label: "Battery(Hours)",
+        value: Number(selectedReading.batteryBackup).toFixed(2),
+        max: 120,
+        color: "#facc15",
+      },
+      {
+        label: "DV Current",
+        value: Number(selectedReading.batteryBackup).toFixed(2),
+        max: 45,
+        color: "#facc15",
+      },
+      {
+        label: "LockBat(Left..)",
+        value:
+          Number(selectedReading.batteryBackup) <= 10
+            ? 0
+            : Math.floor((Number(selectedReading.batteryBackup) - 9) * 4),
+        max: 12,
+        color:
+          Number(selectedReading.batteryBackup) <= thresholds.batteryBackup.min
+            ? "#ef4444"
+            : "#84cc16",
+      },
+    ]
     : [];
 
   const deviceList = useMemo(() => {
@@ -768,11 +770,11 @@ export default function DashboardViewV2() {
                           type="button"
                           className="v2-mini-snapshot-item"
                           onClick={() =>
-                            setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`)
+                            setSelectedImage(`${API}/api/snapshots/${filename}?mac=${selectedMac}`)
                           }
                         >
                           <img
-                            src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`}
+                            src={`${API}/api/snapshots/${filename}?mac=${selectedMac}`}
                             alt={filename}
                           />
                         </button>
@@ -862,7 +864,7 @@ export default function DashboardViewV2() {
             </CardContent>
           </Card>
 
-{/* SNAPSHOT SECTION */}
+          {/* SNAPSHOT SECTION */}
           {/* <Card className="v2-snapshot-panel">
             <CardHeader>
               <CardTitle>Snapshots</CardTitle>
@@ -875,11 +877,11 @@ export default function DashboardViewV2() {
                     type="button"
                     className="v2-snapshot-item"
                     onClick={() =>
-                      setSelectedImage(`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`)
+                      setSelectedImage(`${API}/api/snapshots/${filename}?mac=${selectedMac}`)
                     }
                   >
                     <img
-                      src={`${process.env.REACT_APP_API_URL}/api/snapshots/${filename}?mac=${selectedMac}`}
+                      src={`${API}/api/snapshots/${filename}?mac=${selectedMac}`}
                       alt={filename}
                     />
                     <span>{filename}</span>
