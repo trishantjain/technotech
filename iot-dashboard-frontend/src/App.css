@@ -1,4 +1,8 @@
 /*  🔄🔍📈✅📡⚠️❌🔴🟢🔧🌡️🌀🧪🚨📢⚙️🕛⏰🔌⚡*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 * {
   box-sizing: border-box;
 }
@@ -148,7 +152,7 @@ body {
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
-  margin: -10px 0;
+  margin: 8px 0;
 }
 
 .fan-light,
@@ -281,7 +285,7 @@ body {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  margin-top: -10px;
+  margin-top: 8px;
 }
 
 .power-btn {

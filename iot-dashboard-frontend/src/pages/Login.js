@@ -30,10 +30,12 @@ function Login() {
         setStatus('Login successful');
 
         // ✅ Redirect based on role
-        if (data.role === 'admin') {
+        if (data.role === "field-worker") {
+          navigate("register-device");
+        } else if (data.role === 'admin') {
           navigate('/admin');
         } else {
-          navigate('/dashboard'); // your common dashboard route
+          navigate('/dashboard');
         }
       } else {
         setStatus(data.error || 'Login failed');
@@ -44,8 +46,8 @@ function Login() {
   };
 
   return (
-    <div className="login-container">
-      <h2>🔐 Login</h2>
+    <div className="login-container text-black">
+      <h2 className='text-white'>🔐 Login</h2>
       <form onSubmit={handleLogin}>
         <input
           type="text"

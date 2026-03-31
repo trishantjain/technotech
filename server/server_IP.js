@@ -21,6 +21,7 @@ const app = express();
 const connectedDevices = new Map();
 app.use(bodyParser.json());
 const cors = require("cors");
+const { authMiddleware } = require("./middleware/middleware");
 app.use(cors());
 const deviceCache = new Map();
 
@@ -83,80 +84,6 @@ app.get("/api/events/snapshots", (req, res) => {
 
 
 const logStreams = {};
-
-// ===================== DEBUG SYSTEM =====================
-
-// const debug = {
-//   enabled: false,
-//   lastPacketTime: null,
-//   packetCount: 0,
-//   errorCount: 0,
-//   bufferStats: {
-//     totalBytes: 0,
-//     discardedBytes: 0,
-//     malformedPackets: 0
-//   },
-
-//   // Loging timestamp and context message
-//   log: (message, context = '') => {
-//     if (!debug.enabled) return;
-//     const timestamp = getFormattedDateTime();
-//     console.log(`🔍 [${timestamp}] ${message}`, context ? `| ${context}` : '')
-//   },
-
-//   // Error Logging
-//   error: (message, error = null) => {
-//     const timestamp = getFormattedDateTime();
-//     console.log(`❌ [${timestamp}] ${message}`, error ? `| Error: ${error.message}` : '')
-//     debug.errorCount++;
-//   },
-
-//   // Stats
-//   stats: () => {
-//     const now = new Date();
-//     const uptime = process.uptime();
-//     const stats = {
-//       serverTime: getFormattedDateTime(),
-//       upTime: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`,
-//       packetReceived: debug.packetCount,
-//       errors: debug.errorCount,
-//       lastPacket: debug.lastPacketTime ? `${Math.floor((now - debug.lastPacketTime) / 1000)}s ago` : 'Never',
-//       bufferStats: debug.bufferStats,
-//       connectedDevices: connectedDevices.size,
-//       readingBufferSize: readingBuffer.length,
-//       dateFunction: "getFormattedDateTime() working ✅"
-//     };
-//     console.log('📊 DEBUG STATS:', JSON.stringify(stats, null, 2));
-//     return stats;
-//   },
-
-//   healthCheck: () => {
-//     const issues = [];
-
-//     if (!debug.lastPacketTime) {
-//       issues.push("No Packets Received yet");
-//     } else {
-//       const timeSinceLastPacket = Date.now() - debug.lastPacketTime;
-//       if (timeSinceLastPacket > 30000) {
-//         issues.push(`No Packets for ${timeSinceLastPacket / 1000}s`);
-//       }
-//     }
-
-//     if (debug.errorCount > 10) {
-//       issues.push("High error count");
-//     }
-
-//     if (debug.bufferStats.malformedPackets > debug.packetCount * 0.5) {
-//       issues.push("High malformed packet rate");
-//     }
-
-//     return {
-//       status: issues.length === 0 ? "HEALTHY" : "ISSUES",
-//       serverTime: getFormattedDateTime(),
-//       issues: issues
-//     };
-//   }
-// };
 
 
 // 🔌 DB connection
@@ -270,7 +197,7 @@ app.post("/api/login", async (req, res) => {
 app.post("/api/register-user", async (req, res) => {
   const { username, password, role } = req.body;
 
-  if (!["admin", "block", "gp", "user"].includes(role)) {
+  if (!["admin", "block", "gp", "user", "field-worker"].includes(role)) {
     return res.status(401).json({ error: "Invalid role" });
   }
 
@@ -370,11 +297,23 @@ app.delete("/api/user/:username", async (req, res) => {
 
 // *====================  DEVICE API  ====================== 
 // ✅ Register new device
-app.post("/api/register-device", async (req, res) => {
+app.post("/api/register-device", authMiddleware, async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
   try {
     const normalizedMac = mac.toLowerCase(); // Converting to LowerCase()
     let parsedCamera = ipCamera;
+
+    if (
+      req.user.role !== "admin" &&
+      req.user.role !== "field-worker"
+    ) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const existingMac = await Device.findOne({ mac: normalizedMac });
+    if (existingMac) {
+      return res.status(409).json({ error: "Device IP already exists" });
+    }
 
     if (ipCamera && typeof ipCamera === 'string') {
       const [camType, camIP] = ipCamera.split(',');
@@ -389,11 +328,6 @@ app.post("/api/register-device", async (req, res) => {
       return res.status(409).json({ error: "Camera Ip already present" });
     }
 
-    const existingMac = await Device.findOne({ mac: normalizedMac });
-
-    if (existingMac) {
-      return res.status(409).json({ error: "Device IP already exists" });
-    }
 
     // console.log("Parsed Camera: ", parsedCamera);
     const device = new Device({
@@ -403,7 +337,11 @@ app.post("/api/register-device", async (req, res) => {
       latitude,
       longitude,
       ipCamera: parsedCamera || "",
+
+      status: req.user.role === "admin" ? "approved" : "pending",
+      createdBy: req.user.username
     });
+
     await device.save();
 
     deviceCache.set(normalizedMac, {
@@ -420,7 +358,7 @@ app.post("/api/register-device", async (req, res) => {
 // ✅ Get registered device metadata
 app.get("/api/devices-info", async (req, res) => {
   try {
-    const devices = await Device.find().sort({ locationId: -1 }); // includes ipCamera
+    const devices = await Device.find({ status: "approved" }).sort({ locationId: -1 }); // includes ipCamera
     /* NEW ADDED */
     const normalizedDevices = devices.map(device => ({
       ...device._doc,
@@ -429,6 +367,21 @@ app.get("/api/devices-info", async (req, res) => {
     res.json(normalizedDevices);
   } catch (err) {
     res.status(500).json({ error: "Error fetching devices" });
+  }
+});
+
+// ✅ ADMIN DEVICE
+app.get("/api/admin/devices", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const devices = await Device.find().sort({ createdAt: -1 });
+    res.json(devices);
+
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch devices" });
   }
 });
 
@@ -518,6 +471,12 @@ app.get("/api/all-devices", async (req, res) => {
 // ✅ Get latest reading by MAC
 app.get("/api/device/:mac", async (req, res) => {
   try {
+    const device = await Device.findOne({ mac: normalizedMac });
+
+    if (!device || device.status !== "approved") {
+      return res.status(403).json({ error: "Device not approved" });
+    }
+
     const normalizedMac = req.params.mac.toLowerCase(); //! Converting to LowerCase()
     const latest = await SensorReading.findOne({ mac: normalizedMac }).sort({
       timestamp: -1,
@@ -527,6 +486,60 @@ app.get("/api/device/:mac", async (req, res) => {
   } catch (err) {
     console.error("Error fetching device data:", err.message);
     res.status(500).json({ error: "Failed to fetch reading" });
+  }
+});
+
+// ✅ APPROVING DEVICE 
+app.put("/api/device/approve/:mac", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const mac = req.params.mac.toLowerCase();
+
+    const device = await Device.findOne({ mac });
+    if (!device) return res.status(404).json({ error: "Device not found" });
+
+    if (device.status === "approved") {
+      return res.status(400).json({ error: "Already approved" });
+    }
+
+    device.status = "approved";
+    device.approvedAt = new Date();
+    device.approvedBy = req.user.username;
+
+    await device.save();
+
+    res.json(device);
+
+  } catch (err) {
+    res.status(500).json({ error: "Approve failed" });
+  }
+});
+
+// ✅ REJECT DEVICE 
+app.put("/api/device/reject/:mac", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const mac = req.params.mac.toLowerCase();
+
+    const device = await Device.findOne({ mac });
+    if (!device) return res.status(404).json({ error: "Device not found" });
+
+    device.status = "rejected";
+    device.approvedAt = new Date();
+    device.approvedBy = req.user.username;
+
+    await device.save();
+
+    res.json(device);
+
+  } catch (err) {
+    res.status(500).json({ error: "Reject failed" });
   }
 });
 // *====================  DEVICE API  ====================== 
@@ -562,7 +575,10 @@ app.get("/api/snapshots/:imageName", (req, res) => {
 // ✅ Get list of last 15 snapshots
 app.get("/api/snapshots", (req, res) => {
   try {
+    console.log("Into snapshot API");
     const rawMac = req.query.mac;
+
+    console.log("MAC: ", rawMac);
 
     // Validate MAC address exists
     if (!rawMac) {
@@ -575,6 +591,7 @@ app.get("/api/snapshots", (req, res) => {
 
 
     const snapshotsDir = `${snapshotOutputDir}/${macSuffix}`;
+    console.log(snapshotsDir);
     let files = [];
     try {
       files = fs
@@ -590,7 +607,9 @@ app.get("/api/snapshots", (req, res) => {
           return getKey(b).localeCompare(getKey(a));
         })
         .slice(0, 15); // Get last 15 images
+        console.log("snapshots: ", files)
     } catch (dirErr) {
+
       console.error("Snapshots directory not found or error reading:", dirErr.message);
       // Return empty array if directory not found
       files = [];
@@ -648,39 +667,6 @@ app.get("/api/readings", async (req, res) => {
   }
 });
 
-// // Super simple test API
-// app.get("/api/alarms-test", async (req, res) => {
-//   try {
-//     // Simple aggregation - get latest per device
-//     const results = await SensorReading.aggregate([
-//       { $sort: { timestamp: -1 } },
-//       {
-//         $group: {
-//           _id: "$mac",
-//           mac: { $first: "$mac" },
-//           hasAnyAlarm: {
-//             $first: {
-//               $or: [
-//                 { $eq: ["$fireAlarm", 1] },
-//                 { $eq: ["$waterLogging", true] },
-//                 { $eq: ["$lockStatus", "OPEN"] },
-//                 { $eq: ["$insideTemperatureAlarm", true] }
-//               ]
-//             }
-//           }
-//         }
-//       },
-//       { $limit: 5 }
-//     ]);
-
-//     res.json({
-//       test: "Alarm computation working",
-//       devices: results
-//     });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
 
 // ✅ Get logs saved in PC
 app.post("/api/log-command", (req, res) => {
@@ -796,25 +782,43 @@ app.post("/api/log-command", (req, res) => {
 
 app.get("/api/alarm-history", async (req, res) => {
   try {
+    console.log("Calling Alarm History API")
     const { mac, from, to } = req.query;
 
     if (!mac || !from || !to) {
       return res.status(400).json({ error: "Missing mac, from or to" });
     }
 
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
+    const parseQueryDate = (value) => {
+      const raw = String(value || "").trim();
+      if (!raw) return new Date("invalid");
+      // If caller already supplies timezone/offset, respect it.
+      if (/[zZ]$/.test(raw) || /[+-]\d{2}:?\d{2}$/.test(raw)) {
+        return new Date(raw);
+      }
+      // Otherwise interpret as IST-local timestamp.
+      return new Date(`${raw}+05:30`);
+    };
 
-    if (isNaN(fromDate) || isNaN(toDate)) {
+    const fromDate = parseQueryDate(from);
+    const toDate = parseQueryDate(to);
+
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
       return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    if (toDate.getTime() < fromDate.getTime()) {
+      return res.status(400).json({ error: "Invalid date range: 'to' must be >= 'from'" });
     }
 
     const macFolder = mac.replace(/[:. ]/g, "_");
     const baseDir = `C:/CommandLogs/alarm/${macFolder}`;
 
+    console.log("Base Dir: ", baseDir);
+
     if (!fs.existsSync(baseDir)) {
       console.log("Sending empty")
-      return res.json({ mac, alarms: [] });
+      return res.json({ mac, from, to, entries: [] });
     }
 
     // 🟢 Generate all hour blocks between from and to
@@ -822,9 +826,13 @@ app.get("/api/alarm-history", async (req, res) => {
     let current = new Date(fromDate);
 
     while (current <= toDate) {
-      const dd = current.getDate();
-      const mm = current.getMonth() + 1;
-      const hh = current.getHours();
+      const ist = new Date(
+        current.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+      );
+
+      const dd = ist.getDate();
+      const mm = ist.getMonth() + 1;
+      const hh = ist.getHours();
 
       const fileName = `${dd}_${mm}_${hh}_Alarm.inc`;
       const filePath = `${baseDir}/${fileName}`;
@@ -836,7 +844,43 @@ app.get("/api/alarm-history", async (req, res) => {
       current.setHours(current.getHours() + 1);
     }
 
-    const events = [];
+    console.log("Files to scan: ", filesToScan);
+
+    const parseIstLogTimestamp = (timestampText) => {
+      // Example: "24/2/2026, 3:00:20 pm"
+      const txt = String(timestampText || "").trim();
+      const match = txt.match(
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(am|pm)$/i
+      );
+      if (!match) return null;
+
+      const day = Number(match[1]);
+      const month = Number(match[2]);
+      const year = Number(match[3]);
+      let hours = Number(match[4]);
+      const minutes = Number(match[5]);
+      const seconds = Number(match[6]);
+      const ampm = String(match[7]).toLowerCase();
+
+      if (ampm === "pm" && hours !== 12) hours += 12;
+      if (ampm === "am" && hours === 12) hours = 0;
+
+      const mm = String(month).padStart(2, "0");
+      const dd = String(day).padStart(2, "0");
+      const hh = String(hours).padStart(2, "0");
+      const mi = String(minutes).padStart(2, "0");
+      const ss = String(seconds).padStart(2, "0");
+
+      const iso = `${year}-${mm}-${dd}T${hh}:${mi}:${ss}+05:30`;
+      const date = new Date(iso);
+      return isNaN(date.getTime()) ? null : date;
+    };
+
+    const entries = [];
+
+    if (filesToScan.length === 0) {
+      return res.json({ mac, from, to, entries: [] });
+    }
 
     // 🟢 Stream each file
     for (const filePath of filesToScan) {
@@ -847,58 +891,74 @@ app.get("/api/alarm-history", async (req, res) => {
       });
 
       for await (const line of rl) {
-        const parts = line.split("|").map((p) => p.trim());
-        if (parts.length < 4) continue;
+        const text = String(line || "").trim();
+        if (!text) continue;
 
-        const timestamp = new Date(parts[0]);
+        // Timestamp is always the first bracket.
+        const tsMatch = text.match(/^\s*\[([^\]]+)\]/);
+        if (!tsMatch) continue;
 
+        const timestamp = parseIstLogTimestamp(tsMatch[1]);
+        if (!timestamp) continue;
         if (timestamp < fromDate || timestamp > toDate) continue;
 
-        const type = parts[2];
-        const state = parts[3];
+        // Support BOTH formats:
+        // 1) New: [ts] | [InVolt:11,OutVolt:35,...,Door Alarm]
+        // 2) Old: [ts] | MAC: ... | Input Voltage: ...,Door Alarm
+        let payload = "";
 
-        events.push({
-          timestamp,
-          type,
-          state,
-        });
-      }
-
-      // 🔥 Reconstruct durations
-      const active = {};
-      const results = [];
-
-      for (const event of events) {
-        if (event.state === "ON") {
-          active[event.type] = event.timestamp;
+        const newPayloadMatch = text.match(/\|\s*\[([^\]]*)\]\s*$/);
+        if (newPayloadMatch) {
+          payload = newPayloadMatch[1];
+        } else {
+          const pipeParts = text
+            .split("|")
+            .map((p) => p.trim())
+            .filter(Boolean);
+          if (pipeParts.length < 3) continue;
+          payload = pipeParts.slice(2).join(" | ");
         }
 
-        if (event.state === "OFF" && active[event.type]) {
-          const start = active[event.type];
-          const end = event.timestamp;
+        const tokens = String(payload)
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
 
-          results.push({
-            type: event.type,
-            start,
-            end,
-            durationSeconds: Math.floor((end - start) / 1000),
+        // Build UI-friendly rows: time / name / value
+        for (const token of tokens) {
+          const idx = token.indexOf(":");
+          if (idx === -1) {
+            entries.push({
+              timestamp: timestamp.toISOString(),
+              name: token,
+              value: "1",
+            });
+            continue;
+          }
+          const name = token.slice(0, idx).trim();
+          const value = token.slice(idx + 1).trim();
+          if (!name) continue;
+          entries.push({
+            timestamp: timestamp.toISOString(),
+            name,
+            value,
           });
-
-          delete active[event.type];
         }
       }
-
-      res.json({
-        mac,
-        from,
-        to,
-        alarms: results,
-      });
     }
 
+    res.json({
+      mac,
+      from,
+      to,
+      entries,
+    });
+
   } catch (error) {
+    console.error("Error in /api/alarm-history:", error?.stack || error);
     res.status(500).json({
       ok: false,
+      error: "Failed to fetch alarm history",
       message: "Error in fetching alarm logs"
     })
   }
@@ -1021,15 +1081,6 @@ async function DBCleanup() {
   try {
     const MAX_DOCS = parseInt(process.env.MAX_SENSOR_DOCS || '50000', 10);
     // const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS || '15', 10);
-
-    // 1) Time-based retention purge
-    // const retentionCutoff = new Date(Date.now() - (RETENTION_DAYS * 24 * 60 * 60 * 1000));
-    // const retentionRes = await SensorReading.deleteMany({
-    //   timestamp: { $lt: retentionCutoff }
-    // });
-    // if (retentionRes.deletedCount) {
-    //   debug.log(`Retention purge: deleted ${retentionRes.deletedCount} docs older than ${RETENTION_DAYS} days`, 'CLEANUP');
-    // }
 
     // Getting 'SensorReading' count
     const sensorRecordsCount = await SensorReading.countDocuments();
@@ -1231,8 +1282,6 @@ const server = net.createServer((socket) => {
     socket.buffer = Buffer.concat([socket.buffer, data]);
     const PACKET_LEN = 58;
 
-
-    // let mac = null;
     try {
       // console.packetCount++;
       // debug.lastPacketTime = Date.now();
@@ -1248,26 +1297,6 @@ const server = net.createServer((socket) => {
       // let mac = null;
       while (socket.buffer.length >= 58) {
         packetCount++;
-        // const packet = socket.buffer.slice(0, PACKET_LEN);
-
-        console.log(`[eMS_LOGS] Parsing packet #${packetCount} in this data event, socket.buffer.length=${socket.buffer.length}`);
-
-        // if (buffer.length < 4) break;
-
-        // const b0 = socket.buffer[0];
-        // const b1 = socket.buffer[1];
-        // const b2 = socket.buffer[2];
-        // const b3 = socket.buffer[3];
-
-
-        // // invalid / garbage header → resync exactly like MAC
-        // if (
-        //   b0 === 0 || b0 === 255 ||           // invalid first octet
-        //   b1 === undefined || b2 === undefined || b3 === undefined
-        // ) {
-        //   socket.buffer = socket.buffer.slice(1);
-        //   continue;
-        // }
 
         // Handle protocol preamble once after device restart
         if (!socket.preambleHandled && socket.buffer.length >= 4) {
@@ -1393,8 +1422,8 @@ const server = net.createServer((socket) => {
         const hupsRes = packet[56];
         const failMask = packet[57];
 
-        // console.log("Padding: ", padding);
-        console.log("pwsFailCount: ", pwsFailCount);
+        // console.log("Door status: ", doorStatus);
+        // console.log("pwsFailCount: ", pwsFailCount);
 
         const packetTimestamp = new Date();
         const macDir = mac.replace(/[:. ]/g, '_');
@@ -1421,7 +1450,7 @@ const server = net.createServer((socket) => {
         for (let i = 0; i < 6; i++) {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
-        // console.log("Fan status: ", fanStatus);
+        // console.log("Padding: ", padding);
 
         // ==== LOGGING EXTRACTED VALUES ====
         // console.log("Humidity: ", humidity);
@@ -1435,100 +1464,6 @@ const server = net.createServer((socket) => {
           alreadyReplied = 40; // Load Balancing
         }
 
-        // ===================== OLD SNAPSHOT LOGIC (COMMENTED) =====================
-        /*
-        // Snapshot Capture Code (legacy in-process)
-        // NOTE: Kept for future use; RabbitMQ flow below is the active path.
-        if ((padding === 0x43) && (doorStatus === "OPEN")) {
-          const currentMac = mac;
-          const timestamp = getFormattedDateTime("path");
-          const snapshotFileName = `image_${timestamp}.jpg`;
-
-          try {
-            if (eMS_LOGS) console.log("⚡Camera Function runs ...⚡");
-            const cameraDetails = await Device.findOne({ mac }, "ipCamera").lean();
-            const cameraMake = cameraDetails?.ipCamera?.type?.trim();
-            if (eMS_LOGS) console.log("Camera Make: ", cameraMake);
-
-            if (cameraMake === "H") {
-              console.log("⏰ Snapshot for HiFocus Camera ⏰");
-              const ip = cameraDetails.ipCamera.ip.trim();
-              const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[: ]/g, "_"));
-              const args = [
-                "-rtsp_transport", "tcp",
-                "-i", `rtsp://${ip}/media/video1`,
-                "-frames:v", "1",
-                `${snapshotOutputDir_MAC}/${snapshotFileName}`
-              ];
-
-              const ffmpeg = spawn("ffmpeg", args);
-              ffmpeg.on("close", (code) => {
-                if (code === 0) {
-                  if (eMS_LOGS) console.log("Captured successfully...");
-                  broadcastSnapshotCaptured({
-                    mac: currentMac,
-                    filename: snapshotFileName,
-                    createdAt: new Date().toISOString(),
-                    source: "camera",
-                  });
-                } else {
-                  console.error(`ffmpeg process exited with code ${code}`);
-                }
-              });
-            } else {
-              console.log("⏰ Snapshot for Sparsh Camera ⏰");
-              broadcastSnapshotCaptured({
-                mac: currentMac,
-                filename: snapshotFileName,
-                createdAt: new Date().toISOString(),
-                source: "camera",
-              });
-
-              const camIP = cameraDetails.ipCamera.ip.trim();
-              setTimeout(() => {
-                const url = `https://${camIP}/CGI/command/snap?channel=01`;
-                console.log("📸 Capturing from URL:", url);
-
-                const snapshotOutputDir_MAC = path.join(snapshotOutputDir, mac.slice(8).replace(/[. ]/g, "_"));
-                const snapshotOutputPath = path.join(snapshotOutputDir_MAC, snapshotFileName);
-
-                try {
-                  if (!fs.existsSync(snapshotOutputDir)) {
-                    fs.mkdirSync(snapshotOutputDir, { recursive: true });
-                    console.log(`📁 Created directory: ${snapshotOutputDir}`);
-                  }
-                } catch (err) {
-                  console.error(`❌ Failed to create directory ${snapshotOutputDir}:`, err.message);
-                }
-
-                axios({
-                  method: "GET",
-                  url,
-                  responseType: "stream",
-                  timeout: 10000
-                })
-                  .then((response) => {
-                    const writer = fs.createWriteStream(snapshotOutputPath);
-                    response.data.pipe(writer);
-                    return new Promise((resolve, reject) => {
-                      writer.on("finish", resolve);
-                      writer.on("error", reject);
-                    });
-                  })
-                  .then(() => {
-                    if (eMS_LOGS) console.log(`✅ Snapshot captured: ${snapshotFileName}`);
-                  })
-                  .catch((error) => {
-                    console.error(`❌ Error capturing snapshot: ${error.message}`);
-                  });
-              }, 3000);
-            }
-          } catch (err) {
-            console.error(`Error occured while caputuring snapshots: ${err}`);
-          }
-        }
-        */
-        // ===================== OLD SNAPSHOT LOGIC (COMMENTED) =====================
 
         // ===================== RABBITMQ SNAPSHOT LOGIC =====================
         if ((padding === 0x43) && (doorStatus === "OPEN")) {
@@ -1548,46 +1483,6 @@ const server = net.createServer((socket) => {
           }
         }
         // ===================== RABBITMQ SNAPSHOT LOGIC =====================
-
-
-        // ===================== Logging Incoming Data from Simulator | OLD =====================
-        // if (INC_LOGS_CMD) {
-        //   const now = new Date();
-        //   const fileName = `${now.getDate()}_${now.getMonth() + 1
-        //     }_${now.getHours()}.inc`;
-
-        //   // const sensorData = {
-        //   //   humidity: humidity,
-        //   //   insideTemperature: insideTemperature,
-        //   //   outsideTemperature: outsideTemperature,
-        //   //   inputVoltage: inputVoltage,
-        //   //   outputVoltage: outputVoltage,
-        //   //   batteryBackup: batteryBackup,
-        //   // };
-
-        //   const deviceIncDir = path.join(IncLogDir, macDir);
-        //   fs.mkdirSync(deviceIncDir, { recursive: true });
-
-        //   const IncLogFilePath = path.join(deviceIncDir, fileName);
-        //   const timestamp = now.toLocaleString();
-        //   const IncLogEntry = `[${timestamp}] | MAC:${mac} | Humid=${humidity} | IT=${insideTemperature} | OT=${outsideTemperature} | IV=${inputVoltage} | OV=${outputVoltage} | BB=${batteryBackup}`;
-
-        //   // File writing happens after response
-        //   // fs.appendFile(IncLogFilePath, IncLogEntry, (err) => {
-        //   //   if (err) {
-        //   //     console.error("Failed to save log:", err);
-        //   //   } else {
-        //   //     if (eMS_LOGS) console.log(`✅ Log saved: ${IncLogFilePath}`);
-        //   //   }
-        //   // });
-
-        //   writeLog(
-        //     `${IncLogFilePath}`,
-        //     IncLogEntry
-        //   );
-
-        // }
-        // ===================== Logging Incoming Data from Simulator | OLD =====================
 
 
         // ===================== Logging Incoming Data from Simulator | RABBITMQ =====================
@@ -1631,13 +1526,6 @@ const server = net.createServer((socket) => {
           // continue;
         }
 
-        // if (Math.random() < 0.01) {
-        //   if (eMS_LOGS) console.log(
-        //     `📡 ${mac} | Temp: ${insideTemperature}°C | Humidity: ${humidity}% | Voltage: ${inputVoltage}V | Fan stat=${fanStatusBits.toString(
-        //       16
-        //     )}h`
-        //   );
-        // }
 
         // Threshold-based alarms
         const thresholdAlarms = {
@@ -1707,43 +1595,6 @@ const server = net.createServer((socket) => {
 
         // Single console output
         if (activeAlarms.length > 0) {
-          // ========================== OLD CODE ==========================
-          // // const alarmLogDir = "C:/CommandLogs/alarm"
-
-          // // if (!fs.existsSync(alarmLogDir)) {
-          // //   fs.mkdirSync(alarmLogDir, { recursive: true });
-          // // }
-
-          // const now = new Date();
-          // const timestamp = now.toLocaleString();
-
-          // const alarmFileName = `${now.getDate()}_${now.getMonth() + 1
-          //   }_${now.getHours()}_Alarm.inc`;
-
-          // if (fanStatus.includes(2)) {
-          //   var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms} | Fan Status: ${fanStatus}`;
-          // } else {
-          //   var logAlarm = `[${timestamp}] | MAC: ${mac}| ${activeAlarms}`;
-          // }
-
-          // const deviceAlarmDir = path.join(alarmLogDir, macDir);
-          // fs.mkdirSync(deviceAlarmDir, { recursive: true });
-
-          // const alarmFilePath = path.join(deviceAlarmDir, alarmFileName);
-
-          // // fs.appendFile(alarmFilePath, logAlarm, (err) => {
-          // //   if (err) {
-          // //     console.error("Failed to save log:", err);
-          // //   } else {
-          // //     if (eMS_LOGS) console.log(`✅ Log saved: ${alarmFilePath}`);
-          // //   }
-          // // });
-
-          // writeLog(
-          //   `${alarmFilePath}`,
-          //   logAlarm
-          // );
-          // ========================== OLD CODE ==========================
 
           // ========================== RABBIT MQ ==========================
           // console.log("Running PublishAlarm() worder")

@@ -1,6 +1,6 @@
 const net = require("net");
 
-const AWS_HOST = "YOUR_AWS_PUBLIC_IP";
+const AWS_HOST = "98.88.250.83";
 const AWS_PORT = 4000;
 
 net.createServer((deviceSocket) => {

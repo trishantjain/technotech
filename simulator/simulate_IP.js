@@ -6,10 +6,11 @@ const fs = require('fs');
 // const { connected } = require('process');
 const WebSocket = require('ws');
 
+const args = process.argv;
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = 100;
+const TOTAL_DEVICES = Number(args[2]) || 100;
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
@@ -35,7 +36,7 @@ const simulatorState = {
   fan4: false,
   fan5: false,
   fan6: false,
-  mode: "manual"
+  mode: "random"
 }
 
 // 🔥 PRE-INDEXING: Fast lookup structure

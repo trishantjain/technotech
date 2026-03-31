@@ -35,13 +35,13 @@ const sensorReadingSchema = new mongoose.Schema({
     inputVoltageAlarm: { type: Boolean, required: true },
     outputVoltageAlarm: { type: Boolean, required: true },
     batteryBackupAlarm: { type: Boolean, required: true },
-    mainStatus: {type: Number, required: true},
-    rectStatus: {type: Number, required: true},
-    inveStatus: {type: Number, required: true},
-    overStatus: {type: Number, required: true},
-    mptStatus: {type: Number, required: true},
-    mosfStatus: {type: Number, required: true},
-    hupsRes: {type: Number, required: true},
+    mainStatus: { type: Number, required: true },
+    rectStatus: { type: Number, required: true },
+    inveStatus: { type: Number, required: true },
+    overStatus: { type: Number, required: true },
+    mptStatus: { type: Number, required: true },
+    mosfStatus: { type: Number, required: true },
+    hupsRes: { type: Number, required: true },
     // Timestamp (unchanged)
     timestamp: { type: Date, default: Date.now }
 });

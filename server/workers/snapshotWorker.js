@@ -60,10 +60,124 @@ async function captureSparsh(ip, outputPath) {
 }
 
 
+/**
+ * Captures an image from a camera using an external executable (ReadImage.exe).
+ *
+ * @param {string} ip - IP address of the camera
+ * @param {string} outputPath - Path where the captured image will be saved
+ *
+ * Workflow:
+ * 1. Resolve executable path and timeout
+ * 2. Prepare arguments (default or via env override)
+ * 3. Spawn child process to run the executable
+ * 4. Handle errors, timeout, and exit code
+ * 5. Validate output file exists and is not empty
+ */
+// Techno Camera
+async function captureTechno(ip, outputPath) {
+    // Resolve path to ReadImage executable (from env or default location)
+    const exePath = process.env.READIMAGE_EXE_PATH || path.join(__dirname, "ReadImage.exe");
+
+    // Resolve path to ReadImage executable (from env or default location)
+    const timeoutMs = Number.parseInt(process.env.READIMAGE_TIMEOUT_MS || "20000", 10);
+
+    if (!fs.existsSync(exePath)) {
+        throw new Error(`ReadImage executable not found at: ${exePath}`);
+    }
+
+    /**
+     * Prepare arguments for the executable
+     * Default format:
+     *   ReadImage.exe <cameraIp> <outputPath>
+     *
+     * Can be overridden using environment variable:
+     *   READIMAGE_ARGS_JSON
+     * Example:
+     *   ["--ip","{ip}","--out","{out}"]
+     */
+    let args = [String(ip), String(outputPath)];
+    if (process.env.READIMAGE_ARGS_JSON) {
+        try {
+            const parsed = JSON.parse(process.env.READIMAGE_ARGS_JSON);
+
+            // Ensure it is an array
+            if (!Array.isArray(parsed)) throw new Error("READIMAGE_ARGS_JSON must be a JSON array");
+
+            // Replace placeholders with actual values
+            args = parsed.map((a) =>
+                String(a).replaceAll("{ip}",
+                    String(ip)).replaceAll("{out}",
+                        String(outputPath)));
+        } catch (e) {
+            throw new Error(`Invalid READIMAGE_ARGS_JSON: ${e.message}`);
+        }
+    }
+
+    /**
+     * Execute the external process using child_process.spawn
+     * - Captures stderr for debugging
+     * - Handles timeout
+     * - Resolves on success (exit code 0)
+     * - Rejects on failure
+     */
+    await new Promise((resolve, reject) => {
+
+        const child = spawn(exePath, args, {
+            windowsHide: true,  // Hide console window on Windows
+            stdio: ["ignore", "pipe", "pipe"]   // Ignore stdin, capture stdout/stder
+        });
+
+        let stderr = "";
+        child.stderr.on("data", (d) => {
+            stderr += d.toString();
+        });
+
+        // Handle spawn errors
+        child.on("error", (err) => {
+            reject(err);
+        });
+
+        // Timeout handling
+        const timer = setTimeout(() => {
+            try { child.kill(); } catch { /* ignore */ }
+            reject(new Error(`ReadImage timed out after ${timeoutMs}ms`));
+        }, Number.isFinite(timeoutMs) ? timeoutMs : 20000);
+
+
+        // Process completion handler
+        child.on("close", (code) => {
+            clearTimeout(timer);
+
+            // Success
+            if (code === 0) return resolve();
+
+            // Failure with exit code and optional stderr
+            reject(new Error(`ReadImage exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`));
+        });
+    });
+
+     /**
+     * Validate output file
+     * - Must exist
+     * - Must not be empty
+     */
+    let stat;
+    try {
+        stat = fs.statSync(outputPath);
+    } catch {
+        throw new Error(`ReadImage completed but output file was not created: ${outputPath}`);
+    }
+
+    // Ensure file is valid
+    if (!stat.isFile() || stat.size === 0) {
+        throw new Error(`ReadImage output file is empty or invalid: ${outputPath}`);
+    }
+}
+
+
 
 async function startWorker() {
     const rabbitUrl = process.env.RABBIT_URL;
-    console.log(rabbitUrl);
     if (!rabbitUrl) {
         throw new Error("RABBIT_URL is not set");
     }
@@ -121,16 +235,23 @@ async function startWorker() {
 
             console.log("snapshot request came :", mac)
 
-            if (make === "H") {
-                console.log("⏰ Snapshot for HiFocus Camera ⏰", mac);
-                await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
-            } else {
+            if (make === "T") {
+                console.log("⏰ Snapshot for Techno Camera ⏰", mac);
+                await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
+            } else if (make === "S") {
                 console.log("⏰ Snapshot for Sparsh Camera ⏰", mac);
                 // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
                 await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
+            } else {
+                console.log("⏰ Snapshot for Hifocus Camera ⏰", mac);
+                // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
+                await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
             }
 
-            console.log("sending to done queue" , mac)
+            // await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
+
+
+            console.log("sending to done queue", mac)
             channel.sendToQueue(
                 "snapshot.done",
                 Buffer.from(JSON.stringify({
@@ -144,7 +265,7 @@ async function startWorker() {
 
             channel.ack(msg);
         } catch (err) {
-            console.error("Snapshot worker error:", err?.message || err);
+            console.error("Snapshot worker error:", err?.stack || err);
             // transient errors (camera offline etc) can be retried
             channel.nack(msg, false, true);
         }

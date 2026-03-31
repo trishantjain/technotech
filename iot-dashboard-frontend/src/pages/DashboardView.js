@@ -2,19 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import "../App.css";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
-// import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-// import L from "leaflet";
-// import {
-//   LineChart,
-//   Line,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip,
-//   Legend,
-//   ResponsiveContainer,
-// } from "recharts";
 import swal from "sweetalert2";
 import { useMemo } from "react";
 import thresholds from "../config/thresholds";
@@ -23,10 +11,6 @@ import DevicePanel from "../components/DevicePanel";
 import { ADMIN_PASSWORD, ALARM_KEYS, HUPS_KEYS, LOG_CONSTANTS, STATUS_KEYS } from "../config/constants.js";
 import { getFormattedDateTime } from "../utils/date.js";
 import { API } from "../config/api.js";
-// import thresholds from "../../../server/thresholds";
-// import GaugeComponent from 'react-gauge-component';
-
-// const defaultLocation = [28.6139, 77.209];
 
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
 
@@ -37,6 +21,7 @@ const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE, LOG_THROTTLE_MS } = LOG_CONSTANTS; //
 const EMPTY_LOGS = [];
 
 const PAPI = "/api";
+// const PAPI = "/api/";
 
 function DashboardView() {
   const [readings, setReadings] = useState([]);
@@ -48,10 +33,7 @@ function DashboardView() {
   const [status, setStatus] = useState("");
   const [activeTab, setActiveTab] = useState("gauges");
   const [activeFanBtns, setActiveFanBtns] = useState([]);
-  // const [zoom, setZoom] = useState(1);
-  // const [rotation, setRotation] = useState(0);
   const [snapshots, setSnapshots] = useState([]);
-  // const [videosCaptured, setVideosCaptured] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState("");
 
@@ -312,45 +294,11 @@ function DashboardView() {
   };
 
 
-  // function shallowEqualDevices(a, b) {
-  //   if (a === b) return true;
-  //   if (!a || !b) return false;
-  //   if (a.length !== b.length) return false;
-
-  //   for (let i = 0; i < a.length; i++) {
-  //     if (a[i].mac !== b[i].mac) return false;
-  //   }
-  //   return true;
-  // }
-
-  // const handleMapCreated = (mapInstance) => {
-  //   if (!mapRef.current) {
-  //     mapRef.current = mapInstance;
-  //     // console.log("Map ref set:", mapRef.current); // <--- You should see this log ONCE
-  //   }
-  // };
-
   const handleSelectDevice = useCallback((mac, locationId) => {
     setSelectedMac(mac);
     setSelectedDevice(locationId);
   }, []);
 
-
-  // added by vats
-  // A synchronous function to format the date and time.
-  // function getFormattedDateTime() {
-  //   const today = new Date();
-  //   const addLeadingZero = (num) => String(num).padStart(2, "0");
-
-  //   const dd = addLeadingZero(today.getDate());
-  //   const mm = addLeadingZero(today.getMonth() + 1);
-  //   const yy = String(today.getFullYear()).slice(-2);
-  //   const HH = addLeadingZero(today.getHours());
-  //   const MM = addLeadingZero(today.getMinutes());
-  //   const SS = addLeadingZero(today.getSeconds());
-
-  //   return `${dd}/${mm}/${yy} ${HH}:${MM}:${SS}`;
-  // }
 
   // LOGGING COMMANDS IN SYSTEM
   const sendToLog = async (status, message, command = "") => {
@@ -469,18 +417,6 @@ function DashboardView() {
       setStatus("Wrong password for resetting lock!");
     }
   };
-
-  // function FlyToLocation({ center }) {
-  //   const map = useMap();
-
-  //   useEffect(() => {
-  //     if (center) {
-  //       map.flyTo(center, map.getZoom(), { duration: 1.2 });
-  //     }
-  //   }, [center, map]);
-
-  //   return null;
-  // }
 
   // Function: RESETTING PASSWORD ATTEMPT
   const openPassword = () => {
@@ -659,7 +595,7 @@ function DashboardView() {
           JSON.stringify({ lastResetAt: lastResetAtRef.current, logsByMac: {} })
         );
       } catch {
-        // ignore
+        // ignoree
       }
     }, LOG_RESET_MS);
 
@@ -756,7 +692,7 @@ function DashboardView() {
       // setActiveTab("snapshots");
       if (selectedMac) {
         let response = await fetch(
-          `${API}/api/snapshots/?mac=${selectedMac}`
+          `/api/snapshots/?mac=${selectedMac}`
         );
         const snapshotFiles = await response.json();
         setSnapshots(snapshotFiles);
@@ -1169,7 +1105,7 @@ function DashboardView() {
                       {selectedImage.split("/").pop()} (
                       {snapshots.findIndex(
                         (img) =>
-                          `${API}/api/snapshots/${img}` ===
+                          `${PAPI}/snapshots/${img}` ===
                           selectedImage
                       ) + 1}{" "}
                       of {snapshots.length})
@@ -1185,14 +1121,14 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${API}/api/snapshots/${img}` ===
+                              `${PAPI}/snapshots/${img}` ===
                               selectedImage
                           );
                           const prevIndex =
                             (currentIndex - 1 + snapshots.length) %
                             snapshots.length;
                           setSelectedImage(
-                            `${API}/api/snapshots/${snapshots[prevIndex]}`
+                            `${PAPI}/snapshots/${snapshots[prevIndex]}`
                           );
                         }}
                       >
@@ -1204,13 +1140,13 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${API}/api/snapshots/${img}` ===
+                              `${PAPI}/snapshots/${img}` ===
                               selectedImage
                           );
                           const nextIndex =
                             (currentIndex + 1) % snapshots.length;
                           setSelectedImage(
-                            `${API}/api/snapshots/${snapshots[nextIndex]}`
+                            `${PAPI}/snapshots/${snapshots[nextIndex]}`
                           );
                         }}
                       >
@@ -1241,13 +1177,13 @@ function DashboardView() {
                           className="snapshot-item"
                           onClick={() =>
                             setSelectedImage(
-                              `${API}/api/snapshots/${filename}?mac=${selectedMac}`
+                              `${PAPI}/snapshots/${filename}?mac=${selectedMac}`
                             )
                           }
                         >
                           <img
                             key={i}
-                            src={`${API}/api/snapshots/${filename}?mac=${selectedMac}`}
+                            src={`http://localhost:3000${PAPI}/snapshots/${filename}?mac=${selectedMac}`}
                             alt={`snapshot-${i + 1}`}
                             onError={(e) => {
                               e.target.src =
@@ -1270,81 +1206,11 @@ function DashboardView() {
         {/* Panel 2: LOGS */}
         <div className="panel">
           <h2>📈 Live Logs</h2>
-          {/* {selectedMac && historicalData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={historicalData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="time"
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                  tick={{ fontSize: 10, fill: "#ccc" }}
-                />
-                <YAxis />
-                <Tooltip />0
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="insideTemperature"
-                  stroke="#ff4d4f"
-                  dot={false}
-                  isAnimationActive={true}
-                  name="insideTemp"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="humidity"
-                  stroke="#1d3557"
-                  dot={false}
-                  isAnimationActive={true}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="inputVoltage"
-                  stroke="#00b894"
-                  dot={false}
-                  isAnimationActive={true}
-                  name="I/P volt"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="outputVoltage"
-                  stroke="#0984e3"
-                  dot={false}
-                  isAnimationActive={true}
-                  name="O/P volt"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="batteryBackup"
-                  stroke="#2205ffff"
-                  dot={false}
-                  isAnimationActive={true}
-                  name="Battery"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="outsideTemperature"
-                  stroke="#0b6517ff"
-                  dot={false}
-                  isAnimationActive={true}
-                  name="outsideTemp"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p>Select a device to see its historical chart</p>
-          )} */}
-
 
           {/* LOG SECTION */}
           <div className="w-full h-64 overflow-y-auto bg-black border rounded-md log-scroll"
             onScroll={handleScroll}
           >
-            {/* <div
-              className="p-3 "
-            > */}
             <div className="log-panel">
               {Object.keys(logsByMac).length === 0 ? (
                 <p>No logs in last 1 hour</p>
@@ -1354,128 +1220,12 @@ function DashboardView() {
                 ))
               )}
             </div>
-
             <div ref={bottomRef} />
-            {/* </div> */}
           </div>
-
         </div>
 
-        {/* Panel 3: Device Tiles */}
-        {/* <div className="panel device-list">
-          <h2>
-            🟢 Devices:
-            <span style={{ fontWeight: "lighter", fontSize: "20px", marginLeft: "10px" }}>(Connected: {connectedDeviceCount}/{deviceMeta.length})</span>
-          </h2>
-          <div className="grid">
 
-            {/* {(() => {
-              const latestReadingsByMac = {};
-              readings.forEach((r) => {
-                const existing = latestReadingsByMac[r.mac];
-                if (
-                  !existing ||
-                  new Date(r.timestamp) > new Date(existing.timestamp)
-                ) {
-                  latestReadingsByMac[r.mac] = r;
-                }
-              });
-
-              return deviceMeta.map((device) => {
-                console.count("dashboard render")
-                const { mac } = device;
-                const reading = latestReadingsByMac[mac];
-                let colorClass = "disconnected"; // default
-
-                if (reading && reading.timestamp) {
-                  const age =
-                    Date.now() - new Date(reading.timestamp).getTime();
-                  const staleThreshold = 30000; // 30 seconds
-
-                  if (age <= staleThreshold) {
-                    // Use status from latest valid reading
-                    const hasStatusAlarm = isAlarmActive(reading);
-                    const hasGaugeAlarm =
-                      reading.insideTemperatureAlarm ||
-                      reading.outsideTemperatureAlarm ||
-                      reading.humidityAlarm ||
-                      reading.inputVoltageAlarm ||
-                      reading.outputVoltageAlarm ||
-                      reading.batteryBackupAlarm;
-
-                    colorClass = hasStatusAlarm
-                      ? "status-alarm"
-                      : hasGaugeAlarm
-                        ? "gauge-alarm"
-                        : "connected";
-                  } else {
-                    // Reading is stale — treat as disconnected
-                    colorClass = "disconnected";
-                  }
-                }
-
-                return (
-                  <div
-                    key={mac}
-                    className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
-                      }`}
-                    onClick={() => { setSelectedMac(mac); setSelectedDevice(device.locationId) }}
-                  >
-                    {device.locationId || mac}
-                  </div>
-                );
-              });
-            })()}
-
-
-         {deviceMeta.map((device) => {
-              console.count("dashboard render");
-
-              const { mac } = device;
-              const colorClass = deviceStatusMap[mac] || "disconnected";
-
-              // const reading = latestReadingsByMac[mac];
-              // let colorClass = deviceStatusMap[mac] || "disconnected";
-
-              // if (reading?.timestamp) {
-              //   const age = Date.now() - new Date(reading.timestamp).getTime();
-
-              //   if (age <= STALE_THRESHOLD_MS) {
-              //     const hasStatusAlarm = isAlarmActive(reading);
-
-              //     const hasGaugeAlarm =
-              //       reading.insideTemperatureAlarm ||
-              //       reading.outsideTemperatureAlarm ||
-              //       reading.humidityAlarm ||
-              //       reading.inputVoltageAlarm ||
-              //       reading.outputVoltageAlarm ||
-              //       reading.batteryBackupAlarm;
-
-              //     colorClass = hasStatusAlarm
-              //       ? "status-alarm"
-              //       : hasGaugeAlarm
-              //         ? "gauge-alarm"
-              //         : "connected";
-              //   }
-              // }
-
-              return (
-                <div
-                  key={mac}
-                  className={`device-tile ${colorClass} ${selectedMac === mac ? "selected" : ""
-                    }`}
-                  onClick={() => {
-                    setSelectedMac(mac);
-                    setSelectedDevice(device.locationId);
-                  }}
-                >
-                  {device.locationId || mac}
-                </div>
-              );
-            })}
-
-          </div>
-        </div> */}
+        {/* PANEL 3: DEVICE PANEL */}
         <div className="panel device-list">
           <DevicePanel
             deviceMeta={deviceMeta}
@@ -1493,123 +1243,7 @@ function DashboardView() {
         </div>
 
 
-        {/* Panel 4: Map */}
-        {/* <div className="panel device-map">
-          <h2>🗺️ Device Map</h2>
-
-          {(() => {
-            const selectedDevice = deviceMeta.find(
-              (d) => d.mac === selectedMac
-            );
-            const lat = parseFloat(selectedDevice?.latitude);
-            const lon = parseFloat(selectedDevice?.longitude);
-            const selectedCenter =
-              !isNaN(lat) && !isNaN(lon) ? [lat, lon] : defaultLocation;
-
-            return (
-              <MapContainer
-                // key={selectedMac || "default-map"}
-                key="device-map"
-                center={selectedCenter}
-                zoom={50}
-                scrollWheelZoom={true}
-                style={{ height: "315px", width: "100%" }}
-                whenCreated={handleMapCreated}
-              >
-                <TileLayer
-                  url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-                />
-
-                <FlyToLocation center={selectedCenter} />
-
-                {deviceMeta.map((device) => {
-                  const { mac } = device;
-                  const reading = latestReadingsByMac[mac];
-
-                  let dotClass = "disconnected"; // Default state
-
-                  if (reading) {
-                    const timeDiff =
-                      Date.now() - new Date(reading.timestamp).getTime();
-                    const isStale = timeDiff > 30000;
-
-                    if (!isStale) {
-                      const hasStatusAlarm = isAlarmActive(reading);
-                      const hasGaugeAlarm =
-                        reading.insideTemperatureAlarm ||
-                        reading.outsideTemperatureAlarm ||
-                        reading.humidityAlarm ||
-                        reading.inputVoltageAlarm ||
-                        reading.outputVoltageAlarm ||
-                        reading.batteryBackupAlarm;
-
-                      dotClass = hasStatusAlarm
-                        ? "status-alarm"
-                        : hasGaugeAlarm
-                          ? "gauge-alarm"
-                          : "connected";
-                    }
-                  }
-
-                  const icon = L.divIcon({
-                    className: "custom-marker",
-                    html: `<div class="marker-dot ${dotClass}"></div>`,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10],
-                  });
-
-                  const lat = parseFloat(device.latitude);
-                  const lon = parseFloat(device.longitude);
-                  if (isNaN(lat) || isNaN(lon)) return null;
-
-                  return (
-                    <Marker
-                      key={mac}
-                      position={[lat, lon]}
-                      icon={icon}
-                      ref={(ref) => {
-                        markerRefs.current[mac] = ref;
-                      }}
-                      eventHandlers={{
-                        mouseover: (e) => {
-                          e.target.openPopup();
-                        },
-                        mouseout: (e) => {
-                          e.target.closePopup();
-                        },
-                        click: () => setSelectedMac(mac),
-                      }}
-                    >
-                      <Popup>
-                        {device.locationId || mac}
-                        <br />
-                        {device.address || ""}
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-              </MapContainer>
-            );
-          })()}
-
-          <div
-            style={{
-              marginTop: "8px",
-              fontSize: "0.8rem",
-              color: "#aaa",
-              textAlign: "right",
-            }}
-          >
-            Best viewed on{" "}
-            {navigator.userAgent.includes("Chrome")
-              ? "Chrome"
-              : navigator.userAgent.includes("Firefox")
-                ? "Firefox"
-                : "your browser"}{" "}
-            @ {window.innerWidth}x{window.innerHeight}
-          </div>
-        </div> */}
+        {/* PANEL 4: MAP PANEL */}
         <div className="panel device-map">
           <DeviceMap
             deviceMeta={deviceMeta}

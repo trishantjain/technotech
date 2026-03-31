@@ -19,7 +19,7 @@
     "react-dom": "18.2.0",
     "react-gauge-component": "^1.2.64",
     "react-leaflet": "4.2.1",
-    "react-router-dom": "^7.6.3",
+    "react-router-dom": "^7.13.2",
     "react-scripts": "5.0.1",
     "recharts": "^2.15.4",
     "respinner": "^5.0.0",

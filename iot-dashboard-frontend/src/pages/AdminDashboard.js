@@ -2,14 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
 import DashboardView from "./DashboardView";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import PasswordPrompt from "../components/PasswordPrompt";
 // import { API } from "../config/api.js";
 import Spinner from "../components/Spinner.jsx";
@@ -508,7 +500,8 @@ const RegisterDeviceTab = () => {
   };
 
   const handleIPChange = (e) => {
-    let value = e.target.value;
+    const { value: rawValue } = e.target;
+    let value = rawValue;
 
     // allow only digits and dots
     value = value.replace(/[^0-9.]/g, "");
@@ -919,7 +912,15 @@ const HistoricalDataTab = () => {
   const [selectedMac, setSelectedMac] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [readings, setReadings] = useState([]);
+  const [toTime, setToTime] = useState("");
+  const [alarmEntries, setAlarmEntries] = useState([]);
+
+  const [query, setQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const filteredDevices = devices.filter(dev =>
+    dev.mac.toLowerCase().includes(query.toLowerCase())
+  );
 
   // eslint-disable-next-line
   const [specificReading, setSpecificReading] = useState(null);
@@ -947,38 +948,58 @@ const HistoricalDataTab = () => {
   }
 
   const fetchHistoricalData = async () => {
-    if (!date || !time || !selectedMac) {
-      alert("Please select device, date, and time.");
+    if (!date || !time || !toTime || !selectedMac) {
+      alert("Please select device, date, from time and to time.");
       return;
     }
 
-    const datetime = `${date}T${time.length === 5 ? time + ":00" : time}`;
-    const dateObj = new Date(datetime);
+    const fromDateTime = `${date}T${time.length === 5 ? time + ":00" : time}`;
+    const toDateTime = `${date}T${toTime.length === 5 ? toTime + ":00" : toTime}`;
+
+    console.log("Date & time: ", fromDateTime, toDateTime);
+
+    const fromObj = new Date(fromDateTime);
+    const toObj = new Date(toDateTime);
     const now = new Date();
 
-    if (isNaN(dateObj.getTime())) {
-      alert("❌ Invalid datetime format");
+    if (isNaN(fromObj.getTime()) || isNaN(toObj.getTime())) {
+      alert("❌ Invalid date/time format");
       return;
     }
 
-    if (dateObj > now) {
+    if (fromObj > now || toObj > now) {
       alert("⚠️ You cannot select a future date/time.");
+      return;
+    }
+
+    if (toObj.getTime() < fromObj.getTime()) {
+      alert("⚠️ 'To' time must be after 'From' time.");
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log("Datetime: ", encodeURIComponent(datetime));
+      const formatLocalNoTz = (d) => {
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      };
+
+      const fromStr = formatLocalNoTz(fromObj);
+      const toStr = formatLocalNoTz(toObj);
+
+      console.log("Alarm-history:", selectedMac, fromStr, "->", toStr);
       const res = await fetch(
-        `${API}/alarm-history?mac=192.168.0.10&from=2026-02-20T11:27:00&to=2026-02-20T12:00:00`
-      ); const data = await res.json();
+        `${API}/alarm-history?mac=${encodeURIComponent(selectedMac)}&from=${encodeURIComponent(fromDateTime)}&to=${encodeURIComponent(toDateTime)}`
+      );
+      const data = await res.json();
+
       console.log("Data: ", data);
       if (!res.ok)
         throw new Error(data.error || "Failed to fetch historical data");
 
       // const hourlyReadings = downsampleHourly(data.alarms);
-      setReadings(data.alarms);
+      setAlarmEntries(Array.isArray(data.entries) ? data.entries : []);
       // setSpecificReading(data.atSelectedTime);
       // console.log("specific: ", specificReading)
     } catch (err) {
@@ -988,18 +1009,9 @@ const HistoricalDataTab = () => {
     }
   };
 
-  const chartParams = [
-    { key: "humidity", label: "Humidity (%)" },
-    { key: "insideTemperature", label: "Inside Temp (°C)" },
-    { key: "outsideTemperature", label: "Outside Temp (°C)" },
-    { key: "outputVoltage", label: "Output Voltage (V)" },
-    { key: "inputVoltage", label: "Input Voltage (V)" },
-    { key: "batteryBackup", label: "Battery Backup (min)" },
-  ];
-
   return (
     <div className="historical-data-tab">
-      <h2>📈 Historical Data Viewer</h2>
+      {/* <h2>📈 Historical Data Viewer</h2>
 
       <div
         className="filter-row"
@@ -1039,6 +1051,107 @@ const HistoricalDataTab = () => {
         <button onClick={fetchHistoricalData} disabled={loading}>
           {loading ? "⏳ Fetching..." : "🔍 Fetch"}
         </button>
+      </div> */}
+
+      <div className="p-6 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl">
+
+        <div className="p-6 border shadow-xl border-black-200 bg-whitblacke/95 backdrop-blur-md rounded-2xl">
+
+          <h2 className="flex items-center gap-2 mb-5 text-xl font-semibold text-white-800">
+            📊 <span className="tracking-wide">Historical Alarm Viewer</span>
+          </h2>
+
+          <div className="flex flex-wrap items-end gap-4">
+
+            {/* Device */}
+            <div className="relative w-[220px]">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                placeholder="Search Device..."
+                className="w-full px-3 py-2 text-black border rounded-lg bord-ber-gray-300 text focus:ring-2 focus:ring-blue-500"
+              />
+
+              {showDropdown && (
+                <div className="absolute z-50 w-full mt-1 overflow-y-auto text-black bg-white border border-gray-200 rounded-lg shadow-md max-h-60">
+                  {filteredDevices.length > 0 ? (
+                    filteredDevices.map((dev) => (
+                      <div
+                        key={dev.mac}
+                        onClick={() => {
+                          setQuery(dev.mac);
+                          setSelectedMac(dev.mac);
+                          setShowDropdown(false);
+                        }}
+                        className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                      >
+                        {dev.mac}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-gray-500">No results</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Date */}
+            <div className="flex flex-col">
+              <label className="mb-1 text-sm text-white-600">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="px-3 py-2 text-black border rounded-lg border-black-300 bg-black-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Time */}
+            <div className="flex flex-col">
+              <label className="mb-1 text-sm text-white-600">From</label>
+              <input
+                type="time"
+                step="1"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="px-3 py-2 text-black border rounded-lg border-black-300 bg-black-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            {/* To Time */}
+            <div className="flex flex-col">
+              <label className="mb-1 text-sm text-white-600">To</label>
+              <input
+                type="time"
+                step="1"
+                value={toTime}
+                onChange={(e) => setToTime(e.target.value)}
+                className="px-3 py-2 text-black border rounded-lg border-black-300 bg-black-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+
+
+            {/* Button */}
+            <button
+              onClick={fetchHistoricalData}
+              disabled={loading}
+              className={`px-6 py-2 rounded-lg text-black font-medium flex items-center gap-2 transition-all duration-200 shadow-md
+          ${loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 active:scale-95"
+                }`}
+            >
+              🔍 {loading ? "Fetching..." : "Fetch"}
+            </button>
+
+          </div>
+        </div>
       </div>
 
 
@@ -1046,70 +1159,51 @@ const HistoricalDataTab = () => {
         <div className="loader">⏳ Loading data...</div>
       ) : (
         <>
-          <div className="charts-grid">
-            {chartParams.map((param) => (
-              <div className="chart-box" key={param.key}>
-                <h4>{param.label}</h4>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={readings}>
-                    <XAxis
-                      dataKey="timestamp"
-                      ticks={[
-                        readings[0]?.timestamp,
-                        readings[readings.length - 1]?.timestamp,
-                      ]}
-                      tickFormatter={(value) => {
-                        const date = new Date(value);
-                        return date.toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        });
-                      }}
-                      tickLine={false}
-                      axisLine={true}
-                    />
-                    <YAxis />
-                    <Tooltip
-                      labelFormatter={(label) => {
-                        try {
-                          const date = new Date(label);
-                          return `Time: ${date.toLocaleTimeString("en-IN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}`;
-                        } catch {
-                          return "Invalid Time";
-                        }
-                      }}
-                    />
-                    <Line
-                      type="basis"
-                      dataKey={param.key}
-                      stroke="#379a89"
-                      strokeWidth={1.5}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+          <div className="mt-4">
+            <h3 className="flex items-center gap-2 mb-3 text-lg font-semibold text-white">
+              🧾 Alarm File
+            </h3>
 
-            ))}
-          </div>
-
-          <div>
-            {readings.length === 0 ? (
-              <p>No alarms found</p>
+            {alarmEntries.length === 0 ? (
+              <p className="text-gray-400">No records found</p>
             ) : (
-              readings.map((alarm, index) => (
-                <div key={index} style={{ marginBottom: "10px", borderBottom: "1px solid #ccc" }}>
-                  <p><strong>Type:</strong> {alarm.type}</p>
-                  <p><strong>Start:</strong> {new Date(alarm.start).toLocaleString()}</p>
-                  <p><strong>End:</strong> {new Date(alarm.end).toLocaleString()}</p>
-                  <p><strong>Duration:</strong> {alarm.durationSeconds} sec</p>
-                </div>
-              ))
+              <div className="overflow-x-auto bg-gray-900 border border-gray-700 shadow-lg rounded-xl">
+
+                <table className="min-w-full text-sm text-left text-gray-300">
+
+                  {/* Header */}
+                  <thead className="text-xs text-gray-200 uppercase bg-gray-800">
+                    <tr>
+                      <th className="px-4 py-3">Time</th>
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Value</th>
+                    </tr>
+                  </thead>
+
+                  {/* Body */}
+                  <tbody className="divide-y divide-gray-700">
+                    {alarmEntries.map((row, idx) => (
+                      <tr
+                        key={idx}
+                        className="transition duration-150 hover:bg-gray-800"
+                      >
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {new Date(row.timestamp).toLocaleString("en-IN")}
+                        </td>
+
+                        <td className="px-4 py-2 font-medium text-blue-400">
+                          {row.name}
+                        </td>
+
+                        <td className="px-4 py-2 font-semibold text-white">
+                          {row.value}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+              </div>
             )}
           </div>
 
