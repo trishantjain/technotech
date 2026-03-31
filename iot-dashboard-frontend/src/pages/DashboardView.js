@@ -47,6 +47,9 @@ function DashboardView() {
   const [loadingDevices, setLoadingDevices] = useState(true);
   const hasLoadedOnceRef = useRef(false);
 
+  const [rackTimer, setRackTimer] = useState(0);
+  const [logTimer, setLogTimer] = useState(0);
+
   useEffect(() => {
     selectedMacRef.current = selectedMac;
   }, [selectedMac]);
@@ -282,6 +285,8 @@ function DashboardView() {
         return next;
       });
 
+      setRackTimer(0);
+
       // console.log("readingData", readingsData);
     } catch (err) {
       console.error("❌Error fetching data:", err);
@@ -293,6 +298,14 @@ function DashboardView() {
     }
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRackTimer(prev => prev + 1);
+      setLogTimer(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSelectDevice = useCallback((mac, locationId) => {
     setSelectedMac(mac);
@@ -558,11 +571,14 @@ function DashboardView() {
       const entry = `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarmResult.alarms.join("| ")}`;
       const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
+      // setLastRefreshTime(Date.now());
       return {
         ...prev,
         [selectedMac]: nextLogs
       };
     });
+
+    setLogTimer(0);
 
   }, [latestReadingsByMac, selectedMac]);
 
@@ -820,6 +836,11 @@ function DashboardView() {
             <h2 className="selected-heading">
               📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
             </h2>
+
+            <div style={{ fontSize: "14px", marginTop: "5px" }}>
+              ⏱ Rack Refresh: {5 - rackTimer}
+            </div>
+
             {/* ALARM TOGGLE */}
             <div className="alarm-container">
               <span>Alarm</span>
@@ -1205,7 +1226,11 @@ function DashboardView() {
 
         {/* Panel 2: LOGS */}
         <div className="panel">
-          <h2>📈 Live Logs</h2>
+          <h2>📈 Live Logs
+            <span style={{ fontSize: "12px", marginLeft: "10px" }}>
+              🔄 Logs Refresh: {Math.max(5 - logTimer, 0)}
+            </span>
+          </h2>
 
           {/* LOG SECTION */}
           <div className="w-full h-64 overflow-y-auto bg-black border rounded-md log-scroll"
