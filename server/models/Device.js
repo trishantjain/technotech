@@ -12,11 +12,11 @@ const deviceSchema = new mongoose.Schema({
   ipCamera: {
     type: {
       type: String,
-      required: true
+      required: false
     },
     ip: {
       type: String,
-      required: true
+      required: false
     }
   },
   status: {
