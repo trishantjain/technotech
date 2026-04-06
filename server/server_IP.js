@@ -1291,7 +1291,8 @@ const server = net.createServer((socket) => {
       // debug.lastPacketTime = Date.now();
       // debug.bufferStats.discardedBytes.totalBytes += data.length;
 
-      console.log(`Raw data received ${data.toString('hex')} with length (${data.length} bytes) from`, clientInfo);
+      // console.log(`Raw data received ${data.toString('hex')} with length (${data.length} bytes) from`, clientInfo);
+      console.log(`Raw data received with length (${data.length} bytes) from`, clientInfo);
       // console.log("Raw data received")
       // console.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
 
