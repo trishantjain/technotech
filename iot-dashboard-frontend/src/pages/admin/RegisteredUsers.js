@@ -11,6 +11,8 @@ const RegisteredUsers = () => {
     const [users, setUsers] = useState([]);
     const [showPrompt, setShowPrompt] = useState(false);
     const [pendingAction, setPendingAction] = useState(null);
+    const [promptWarning, setPromptWarning] = useState("");
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
     useEffect(() => {
         fetchUsers();
@@ -30,12 +32,13 @@ const RegisteredUsers = () => {
         }
     };
 
-    const requestPassword = (callback) => {
+    const requestPassword = (callback, warningText = "") => {
         setPendingAction(() => callback);
+        setPromptWarning(warningText);
         setShowPrompt(true);
     };
 
-    const handleEdit = (user, newUsername, newPassword) => {
+    const handleEdit = (user, newUsername, newRole, newPassword) => {
         requestPassword(async (adminPassword) => {
             try {
                 const res = await fetch(`${API}/user/${user._id}`, {
@@ -73,7 +76,7 @@ const RegisteredUsers = () => {
             } catch (err) {
                 alert(err.message);
             }
-        });
+        }, "DELELTED USER CANNOT BE RETRIEVED");
     };
 
     return (
@@ -121,8 +124,13 @@ const RegisteredUsers = () => {
                     onSubmit={(password) => {
                         pendingAction(password);
                         setShowPrompt(false);
+                        setPromptWarning("");
                     }}
-                    onCancel={() => setShowPrompt(false)}
+                    onCancel={() => {
+                        setShowPrompt(false);
+                        setPromptWarning("");
+                    }}
+                    warningSign={promptWarning}
                 />
             )}
         </div>
@@ -196,12 +204,12 @@ const UserRow = ({ user, onEdit, onDelete }) => {
                         </button>
                     </>
                 ) : (
-                    <button onClick={() => setEditMode(true)}>✏️ Edit</button>
+                    <button onClick={() => setEditMode(true)} className="p-1 text-black bg-gray-200 rounded-md">✏️ Edit</button>
                 )}
             </td>
 
             <td>
-                <button onClick={() => onDelete(user)}>❌ Delete</button>
+                <button onClick={() => onDelete(user)} className="p-1 text-black bg-gray-200 rounded-md">❌ Delete</button>
             </td>
         </tr>
     );

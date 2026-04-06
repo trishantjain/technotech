@@ -235,7 +235,7 @@ app.get("/api/users", async (req, res) => {
 // ✅ Edit User
 app.put("/api/user/:id", async (req, res) => {
   try {
-    const { username, password, adminPassword } = req.body;
+    const { username, password, role, adminPassword } = req.body;
     if (adminPassword !== process.env.ADMIN_PASSWORD)
       return res
         .status(403)
@@ -247,6 +247,7 @@ app.put("/api/user/:id", async (req, res) => {
     // Setting new Details of User in "UpdateField"
     const updateFields = {};
     updateFields.username = username;
+    updateFields.role = role;
 
     if (password && password.trim() !== "") {
       const hashedPassword = await bcrypt.hash(password, 10); // Hashing new Password
@@ -299,10 +300,12 @@ app.delete("/api/user/:username", async (req, res) => {
 // ✅ Register new device
 app.post("/api/register-device", authMiddleware, async (req, res) => {
   const { mac, locationId, address, latitude, longitude, ipCamera } = req.body;
+  // const { mac, locationId, address, latitude, longitude } = req.body;
   try {
     const normalizedMac = mac.toLowerCase(); // Converting to LowerCase()
     let parsedCamera = ipCamera;
 
+    // UNAUTHORIZED ERROR MESSAGE
     if (
       req.user.role !== "admin" &&
       req.user.role !== "field-worker"
@@ -310,6 +313,7 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
+    // IP ALREADY EXISTS MESSAGE
     const existingMac = await Device.findOne({ mac: normalizedMac });
     if (existingMac) {
       return res.status(409).json({ error: "Device IP already exists" });
