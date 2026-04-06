@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Spinner from "../../components/Spinner";
 import PasswordPrompt from "../../components/PasswordPrompt";
 import { useNavigate } from "react-router-dom";
 
@@ -43,6 +44,7 @@ const RegisteredUsers = () => {
                     body: JSON.stringify({
                         username: newUsername,
                         password: newPassword,
+                        role: newRole,
                         adminPassword,
                     }),
                 });
@@ -132,6 +134,7 @@ const UserRow = ({ user, onEdit, onDelete }) => {
     const [formData, setFormData] = useState({
         username: user.username,
         password: "",
+        role: user.role
     });
 
     return (
@@ -150,7 +153,27 @@ const UserRow = ({ user, onEdit, onDelete }) => {
                 )}
             </td>
 
-            <td>{user.role}</td>
+            <td>
+                {editMode ? (
+                    <select
+                        className="text-black"
+                        value={formData.role}
+                        onChange={(e) =>
+                            setFormData({ ...formData, role: e.target.value })
+                        }
+                    >
+                        <option value="admin">Admin</option>
+                        <option value="block">Block Officer</option>
+                        <option value="gp">GP Officer</option>
+                        <option value="user">Common User</option>
+                        <option value="field-worker">Field Worker</option>
+                    </select>
+                ) : (
+                    user.role
+                )}
+            </td>
+
+            {/* <td>{user.role}</td> */}
 
             <td>
                 {editMode ? (
@@ -165,7 +188,7 @@ const UserRow = ({ user, onEdit, onDelete }) => {
                         />
                         <button
                             onClick={() => {
-                                onEdit(user, formData.username, formData.password);
+                                onEdit(user, formData.username, formData.role, formData.password);
                                 setEditMode(false);
                             }}
                         >
