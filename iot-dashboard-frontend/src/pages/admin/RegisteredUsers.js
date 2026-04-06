@@ -17,11 +17,15 @@ const RegisteredUsers = () => {
 
     const fetchUsers = async () => {
         try {
+            setLoadingUsers(true);
+
             const res = await fetch(`${API}/users`);
             const data = await res.json();
             setUsers(data);
         } catch (err) {
             console.error(err);
+        } finally {
+            setLoadingUsers(false);
         }
     };
 
@@ -91,14 +95,22 @@ const RegisteredUsers = () => {
                 </thead>
 
                 <tbody>
-                    {users.map((user) => (
-                        <UserRow
-                            key={user._id}
-                            user={user}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                        />
-                    ))}
+                    {loadingUsers ? (
+                        <tr>
+                            <td colSpan="8" style={{ textAlign: "center", padding: "30px" }}>
+                                <Spinner />
+                            </td>
+                        </tr>
+                    ) :
+                        users.map((user) => (
+                            <UserRow
+                                key={user._id}
+                                user={user}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                            />
+                        ))
+                    }
                 </tbody>
             </table>
 
