@@ -74,7 +74,7 @@ const AddUser = () => {
                     <option value="field-worker">Field Worker</option>
                 </select>
 
-                <button type="submit" className="bg-white font-bold">Register</button>
+                <button type="submit" className="font-bold text-white bg-sky-500 hover:bg-sky-600">Register</button>
 
                 <div className="text-white">
                     {status && <p>{status}</p>}

@@ -4,6 +4,20 @@ import L from "leaflet";
 
 const defaultLocation = [28.6139, 77.209];
 
+const iconCache = {};
+
+function getIcon(status) {
+    if (!iconCache[status]) {
+        iconCache[status] = L.divIcon({
+            className: "custom-marker",
+            html: `<div class="marker-dot ${status}"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+        });
+    }
+    return iconCache[status];
+}
+
 // FUNCTION TO MOVE FROM ONE LOCATION TO ANOTHER
 function FlyToLocation({ center, zoom }) {
     const map = useMap();
@@ -16,6 +30,41 @@ function FlyToLocation({ center, zoom }) {
 
     return null;
 }
+
+const DeviceMarker = React.memo(function DeviceMarker({
+    device,
+    status,
+}) {
+    const { mac } = device;
+
+    const lat = parseFloat(device.latitude);
+    const lon = parseFloat(device.longitude);
+
+    if (isNaN(lat) || isNaN(lon)) return null;
+
+    const icon = getIcon(status);
+
+    console.log("Rendering Marker:", mac); // 🔥 debug
+
+    return (
+        <Marker
+            position={[lat, lon]}
+            icon={icon}
+            eventHandlers={{
+                mouseover: (e) => e.target.openPopup(),
+                mouseout: (e) => e.target.closePopup(),
+            }}
+        >
+            <Popup>
+                {device.locationId || mac} <br />
+                {device.address}
+            </Popup>
+        </Marker>
+    );
+});
+const MarkersLayer = React.memo(({ markers }) => {
+    return <>{markers}</>;
+});
 
 const DeviceMap = React.memo(function DeviceMap({
     deviceMeta,
@@ -44,12 +93,7 @@ const DeviceMap = React.memo(function DeviceMap({
 
             const dotClass = deviceStatusMap[mac] || "disconnected";
 
-            const icon = L.divIcon({
-                className: "custom-marker",
-                html: `<div class="marker-dot ${dotClass}"></div>`,
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-            });
+            const icon = getIcon(dotClass);
 
             const lat = parseFloat(device.latitude);
             const lon = parseFloat(device.longitude);
@@ -80,7 +124,8 @@ const DeviceMap = React.memo(function DeviceMap({
             );
         });
         // eslint-disable-next-line
-    }, [deviceMeta, deviceStatusMap, onMarkerClick]);
+        // }, [deviceMeta, deviceStatusMap, onMarkerClick]);
+    }, [deviceMeta, deviceStatusMap]);
 
 
     return (
@@ -93,14 +138,21 @@ const DeviceMap = React.memo(function DeviceMap({
         >
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                // attribution="&copy; OpenStreetMap & CartoDB"
-                // subdomains="abcd"
+            // attribution="&copy; OpenStreetMap & CartoDB"
+            // subdomains="abcd"
 
             />
 
             <FlyToLocation center={selectedCenter} zoom={17} />
 
-            {markers}
+            {deviceMeta.map(device => (
+                <DeviceMarker
+                    key={device.mac}
+                    device={device}
+                    status={deviceStatusMap[device.mac]}
+                />
+            ))}
+            {/* {markers} */}
         </MapContainer>
     );
 });
