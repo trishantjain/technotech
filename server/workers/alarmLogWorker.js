@@ -9,17 +9,18 @@ async function startWorker() {
     const connection = await amqp.connect(process.env.RABBIT_URL);
     const channel = await connection.createChannel();
 
-    await channel.assertQueue("alarm.queue", { durable: true });
+    await channel.assertQueue("alarm.result.queue", { durable: true });
 
     console.log("🚀 Alarm Worker started");
 
-    channel.consume("alarm.queue", async (msg) => {
+    channel.consume("alarm.result.queue", async (msg) => {
         if (!msg) return;
 
         try {
             const data = JSON.parse(msg.content.toString());
 
-            const { mac, alarms, fanStatus, baseDir } = data;
+            const { mac, alarms, fanStatus } = data;
+            const baseDir = process.env.ALARM_LOG_DIR;
 
             if (!mac || !baseDir) {
                 console.error("Invalid alarm message:", data);

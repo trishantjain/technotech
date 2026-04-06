@@ -33,6 +33,8 @@ async function connectRabbit() {
             // Snapshot completion events (worker -> API for SSE)
             await channel.assertQueue("snapshot.done", { durable: true });
 
+            await channel.assertQueue("alarm.result.queue", { durable: true });
+
             console.log("🐰 RabbitMQ connected");
             return channel;
         } catch (err) {
@@ -78,6 +80,9 @@ function publishLog(data) {
     publish("log.queue", data);
 }
 
+function publishAlarmResult(data) {
+    publish("alarm.result.queue", data);
+}
 
 async function consume(queue, handler, options = {}) {
     const { prefetch = 10 } = options;
@@ -105,6 +110,5 @@ async function consume(queue, handler, options = {}) {
 }
 
 module.exports = {
-    connectRabbit, publishAlarm, publishSnapshot, publishSnapshotDone, publishLog,
-    consume
+    connectRabbit, publishAlarm, publishSnapshot, publishSnapshotDone, publishLog, publishAlarmResult, consume
 };

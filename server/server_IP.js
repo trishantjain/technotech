@@ -14,7 +14,7 @@ const path = require("path");
 const axios = require('axios');
 const { spawn } = require('child_process');
 const readline = require("readline");
-const { connectRabbit, publishAlarm, publishSnapshot, consume, publishLog } = require("./services/rabbit");
+const { connectRabbit, publishAlarm, publishSnapshot, consume, publishLog, publishAlarmResult } = require("./services/rabbit");
 
 
 const app = express();
@@ -1547,68 +1547,98 @@ const server = net.createServer((socket) => {
           batteryBackupAlarm: batteryBackup < thresholds.batteryBackup.min,
         };
 
-        const activeAlarms = [];
+        // const activeAlarms = [];
 
-        if (thresholdAlarms.insideTemperatureAlarm) {
-          activeAlarms.push(`Inside Temperature: ${insideTemperature}`);
-        }
-        if (thresholdAlarms.outsideTemperatureAlarm) {
-          activeAlarms.push(`Outside Temperature: ${outsideTemperature}`);
-        }
-        if (thresholdAlarms.humidityAlarm) {
-          activeAlarms.push(`Humidity: ${humidity}`);
-        }
-        if (thresholdAlarms.inputVoltageAlarm) {
-          activeAlarms.push(`Input Voltage: ${inputVoltage}`);
-        }
-        if (thresholdAlarms.outputVoltageAlarm) {
-          activeAlarms.push(`Output Voltage: ${outputVoltage}`);
-        }
-        if (thresholdAlarms.batteryBackupAlarm) {
-          activeAlarms.push(`Battery Backup: ${batteryBackup}`);
-        }
+        // if (thresholdAlarms.insideTemperatureAlarm) {
+        //   activeAlarms.push(`Inside Temperature: ${insideTemperature}`);
+        // }
+        // if (thresholdAlarms.outsideTemperatureAlarm) {
+        //   activeAlarms.push(`Outside Temperature: ${outsideTemperature}`);
+        // }
+        // if (thresholdAlarms.humidityAlarm) {
+        //   activeAlarms.push(`Humidity: ${humidity}`);
+        // }
+        // if (thresholdAlarms.inputVoltageAlarm) {
+        //   activeAlarms.push(`Input Voltage: ${inputVoltage}`);
+        // }
+        // if (thresholdAlarms.outputVoltageAlarm) {
+        //   activeAlarms.push(`Output Voltage: ${outputVoltage}`);
+        // }
+        // if (thresholdAlarms.batteryBackupAlarm) {
+        //   activeAlarms.push(`Battery Backup: ${batteryBackup}`);
+        // }
 
-        if (waterLogging) {
-          activeAlarms.push("Water Logging Alarm");
-          // console.log("Water Logging Alarm")
-        }
+        // if (waterLogging) {
+        //   activeAlarms.push("Water Logging Alarm");
+        //   // console.log("Water Logging Alarm")
+        // }
 
-        if (waterLeakage) {
-          activeAlarms.push("Water Leakage Alarm");
-          // console.log("Water Leakage Alarm")
-        }
+        // if (waterLeakage) {
+        //   activeAlarms.push("Water Leakage Alarm");
+        //   // console.log("Water Leakage Alarm")
+        // }
 
-        if (doorStatus === "OPEN") {
-          activeAlarms.push("Door Alarm");
-          // console.log("Door Alarm")
-        }
+        // if (doorStatus === "OPEN") {
+        //   activeAlarms.push("Door Alarm");
+        //   // console.log("Door Alarm")
+        // }
 
-        if (lockStatus === "OPEN") {
-          activeAlarms.push("Lock Alarm");
-          // console.log("Lock Alarm")
-        }
+        // if (lockStatus === "OPEN") {
+        //   activeAlarms.push("Lock Alarm");
+        //   // console.log("Lock Alarm")
+        // }
 
-        if (fireAlarm) {
-          activeAlarms.push("Fire Alarm");
-          // console.log("Fire Alarm")
-        }
+        // if (fireAlarm) {
+        //   activeAlarms.push("Fire Alarm");
+        //   // console.log("Fire Alarm")
+        // }
+
+
+        // ========================== RABBIT MQ ALARM PROCESSING ==========================
+        // if (activeAlarms.length > 0) {
+        //   publishAlarmResult({
+        //     mac,
+        //     alarms: activeAlarms,
+        //     fanStatus,
+        //     timestamp: new Date().toISOString()
+        //   });
+        // }
+        // ========================== RABBIT MQ ALARM PROCESSING ==========================
+
 
         // Single console output
-        if (activeAlarms.length > 0) {
+        // if (activeAlarms.length > 0) {
 
-          // ========================== RABBIT MQ ==========================
-          // console.log("Running PublishAlarm() worder")
-          publishAlarm({
-            mac,
-            alarms: activeAlarms,
-            fanStatus,
-            timestamp: new Date(),
-            logType: 'alarm',
-            baseDir: alarmLogDir
-          })
+        // ========================== RABBIT MQ ALARM WORKER ==========================
+        // console.log("Running PublishAlarm() worder")
+        // publishAlarm({
+        //   mac,
+        //   alarms: activeAlarms,
+        //   fanStatus,
+        //   timestamp: new Date(),
+        //   logType: 'alarm',
+        //   baseDir: alarmLogDir
+        // })
 
-          // ========================== RABBIT MQ ==========================
-        }
+        publishAlarm({
+          mac,
+          humidity,
+          insideTemperature,
+          outsideTemperature,
+          inputVoltage,
+          outputVoltage,
+          batteryBackup,
+          waterLogging,
+          waterLeakage,
+          doorStatus,
+          lockStatus,
+          fireAlarm,
+          fanStatus,
+          timestamp: new Date()
+        });
+
+        // ========================== RABBIT MQ ALARM WORKER ==========================
+        // }
 
         socket.deviceId = mac;
         connectedDevices.set(mac, socket);
