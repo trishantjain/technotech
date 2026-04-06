@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Spinner from "../../components/Spinner";
 import { useNavigate } from "react-router-dom";
 import { API } from "../../config/api";
+import PasswordPrompt from "../../components/PasswordPrompt";
 
 const api = "/api";
 
@@ -79,6 +80,8 @@ const RegisteredDevices = () => {
                 <input
                     type="text"
                     className="text-black device-search-input"
+                    name="device-search"
+                    autoComplete="off"
                     placeholder="🔍 Search by IP, Location ID or Address..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -135,7 +138,7 @@ const RegisteredDevices = () => {
                     <tbody>
                         {loadingDevices ? (
                             <tr>
-                                <td colSpan="8" style={{ textAlign: "center", padding: "30px" }}>
+                                <td colSpan="10" style={{ textAlign: "center", padding: "30px" }}>
                                     <Spinner />
                                 </td>
                             </tr>
@@ -149,7 +152,7 @@ const RegisteredDevices = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="8">⚠️ No devices found</td>
+                                <td colSpan="10">⚠️ No devices found</td>
                             </tr>
                         )}
                     </tbody>
@@ -165,6 +168,10 @@ const RegisteredDevices = () => {
 const EditableRow = ({ device, onUpdated }) => {
     const [editMode, setEditMode] = useState(false);
     const [formData, setFormData] = useState({ ...device });
+    const [showPrompt, setShowPrompt] = useState(false);
+    const [promptWarning, setPromptWarning] = useState("");
+    const [passwordResolver, setPasswordResolver] = useState(null);
+
 
     useEffect(() => {
         if (editMode) {
@@ -172,13 +179,34 @@ const EditableRow = ({ device, onUpdated }) => {
         }
     }, [editMode, device]);
 
-    const askAdminPassword = async () => {
-        const password = prompt("Enter admin password:");
-        if (!password) {
-            alert("⚠️ Action cancelled");
-            return null;
-        }
-        return password;
+    const askAdminPassword = async (warningText = "") => {
+        // const password = prompt("Enter admin password:");
+        // if (!password) {
+        //     alert("⚠️ Action cancelled");
+        //     return null;
+        // }
+        // return password;
+        setPromptWarning(warningText);
+        setShowPrompt(true);
+
+        return new Promise((resolve) => {
+            setPasswordResolver(() => resolve);
+        });
+    };
+
+    const handlePasswordSubmit = (password) => {
+        if (!password) return;
+        passwordResolver?.(password);
+        setShowPrompt(false);
+        setPromptWarning("");
+        setPasswordResolver(null);
+    };
+
+    const handlePasswordCancel = () => {
+        passwordResolver?.(null);
+        setShowPrompt(false);
+        setPromptWarning("");
+        setPasswordResolver(null);
     };
 
     const handleChange = (e) => {
@@ -210,8 +238,9 @@ const EditableRow = ({ device, onUpdated }) => {
         }
     };
 
+    // DELETE DEVICE FUNCTION
     const handleDelete = async () => {
-        const password = await askAdminPassword();
+        const password = await askAdminPassword("DELETED DEVICE CANNOT BE RETRIEVED");
         if (!password) return;
 
         try {
@@ -230,6 +259,7 @@ const EditableRow = ({ device, onUpdated }) => {
         }
     };
 
+    // APPROVE DEVICE FUNCTION
     const approveDevice = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -250,6 +280,7 @@ const EditableRow = ({ device, onUpdated }) => {
         }
     };
 
+    // REJECT DEVICE FUNCTION
     const rejectDevice = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -271,117 +302,126 @@ const EditableRow = ({ device, onUpdated }) => {
     };
 
     return (
-        <tr>
-            <td>{device.mac}</td>
+        <>
+            <tr>
+                <td>{device.mac}</td>
 
-            <td>
-                {editMode ? (
-                    <input
-                        className="text-black"
-                        name="locationId"
-                        value={formData.locationId}
-                        onChange={handleChange}
-                    />
-                ) : (
-                    device.locationId
-                )}
-            </td>
+                <td>
+                    {editMode ? (
+                        <input
+                            className="text-black"
+                            name="locationId"
+                            value={formData.locationId}
+                            onChange={handleChange}
+                        />
+                    ) : (
+                        device.locationId
+                    )}
+                </td>
 
-            <td>
-                {editMode ? (
-                    <input
-                        className="text-black"
+                <td>
+                    {editMode ? (
+                        <input
+                            className="text-black"
 
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                    />
-                ) : (
-                    device.address
-                )}
-            </td>
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                        />
+                    ) : (
+                        device.address
+                    )}
+                </td>
 
-            <td>
-                {editMode ? (
-                    <input
-                        className="text-black"
-                        name="latitude"
-                        value={formData.latitude}
-                        onChange={handleChange}
-                    />
-                ) : (
-                    device.latitude
-                )}
-            </td>
+                <td>
+                    {editMode ? (
+                        <input
+                            className="text-black"
+                            name="latitude"
+                            value={formData.latitude}
+                            onChange={handleChange}
+                        />
+                    ) : (
+                        device.latitude
+                    )}
+                </td>
 
-            <td>
-                {editMode ? (
-                    <input
-                        className="text-black"
-                        name="longitude"
-                        value={formData.longitude}
-                        onChange={handleChange}
-                    />
-                ) : (
-                    device.longitude
-                )}
-            </td>
+                <td>
+                    {editMode ? (
+                        <input
+                            className="text-black"
+                            name="longitude"
+                            value={formData.longitude}
+                            onChange={handleChange}
+                        />
+                    ) : (
+                        device.longitude
+                    )}
+                </td>
 
-            <td>
-                {device.ipCamera?.ip ? (
-                    <a
-                        href={`https://${device.ipCamera.ip}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        📷 View
-                    </a>
-                ) : (
-                    "-"
-                )}
-            </td>
-
-            <td>
-                <button onClick={handleDelete}>❌ Delete</button>
-            </td>
-
-            <td>
-                {editMode ? (
-                    <button onClick={saveEdit}>💾 Save</button>
-                ) : (
-                    <button onClick={() => setEditMode(true)}>✏️ Edit</button>
-                )}
-            </td>
-
-            <td>
-                {device.status === "pending" ? (
-                    <div className="flex gap-2">
-                        <button
-                            onClick={approveDevice}
-                            className="px-2 py-1 bg-green-600 rounded"
+                <td>
+                    {device.ipCamera?.ip ? (
+                        <a
+                            href={`https://${device.ipCamera.ip}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                         >
-                            ✔
-                        </button>
+                            📷 View
+                        </a>
+                    ) : (
+                        "-"
+                    )}
+                </td>
 
-                        <button
-                            onClick={rejectDevice}
-                            className="px-2 py-1 bg-red-600 rounded"
-                        >
-                            ✖
-                        </button>
-                    </div>
-                ) : (
-                    "-"
-                )}
-            </td>
+                <td>
+                    <button onClick={handleDelete}>❌ Delete</button>
+                </td>
 
-            {/* 🔥 STATUS COLUMN */}
-            <td>
-                {device.status === "pending" && "⏳ Pending"}
-                {device.status === "approved" && "✅ Approved"}
-                {device.status === "rejected" && "❌ Rejected"}
-            </td>
-        </tr>
+                <td>
+                    {editMode ? (
+                        <button onClick={saveEdit}>💾 Save</button>
+                    ) : (
+                        <button onClick={() => setEditMode(true)}>✏️ Edit</button>
+                    )}
+                </td>
+
+                <td>
+                    {device.status === "pending" ? (
+                        <div className="flex gap-2">
+                            <button
+                                onClick={approveDevice}
+                                className="px-2 py-1 bg-green-600 rounded"
+                            >
+                                ✔
+                            </button>
+
+                            <button
+                                onClick={rejectDevice}
+                                className="px-2 py-1 bg-red-600 rounded"
+                            >
+                                ✖
+                            </button>
+                        </div>
+                    ) : (
+                        device.approvedBy || "-"
+                    )}
+                </td>
+
+                {/* 🔥 STATUS COLUMN */}
+                <td>
+                    {device.status === "pending" && "⏳ Pending"}
+                    {device.status === "approved" && "✅ Approved"}
+                    {device.status === "rejected" && "❌ Rejected"}
+                </td>
+            </tr>
+
+
+            {
+                showPrompt && (
+                    <PasswordPrompt onSubmit={handlePasswordSubmit} onCancel={handlePasswordCancel} warningSign={promptWarning} />
+                )
+            }
+        </>
     );
 };
 
