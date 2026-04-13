@@ -17,12 +17,21 @@ services:
   alarm-worker:
     build: ./server
     container_name: ems-alarm-worker
-    command: node workers/alarmWorker.js
+    command: node workers/alarmLogWorker.js
     env_file:
       - ./server/.env
     depends_on:
       - rabbitmq
       - mongo
+
+  alarmComputation-worker:
+    build: ./server
+    container_name: ems-alarmComputation-worker
+    command: node workers/alarmComputationWorker.js
+    env_file:
+      - ./server/.env
+    depends_on:
+      - rabbitmq
 
   snapshot-worker:
     build: ./server
@@ -36,7 +45,7 @@ services:
   log-worker:
     build: ./server
     container_name: ems-log-worker
-    command: node workers/logWorker.js
+    command: node workers/IncLogWorker.js
     env_file:
       - ./server/.env
     depends_on:
