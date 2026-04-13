@@ -324,7 +324,7 @@ function DashboardView() {
     };
 
     try {
-      await fetch(`${API}/${API.logCommand}`, {
+      await fetch(`${PAPI}/${API.logCommand}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(logData),
