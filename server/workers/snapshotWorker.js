@@ -28,6 +28,27 @@ async function validateImage(filePath) {
     }
 }
 
+// CHECKING IMAGE SIZE [50 KB MINIMUM]
+async function imageSizeCheck(filePath) {
+    try {
+        const stat = fs.statSync(filePath);
+        const fileSizeInBytes = stat.size;
+        const fileSizeInKB = (fileSizeInBytes / (1024)).toFixed(2);
+        const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2);
+
+        return {
+            fileSize: {
+                bytes: fileSizeInBytes,
+                kb: parseFloat(fileSizeInKB),
+                mb: parseFloat(fileSizeInMB)
+            }
+        }
+    } catch (error) {
+        console.error('Error extracting image info:', error.message);
+        throw error;
+    }
+}
+
 
 // HiFocus Capture
 function captureHiFocus(ip, outputPath) {
@@ -192,6 +213,12 @@ async function captureTechno(ip, outputPath) {
     }
 
     const fileCheck = await imageSizeCheck(outputPath);
+
+    if (fileCheck.fileSize.kb < 50) {
+        throw new Error("Invalid Image | Size is less than 50kb");
+    }
+}
+
 
 
 
