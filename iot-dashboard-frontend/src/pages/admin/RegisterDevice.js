@@ -72,6 +72,7 @@ const RegisterDevice = () => {
 
             <form onSubmit={handleRegister} className="device-form-grid">
                 <input
+                    className="full-width"
                     placeholder="IP Address"
                     value={form.mac}
                     onChange={(e) =>
@@ -128,7 +129,7 @@ const RegisterDevice = () => {
                     onChange={(e) =>
                         setForm({ ...form, ipCameraMake: e.target.value })
                     }
-                    required
+                    // required
                 />
 
                 <input
@@ -137,7 +138,7 @@ const RegisterDevice = () => {
                     onChange={(e) =>
                         setForm({ ...form, ipCameraIp: e.target.value })
                     }
-                    required
+                    // required
                 />
 
                 <button type="submit">Register Device</button>
