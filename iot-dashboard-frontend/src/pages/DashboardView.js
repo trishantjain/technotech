@@ -11,6 +11,7 @@ import DevicePanel from "../components/DevicePanel";
 import { ADMIN_PASSWORD, ALARM_KEYS, HUPS_KEYS, LOG_CONSTANTS, STATUS_KEYS } from "../config/constants.js";
 import { getFormattedDateTime } from "../utils/date.js";
 import { API } from "../config/api.js";
+import PasswordPrompt from "../components/PasswordPrompt.jsx";
 
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
 
@@ -46,6 +47,7 @@ function DashboardView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingDevices, setLoadingDevices] = useState(true);
   const hasLoadedOnceRef = useRef(false);
+  const [showOpenPasswordPrompt, setShowOpenPasswordPrompt] = useState(false);
 
   const [rackTimer, setRackTimer] = useState(0);
   const [logTimer, setLogTimer] = useState(0);
@@ -60,6 +62,7 @@ function DashboardView() {
   // LOGS
   const lastResetAtRef = useRef(Date.now());
   const lastAlarmLogAtByMacRef = useRef({});
+  const latestReadingsByMacRef = useRef({});
 
   /**
    * Reads and parses logs from localStorage with age validation
@@ -216,7 +219,7 @@ function DashboardView() {
       clearInterval(interval);
     };
 
-  });
+  }, []);
 
   // 🔄 Auto-focus map on selected device
   useEffect(() => {
@@ -257,33 +260,34 @@ function DashboardView() {
         setLoadingDevices(true);
       }
 
-      const [readingsRes, devicesRes, deviceMetaRes] = await Promise.all([
+      const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled([
         fetch(`${PAPI}/${API.readings}`),
         fetch(`${PAPI}/${API.allDevices}`),
         fetch(`${PAPI}/${API.deviceInfo}`),
       ]);
 
-      // Fallback to [] if any response fails
-      let readingsData = [],
-        devicesData = [],
-        metadata = [];
+      if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
+        const readingsData = await readingsRes.value.json();
+        setReadings(Array.isArray(readingsData) ? readingsData : []);
+      }
 
-      if (readingsRes.ok) readingsData = await readingsRes.json();
-      if (devicesRes.ok) devicesData = await devicesRes.json();
-      if (deviceMetaRes.ok) metadata = await deviceMetaRes.json();
+      if (devicesRes.status === "fulfilled" && devicesRes.value.ok) {
+        const devicesData = await devicesRes.value.json();
+        setDevices(Array.isArray(devicesData) ? devicesData : []);
+      }
 
-      setReadings(Array.isArray(readingsData) ? readingsData : []);
-      setDevices(Array.isArray(devicesData) ? devicesData : []);
-      // setDeviceMeta(Array.isArray(metadata) ? metadata : []);
+      if (deviceMetaRes.status === "fulfilled" && deviceMetaRes.value.ok) {
+        const metadata = await deviceMetaRes.value.json();
 
-      setDeviceMeta(prev => {
-        const next = Array.isArray(metadata) ? metadata : [];
+        setDeviceMeta(prev => {
+          const next = Array.isArray(metadata) ? metadata : [];
 
-        if (shallowEqualDevices(prev, next)) {
-          return prev; // ✅ KEEP SAME REFERENCE
-        }
-        return next;
-      });
+          if (shallowEqualDevices(prev, next)) {
+            return prev; // ✅ KEEP SAME REFERENCE
+          }
+          return next;
+        });
+      }
 
       setRackTimer(0);
 
@@ -340,7 +344,7 @@ function DashboardView() {
       return;
     }
     try {
-      const res = await fetch(`${API}/${API.sendCommand}`, {
+      const res = await fetch(`/${API.sendCommand}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),
@@ -433,10 +437,25 @@ function DashboardView() {
 
   // Function: RESETTING PASSWORD ATTEMPT
   const openPassword = () => {
-    const pwd = window.prompt("Enter admin password to Open Lock:");
-    // const today = new Date();
-    if (pwd === ADMIN_PASSWORD) sendCommand(`%L00P${getFormattedDateTime()}$`);
-    else setStatus("Wrong password for opening lock!");
+    setShowOpenPasswordPrompt(true);
+  };
+
+  const handleOpenPasswordSubmit = (password) => {
+    if (!password) return;
+
+    if (password === ADMIN_PASSWORD) {
+      sendCommand(`%L00P${getFormattedDateTime()}$`);
+      sendToLog("Password Open Button Clicked");
+      setStatus("Password opened successfully!");
+    } else {
+      setStatus("Wrong password for opening lock!");
+    }
+
+    setShowOpenPasswordPrompt(false);
+  };
+
+  const handleOpenPasswordCancel = () => {
+    setShowOpenPasswordPrompt(false);
   };
 
   // CENTRALIZED ALARM COMPUTATION FUNCTION
@@ -484,7 +503,13 @@ function DashboardView() {
       reading.waterLogging ||
       reading.lockStatus === "OPEN" ||
       reading.doorStatus === "OPEN" ||
-      [1, 2, 3].includes(reading.password);
+      [1, 2, 3].includes(reading.password) ||
+      reading.mainStatus === 1 ||
+      reading.rectStatus === 1 ||
+      reading.inveStatus === 1 ||
+      reading.overStatus === 1 ||
+      reading.mptStatus === 1 ||
+      reading.mosfStatus === 1;
 
     if (hasStatusAlarm) return "status-alarm";
 
@@ -507,80 +532,109 @@ function DashboardView() {
   useEffect(() => {
     // const now = Date.now();
     // STORING CURRENT DEVICES STATUS
-    const prevMap = deviceStatusRef.current;
-    const nextMap = {};
+    // const prevMap = deviceStatusRef.current;
+    // const nextMap = {};
 
-    let changed = false;
+    // let changed = false;
 
 
-    // const nextStatusMap = {};
-    // let hasAnyChange = false;
+    // // const nextStatusMap = {};
+    // // let hasAnyChange = false;
 
-    for (const device of deviceMeta) {
-      const mac = device.mac;
-      const reading = latestReadingsByMac[mac];
+    // for (const device of deviceMeta) {
+    //   const mac = device.mac;
+    //   const reading = latestReadingsByMac[mac];
 
-      // COMPUTING DEVICE STATUS
-      const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
-      nextMap[mac] = newStatus;
+    //   // COMPUTING DEVICE STATUS
+    //   const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
+    //   nextMap[mac] = newStatus;
 
-      // CHECKING PREVIOUS AND CURRENT DEVICE STATUS
-      if (prevMap[mac] !== newStatus) {
-        changed = true;
-      }
-    }
-
-    // if (changed) {
-    //   const prevKeys = Object.keys(prevMap);
-    //   const nextKeys = Object.keys(nextMap);
-    //   if (prevKeys.length !== nextKeys.length) {
+    //   // CHECKING PREVIOUS AND CURRENT DEVICE STATUS
+    //   if (prevMap[mac] !== newStatus) {
     //     changed = true;
     //   }
     // }
 
-    if (changed) {
-      deviceStatusRef.current = nextMap;
-      setDeviceStatusMap(nextMap);
-    }
+    // // if (changed) {
+    // //   const prevKeys = Object.keys(prevMap);
+    // //   const nextKeys = Object.keys(nextMap);
+    // //   if (prevKeys.length !== nextKeys.length) {
+    // //     changed = true;
+    // //   }
+    // // }
+
+    // if (changed) {
+    //   deviceStatusRef.current = nextMap;
+    //   // setDeviceStatusMap(nextMap);
+
+    //   setDeviceStatusMap(prev => {
+    //     if (JSON.stringify(prev) === JSON.stringify(nextMap)) {
+    //       return prev; // ❌ no re-render
+    //     }
+    //     return nextMap; // ✅ only update if changed
+    //   });
+    // }
+
+
+    setDeviceStatusMap(prev => {
+      let hasChange = false;
+      const updated = { ...prev };
+
+      for (const device of deviceMeta) {
+        const mac = device.mac;
+        const reading = latestReadingsByMac[mac];
+
+        const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
+
+        if (prev[mac] !== newStatus) {
+          updated[mac] = newStatus;
+          hasChange = true;
+        }
+      }
+
+      return hasChange ? updated : prev;
+    });
   }, [deviceMeta, latestReadingsByMac]);
 
 
   // STORING LOGS BASED ON SELECTED MAC 
   useEffect(() => {
-    // If no device is selected
-    if (!selectedMac) return;
+    latestReadingsByMacRef.current = latestReadingsByMac;
+  }, [latestReadingsByMac]);
 
-    // Getting reading of selected mac
-    const reading = latestReadingsByMac[selectedMac];
-    if (!reading) return;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const mac = selectedMacRef.current;
+      if (!mac) return;
 
-    // Getting alarms for the selectedMac
-    const alarmResult = alarmComputation(reading, thresholds);
+      const reading = latestReadingsByMacRef.current[mac];
+      if (!reading) return;
 
-    if (alarmResult.alarms.length === 0) return;
+      const alarmResult = alarmComputation(reading, thresholds);
+      if (alarmResult.alarms.length === 0) return;
 
-    // add log entry per 5 seconds (per MAC)
-    const now = Date.now();
-    const lastAt = lastAlarmLogAtByMacRef.current[selectedMac] || 0;
-    if (now - lastAt < LOG_THROTTLE_MS) return;
-    lastAlarmLogAtByMacRef.current[selectedMac] = now;
+      const now = Date.now();
+      const lastAt = lastAlarmLogAtByMacRef.current[mac] || 0;
+      if (now - lastAt < LOG_THROTTLE_MS) return;
 
-    // Updating logs for selectedMac seperately
-    setLogsByMac(prev => {
-      const prevLogs = prev[selectedMac] || [];
-      const entry = `[${new Date().toLocaleTimeString()}] [${selectedMac}] ${alarmResult.alarms.join("| ")}`;
-      const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
+      lastAlarmLogAtByMacRef.current[mac] = now;
 
-      // setLastRefreshTime(Date.now());
-      return {
-        ...prev,
-        [selectedMac]: nextLogs
-      };
-    });
+      setLogsByMac(prev => {
+        const prevLogs = prev[mac] || [];
+        const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+        const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
-    setLogTimer(0);
+        return {
+          ...prev,
+          [mac]: nextLogs
+        };
+      });
 
-  }, [latestReadingsByMac, selectedMac]);
+      setLogTimer(0);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // STOPPING LOGS FROM DELETING AT REFRESH
   useEffect(() => {
@@ -706,7 +760,7 @@ function DashboardView() {
   const fetchSnapshots = async (selectedMac) => {
     try {
       // setActiveTab("snapshots");
-      if (selectedMac) {
+      if (selectedMac && activeTab === "snapshots") {
         let response = await fetch(
           `/api/snapshots/?mac=${selectedMac}`
         );
@@ -734,10 +788,11 @@ function DashboardView() {
 
   // Realtime notification when a snapshot is captured (server-sent events)
   useEffect(() => {
-    const baseUrl = API;
-    if (!baseUrl) return;
+    // const baseUrl = API;
+    // if (!baseUrl) return;
 
-    const es = new EventSource(`${baseUrl}/api/events/snapshots`);
+    // const es = new EventSource(`${baseUrl}/api/events/snapshots`);
+    const es = new EventSource(`/api/events/snapshots`);
 
     const onSnapshot = (evt) => {
       try {
@@ -831,6 +886,13 @@ function DashboardView() {
 
       {/* Dashboard */}
       <div className="dashboard">
+        {showOpenPasswordPrompt && (
+          <PasswordPrompt
+            onSubmit={handleOpenPasswordSubmit}
+            onCancel={handleOpenPasswordCancel}
+          />
+        )}
+
         <div className="panel">
           <div className="rack-header">
             <h2 className="selected-heading">
