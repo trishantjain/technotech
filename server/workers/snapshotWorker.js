@@ -18,6 +18,17 @@ function getFormattedDateTime() {
     return `${pad(d.getDate())}_${pad(d.getMonth() + 1)}_${String(d.getFullYear()).slice(-2)}_${pad(d.getHours())}_${pad(d.getMinutes())}_${pad(d.getSeconds())}`;
 }
 
+// VALIDATING IMAGE
+async function validateImage(filePath) {
+    try {
+        await sharp(filePath).toBuffer();
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+
 // HiFocus Capture
 function captureHiFocus(ip, outputPath) {
     return new Promise((resolve, reject) => {
@@ -172,7 +183,15 @@ async function captureTechno(ip, outputPath) {
     if (!stat.isFile() || stat.size === 0) {
         throw new Error(`ReadImage output file is empty or invalid: ${outputPath}`);
     }
-}
+
+    // 🔥 VALIDATE IMAGE
+    const isValid = await validateImage(outputPath);
+
+    if (!isValid) {
+        throw new Error("Corrupted image detected by sharp");
+    }
+
+    const fileCheck = await imageSizeCheck(outputPath);
 
 
 
@@ -246,6 +265,11 @@ async function startWorker() {
                 console.log("⏰ Snapshot for Hifocus Camera ⏰", mac);
                 // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
                 await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
+            }
+
+            const isValid = await validateImage(snapshotOutputPath);
+            if (!isValid) {
+                throw new Error("Corrupted image detected by sharp");
             }
 
             // await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
