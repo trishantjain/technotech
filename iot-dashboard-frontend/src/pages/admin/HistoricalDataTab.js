@@ -72,7 +72,7 @@ const HistoricalDataTab = () => {
 
             console.log("Alarm-history:", selectedMac, fromStr, "->", toStr);
             const res = await fetch(
-                `${API}/alarm-history?mac=${encodeURIComponent(selectedMac)}&from=${encodeURIComponent(fromDateTime)}&to=${encodeURIComponent(toDateTime)}`
+                `${api}/alarm-history?mac=${encodeURIComponent(selectedMac)}&from=${encodeURIComponent(fromDateTime)}&to=${encodeURIComponent(toDateTime)}`
             );
             const data = await res.json();
 
