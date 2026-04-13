@@ -355,7 +355,7 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
 
     res.json({ message: "Device registered successfully" });
   } catch (err) {
-    res.status(500).json({ error: "Error registering device" });
+    res.status(500).json({ error: err });
   }
 });
 

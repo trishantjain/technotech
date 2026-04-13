@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { spawn } = require("child_process");
+const sharp = require("sharp");
 
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
