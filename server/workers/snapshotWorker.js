@@ -315,12 +315,42 @@ async function startWorker() {
             );
 
             channel.ack(msg);
-        } catch (err) {
+        }
+
+        // catch (err) {
+        //     console.error("Snapshot worker error:", err?.stack || err);
+        //     // transient errors (camera offline etc) can be retried
+        //     channel.nack(msg, false, true);    
+        // }
+
+
+        catch (err) {
             console.error("Snapshot worker error:", err?.stack || err);
-            // transient errors (camera offline etc) can be retried
-            channel.nack(msg, false, true);
+
+            const retryCount = data.retryCount || 0;
+
+            // RETRY THE JOB MAXIMUM 3 TIMES
+            if (retryCount >= 3) {
+                console.error("Max retries reached → sending to DLQ");
+
+                channel.nack(msg, false, false); // ❗ goes to DLQ
+            } else {
+                console.log(`Retrying... attempt ${retryCount + 1}`);
+
+                channel.sendToQueue("snapshot.queue",
+                    Buffer.from(JSON.stringify({
+                        ...data,
+                        retryCount: retryCount + 1
+                    })),
+                    { persistent: true }
+                );
+
+                // REMOVE OLD MESSAGE
+                channel.ack(msg);
+            }
         }
     });
+
 }
 
 startWorker();
