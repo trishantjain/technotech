@@ -354,7 +354,13 @@ async function startWorker() {
     const connection = await amqp.connect(rabbitUrl);
     const channel = await connection.createChannel();
 
-    await channel.assertQueue("snapshot.queue", { durable: true });
+    await channel.assertQueue("snapshot.queue", {
+        durable: true,
+        arguments: {
+            "x-dead-letter-exchange": "",
+            "x-dead-letter-routing-key": "snapshot.dead"
+        }
+    });
     await channel.assertQueue("snapshot.done", { durable: true });
     channel.prefetch(50);
 
