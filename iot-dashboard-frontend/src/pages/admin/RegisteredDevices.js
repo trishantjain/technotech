@@ -52,6 +52,12 @@ const RegisteredDevices = () => {
         );
     };
 
+    const handleDeviceDeleted = (mac) => {
+        setDeviceList((prevDevices) =>
+            prevDevices.filter((dev) => dev.mac !== mac)
+        );
+    };
+
     const filteredDevices = deviceList.filter((device) => {
         const term = searchTerm.toLowerCase();
 
@@ -148,6 +154,7 @@ const RegisteredDevices = () => {
                                     key={device.mac}
                                     device={device}
                                     onUpdated={handleDeviceUpdated}
+                                    onDeleted={handleDeviceDeleted}
                                 />
                             ))
                         ) : (
@@ -165,7 +172,7 @@ const RegisteredDevices = () => {
 
 // ================= Editable Row =================
 
-const EditableRow = ({ device, onUpdated }) => {
+const EditableRow = ({ device, onUpdated, onDeleted }) => {
     const [editMode, setEditMode] = useState(false);
     const [formData, setFormData] = useState({ ...device });
     const [showPrompt, setShowPrompt] = useState(false);
@@ -194,6 +201,7 @@ const EditableRow = ({ device, onUpdated }) => {
         });
     };
 
+    // PASSWORD SUBMIT
     const handlePasswordSubmit = (password) => {
         if (!password) return;
         passwordResolver?.(password);
@@ -202,6 +210,7 @@ const EditableRow = ({ device, onUpdated }) => {
         setPasswordResolver(null);
     };
 
+    // PASSWORD CANCEL
     const handlePasswordCancel = () => {
         passwordResolver?.(null);
         setShowPrompt(false);
@@ -254,6 +263,8 @@ const EditableRow = ({ device, onUpdated }) => {
             if (!res.ok) throw new Error(data.error);
 
             alert("✅ Device deleted");
+
+            onDeleted(device.mac);
         } catch (err) {
             alert("❌ " + err.message);
         }
