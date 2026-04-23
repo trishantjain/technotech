@@ -114,7 +114,7 @@ async function captureTechno(ip, outputPath) {
 
 
     // HANDLING EXE FILE READ TIMEOUT
-    const timeoutMs = Number.parseInt(process.env.READIMAGE_TIMEOUT_MS || "20000", 10);
+    const timeoutMs = Number.parseInt(process.env.READIMAGE_TIMEOUT_MS || "45000", 10);
 
     if (!fs.existsSync(exePath)) {
         throw new Error(`ReadImage executable not found at: ${exePath}`);
@@ -170,7 +170,7 @@ async function captureTechno(ip, outputPath) {
         const timer = setTimeout(() => {
             try { child.kill(); } catch { /* ignore */ }
             reject(new Error(`ReadImage timed out after ${timeoutMs}ms (exe=${exePath}, ip=${ip}, out=${outputPath})`));
-        }, Number.isFinite(timeoutMs) ? timeoutMs : 20000);
+        }, Number.isFinite(timeoutMs) ? timeoutMs : 45000);
 
 
         // Process completion handler
@@ -212,11 +212,11 @@ async function captureTechno(ip, outputPath) {
         throw new Error("Corrupted image detected by sharp");
     }
 
-    const fileCheck = await imageSizeCheck(outputPath);
+    // const fileCheck = await imageSizeCheck(outputPath);
 
-    if (fileCheck.fileSize.kb < 50) {
-        throw new Error("Invalid Image | Size is less than 50kb");
-    }
+    // if (fileCheck.fileSize.kb < 50) {
+    //     throw new Error("Invalid Image | Size is less than 50kb");
+    // }
 }
 
 
@@ -355,13 +355,15 @@ async function startWorker() {
     const connection = await amqp.connect(rabbitUrl);
     const channel = await connection.createChannel();
 
-    await channel.assertQueue("snapshot.queue", {
-        durable: true,
-        arguments: {
-            "x-dead-letter-exchange": "",
-            "x-dead-letter-routing-key": "snapshot.dead"
-        }
-    });
+    // await channel.assertQueue("snapshot.queue", {
+    //     durable: true,
+    //     arguments: {
+    //         "x-dead-letter-exchange": "",
+    //         "x-dead-letter-routing-key": "snapshot.dead"
+    //     }
+    // });
+
+    await channel.assertQueue("snapshot.queue", { durable: true });
     await channel.assertQueue("snapshot.done", { durable: true });
     channel.prefetch(50);
 

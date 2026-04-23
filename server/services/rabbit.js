@@ -25,8 +25,20 @@ async function connectRabbit() {
             // Alarm Queue
             await channel.assertQueue("alarm.queue", { durable: true });
 
+            //! ADDED FOR DEAD LOCK QUEUE
+            // await channel.assertQueue("snapshot.dead", { durable: true });
+
             // Snapshot job queue
             await channel.assertQueue("snapshot.queue", { durable: true });
+
+            //! ADDED FOR DEAD LOCK QUEUE
+            // await channel.assertQueue("snapshot.queue", {
+            //     durable: true,
+            //     arguments: {
+            //         "x-dead-letter-exchange": "",          // default exchange
+            //         "x-dead-letter-routing-key": "snapshot.dead"
+            //     }
+            // });
 
             await channel.assertQueue("log.queue", { durable: true });
 
