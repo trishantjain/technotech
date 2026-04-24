@@ -899,9 +899,9 @@ function DashboardView() {
               📟 Selected Rack: {selectedMac && <span> {selectedDevice}</span>}
             </h2>
 
-            <div style={{ fontSize: "14px", marginTop: "5px" }}>
+            {/* <div style={{ fontSize: "14px", marginTop: "5px" }}>
               ⏱ Rack Refresh: {5 - rackTimer}
-            </div>
+            </div> */}
 
             {/* ALARM TOGGLE */}
             <div className="alarm-container">
@@ -1289,9 +1289,9 @@ function DashboardView() {
         {/* Panel 2: LOGS */}
         <div className="panel">
           <h2>📈 Live Logs
-            <span style={{ fontSize: "12px", marginLeft: "10px" }}>
+            {/* <span style={{ fontSize: "12px", marginLeft: "10px" }}>
               🔄 Logs Refresh: {Math.max(5 - logTimer, 0)}
-            </span>
+            </span> */}
           </h2>
 
           {/* LOG SECTION */}
