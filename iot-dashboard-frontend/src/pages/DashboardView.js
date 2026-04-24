@@ -344,7 +344,7 @@ function DashboardView() {
       return;
     }
     try {
-      const res = await fetch(`/${API.sendCommand}`, {
+      const res = await fetch(`/${API.sendCommandToDevice}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),

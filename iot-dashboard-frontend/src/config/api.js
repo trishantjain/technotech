@@ -4,7 +4,7 @@ export const API = {
     deviceInfo: 'devices-info',
     adminDevices: 'admin/devices',
     logCommand: 'log-command',
-    sendCommand: 'command',
+    sendCommandToDevice: 'command',
     historicalData: 'historical-data',
     registerDevice: 'register-device'
 };
