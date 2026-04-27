@@ -61,6 +61,8 @@ const DevicePanel = React.memo(function DevicePanel({
                         placeholder="🔍 Search by Address or IP..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        autoComplete="off"
+                        name="device-search"
                     />
                 </div>
             </div>

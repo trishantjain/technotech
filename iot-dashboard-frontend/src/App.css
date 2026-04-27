@@ -1441,3 +1441,15 @@ input:not(:checked)+.slider:before {
 }
 
 /* ================= LOG PANEL ================= */
+
+.swal2-container {
+  z-index: 99999 !important;
+}
+
+/* 🔻 Push Leaflet UI below modal */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control {
+  z-index: 400 !important;
+}

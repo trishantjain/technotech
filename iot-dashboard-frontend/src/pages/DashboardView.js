@@ -392,6 +392,9 @@ function DashboardView() {
     const { value: password } = await swal.fire({
       title: "Enter Admin password",
       input: "password",
+      inputAttributes: {
+        autocomplete: "new-password"
+      },
       inputLabel: "Password",
       inputPlaceholder: "Enter admin password",
       showCancelButton: true,

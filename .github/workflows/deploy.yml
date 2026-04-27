@@ -16,52 +16,43 @@ jobs:
       uses: actions/checkout@v3
 
     # Setup Node for React build
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18
+    # - name: Setup Node
+    #   uses: actions/setup-node@v3
+    #   with:
+    #     node-version: 18
 
     # Install frontend dependencies
-    - name: Install Frontend Dependencies
-      run: |
-        cd iot-dashboard-frontend
-        npm install
+    # - name: Install Frontend Dependencies
+    #   run: |
+    #     cd iot-dashboard-frontend
+    #     npm install
 
     # Build React frontend
-    - name: Build React
-      run: |
-        cd iot-dashboard-frontend
-        npm run build
+    # - name: Build React
+    #   run: |
+    #     cd iot-dashboard-frontend
+    #     npm run build
 
     # Clean old frontend files on server
-    - name: Clean old frontend
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          sudo rm -rf /var/www/ems/*
+    # - name: Clean old frontend
+    #   uses: appleboy/ssh-action@v1.0.3
+    #   with:
+    #     host: ${{ secrets.EC2_HOST }}
+    #     username: ubuntu
+    #     key: ${{ secrets.EC2_SSH_KEY }}
+    #     script: |
+    #       sudo rm -rf /var/www/ems/*
 
     # Upload new frontend build
-    - name: Upload Frontend Build
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: "iot-dashboard-frontend/build"
-        target: "/var/www/ems/"
+    # - name: Upload Frontend Build
+    #   uses: appleboy/scp-action@v0.1.7
+    #   with:
+    #     host: ${{ secrets.EC2_HOST }}
+    #     username: ubuntu
+    #     key: ${{ secrets.EC2_SSH_KEY }}
+    #     source: "iot-dashboard-frontend/build"
+    #     target: "/var/www/ems/"
 
-    # Reload Nginx so new build is served
-    - name: Reload Nginx
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          sudo systemctl reload nginx
 
     # Deploy backend docker containers
     - name: Deploy Backend
@@ -82,3 +73,16 @@ jobs:
 
           echo "Cleanup unused docker images"
           docker system prune -f
+
+          echo "Reload Nginx"
+          sudo systemctl reload nginx
+
+    # Reload Nginx so new build is served
+    # - name: Reload Nginx
+    #   uses: appleboy/ssh-action@v1.0.3
+    #   with:
+    #     host: ${{ secrets.EC2_HOST }}
+    #     username: ubuntu
+    #     key: ${{ secrets.EC2_SSH_KEY }}
+    #     script: |
+    #       sudo systemctl reload nginx
