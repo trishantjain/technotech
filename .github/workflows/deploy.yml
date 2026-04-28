@@ -62,20 +62,55 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
+          # cd /home/ubuntu/technotech
+
+          # echo "Pull latest code"
+          # git fetch origin
+          # git reset --hard origin/master
+
+          # echo "Rebuild docker containers"
+          # docker-compose up -d --build
+
+          # echo "Cleanup unused docker images"
+          # docker system prune -f
+
+          # echo "Reload Nginx"
+          # sudo systemctl reload nginx
+
+          set -e
+
           cd /home/ubuntu/technotech
 
           echo "Pull latest code"
           git fetch origin
           git reset --hard origin/master
 
-          echo "Rebuild docker containers"
-          docker-compose up -d --build
+          echo "Validate compose services"
+          docker-compose config --services
+          docker-compose config --services | grep -qx api
+
+          echo "Start dependencies"
+          docker-compose up -d --build --force-recreate mongo rabbitmq
+          sleep 25
+
+          echo "Start API"
+          docker-compose up -d --build --force-recreate api
+
+          echo "Verify API container is running"
+          docker ps --filter "name=ems-api"
+          docker inspect -f '{{.State.Running}}' ems-api | grep true
+
+          echo "Verify latest code inside API container"
+          docker exec ems-api grep -n "api/admin/devices" /app/server_IP.js
+
+          echo "Verify API health"
+          curl -fsS http://localhost:5000/api/ping
+
+          echo "Start workers"
+          docker-compose up -d --build --force-recreate alarm-worker alarmcomputation-worker snapshot-worker log-worker
 
           echo "Cleanup unused docker images"
           docker system prune -f
-
-          echo "Reload Nginx"
-          sudo systemctl reload nginx
 
     # Reload Nginx so new build is served
     # - name: Reload Nginx
