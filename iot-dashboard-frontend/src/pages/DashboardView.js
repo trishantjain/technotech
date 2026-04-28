@@ -779,7 +779,7 @@ function DashboardView() {
 
       // setActiveTab("snapshots");
       // if (selectedMac && activeTab === "snapshots") {
-      let response = await fetch(`/api/snapshots/?mac=${selectedMac}`);
+      let response = await fetch(`/api/snapshots?mac=${selectedMac}`);
       const snapshotFiles = await response.json();
       setSnapshots(snapshotFiles);
       // } else {
