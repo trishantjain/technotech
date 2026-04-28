@@ -500,24 +500,38 @@ app.put("/api/device/approve/:mac", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
+    console.log("Checking admin login")
+
     const mac = req.params.mac.toLowerCase();
 
     const device = await Device.findOne({ mac });
     if (!device) return res.status(404).json({ error: "Device not found" });
 
+    console.log("Checking device")
+
     if (device.status === "approved") {
       return res.status(400).json({ error: "Already approved" });
     }
+
+    if (!device.createdBy) {
+      device.createdBy = req.user.username;
+    }
+
+    console.log("Checking device current status")
 
     device.status = "approved";
     device.approvedAt = new Date();
     device.approvedBy = req.user.username;
 
+    console.log("Saving device")
+    console.log(device)
     await device.save();
+    console.log("Device saved")
 
     res.json(device);
 
   } catch (err) {
+    console.error("Approve failed:", err);
     res.status(500).json({ error: "Approve failed" });
   }
 });
@@ -534,6 +548,10 @@ app.put("/api/device/reject/:mac", authMiddleware, async (req, res) => {
     const device = await Device.findOne({ mac });
     if (!device) return res.status(404).json({ error: "Device not found" });
 
+    if (!device.createdBy) {
+      device.createdBy = req.user.username;
+    }
+
     device.status = "rejected";
     device.approvedAt = new Date();
     device.approvedBy = req.user.username;
@@ -543,6 +561,7 @@ app.put("/api/device/reject/:mac", authMiddleware, async (req, res) => {
     res.json(device);
 
   } catch (err) {
+    console.error("Reject failed:", err);
     res.status(500).json({ error: "Reject failed" });
   }
 });
@@ -611,7 +630,7 @@ app.get("/api/snapshots", (req, res) => {
           return getKey(b).localeCompare(getKey(a));
         })
         .slice(0, 15); // Get last 15 images
-        console.log("snapshots: ", files)
+      console.log("snapshots: ", files)
     } catch (dirErr) {
 
       console.error("Snapshots directory not found or error reading:", dirErr.message);

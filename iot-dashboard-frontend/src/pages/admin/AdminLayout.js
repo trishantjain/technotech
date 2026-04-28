@@ -78,7 +78,7 @@ const AdminLayout = () => {
                     {/* <li onClick={() => navigate("/admin/registered-devices")}>
                         🖥 {sidebarCollapsed && !isMobile ? "" : "Registered Devices"}
                     </li> */}
-                    <li onClick={() => navigate("/admin/color-scheme")}>
+                    <li className="disabled-menu-item" onClick={() => navigate("/admin/color-scheme")}>
                         🎨 {sidebarCollapsed && !isMobile ? "" : "Alarm Colors"}
                     </li>
                     <li onClick={() => navigate("/admin/dashboard")}>

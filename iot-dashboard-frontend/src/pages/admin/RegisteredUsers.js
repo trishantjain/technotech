@@ -194,7 +194,7 @@ const UserRow = ({ user, onEdit, onDelete }) => {
                                 setFormData({ ...formData, password: e.target.value })
                             }
                         />
-                        <button
+                        <button className="ml-2 text-black bg-white"
                             onClick={() => {
                                 onEdit(user, formData.username, formData.role, formData.password);
                                 setEditMode(false);

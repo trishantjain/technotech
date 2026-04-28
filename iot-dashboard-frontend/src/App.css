@@ -1453,3 +1453,9 @@ input:not(:checked)+.slider:before {
 .leaflet-control {
   z-index: 400 !important;
 }
+
+.disabled-menu-item {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}
