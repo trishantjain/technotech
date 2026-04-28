@@ -1425,9 +1425,9 @@ const server = net.createServer((socket) => {
         const waterLogging = !!packet[31]; // "!!" -> converts true/false to 1/0
         const waterLeakage = !!packet[32];
 
-        const outputVoltage = (+packet.readInt16LE(33).toFixed(2));
+        const outputVoltage = (+packet.readInt16LE(33).toFixed(2))/100;
         const hupsDVC = packet.readInt16LE(35);
-        const inputVoltage = (+packet.readInt16LE(37).toFixed(2));
+        const inputVoltage = (+packet.readInt16LE(37).toFixed(2))/100;
         const hupsBatVolt = packet.readInt16LE(39);
         const batteryBackup = +packet.readFloatLE(41).toFixed(2);
 

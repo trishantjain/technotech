@@ -12,6 +12,8 @@ import { ADMIN_PASSWORD, ALARM_KEYS, HUPS_KEYS, LOG_CONSTANTS, STATUS_KEYS } fro
 import { getFormattedDateTime } from "../utils/date.js";
 import { API } from "../config/api.js";
 import PasswordPrompt from "../components/PasswordPrompt.jsx";
+import { useNavigate } from "react-router-dom";
+
 
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
 
@@ -25,6 +27,9 @@ const PAPI = "/api";
 // const PAPI = "/api/";
 
 function DashboardView() {
+  const navigate = useNavigate();
+  const role = localStorage.getItem("role");
+
   const [readings, setReadings] = useState([]);
 
   // eslint-disable-next-line
@@ -530,6 +535,13 @@ function DashboardView() {
     return "connected";
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    navigate("/");
+  };
+
+
 
   // DEVICE STATUS COMPUTATION FOR MAP & DEVICE PANEL
   useEffect(() => {
@@ -762,20 +774,28 @@ function DashboardView() {
 
   const fetchSnapshots = async (selectedMac) => {
     try {
+
+      if (!selectedMac) return;
+
       // setActiveTab("snapshots");
-      if (selectedMac && activeTab === "snapshots") {
-        let response = await fetch(
-          `/api/snapshots/?mac=${selectedMac}`
-        );
-        const snapshotFiles = await response.json();
-        setSnapshots(snapshotFiles);
-      } else {
-        setSnapshots([]);
-      }
+      // if (selectedMac && activeTab === "snapshots") {
+      let response = await fetch(`/api/snapshots/?mac=${selectedMac}`);
+      const snapshotFiles = await response.json();
+      setSnapshots(snapshotFiles);
+      // } else {
+      //   setSnapshots([]);
+      // }
     } catch (err) {
       console.error("Error fetching snapshots:", err);
     }
   };
+
+
+  useEffect(() => {
+    if (activeTab !== "snapshots" || !selectedMac) return;
+
+    fetchSnapshots(selectedMac);
+  }, [activeTab, selectedMac]);
 
 
   // Fetch snapshots on component mount
@@ -933,7 +953,8 @@ function DashboardView() {
                 </button>
                 <button
                   className={activeTab === "snapshots" ? "active" : ""}
-                  onClick={() => { setActiveTab("snapshots"); fetchSnapshots(selectedMac); }}
+                  onClick={() => { setActiveTab("snapshots"); }}
+                // onClick={() => { setActiveTab("snapshots"); fetchSnapshots(selectedMac); }}
                 >
                   Snapshots
                 </button>
@@ -1191,7 +1212,7 @@ function DashboardView() {
                       {selectedImage.split("/").pop()} (
                       {snapshots.findIndex(
                         (img) =>
-                          `${PAPI}/snapshots/${img}` ===
+                          `${PAPI}/snapshots/${img}?mac=${selectedMac}` ===
                           selectedImage
                       ) + 1}{" "}
                       of {snapshots.length})
@@ -1207,14 +1228,14 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${PAPI}/snapshots/${img}` ===
+                              `${PAPI}/snapshots/${img}?mac=${selectedMac}` ===
                               selectedImage
                           );
                           const prevIndex =
                             (currentIndex - 1 + snapshots.length) %
                             snapshots.length;
                           setSelectedImage(
-                            `${PAPI}/snapshots/${snapshots[prevIndex]}`
+                            `${PAPI}/snapshots/${snapshots[prevIndex]}?mac=${selectedMac}`
                           );
                         }}
                       >
@@ -1226,13 +1247,13 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${PAPI}/snapshots/${img}` ===
+                              `${PAPI}/snapshots/${img}?mac=${selectedMac}` ===
                               selectedImage
                           );
                           const nextIndex =
                             (currentIndex + 1) % snapshots.length;
                           setSelectedImage(
-                            `${PAPI}/snapshots/${snapshots[nextIndex]}`
+                            `${PAPI}/snapshots/${snapshots[nextIndex]}?mac=${selectedMac}`
                           );
                         }}
                       >
@@ -1269,7 +1290,7 @@ function DashboardView() {
                         >
                           <img
                             key={i}
-                            src={`http://localhost:3000${PAPI}/snapshots/${filename}?mac=${selectedMac}`}
+                            src={`${PAPI}/snapshots/${filename}?mac=${selectedMac}`}
                             alt={`snapshot-${i + 1}`}
                             onError={(e) => {
                               e.target.src =
@@ -1291,11 +1312,19 @@ function DashboardView() {
 
         {/* Panel 2: LOGS */}
         <div className="panel">
-          <h2>📈 Live Logs
-            {/* <span style={{ fontSize: "12px", marginLeft: "10px" }}>
-              🔄 Logs Refresh: {Math.max(5 - logTimer, 0)}
-            </span> */}
-          </h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2>📈 Live Logs
+              {/* <span style={{ fontSize: "12px", marginLeft: "10px" }}>
+                🔄 Logs Refresh: {Math.max(5 - logTimer, 0)}
+              </span> */}
+            </h2>
+            {role !== "admin" && (
+              <button type="button" onClick={handleLogout} className="px-3 py-1 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700">
+                Logout
+              </button>
+            )}
+          </div>
+
 
           {/* LOG SECTION */}
           <div className="w-full h-64 overflow-y-auto bg-black border rounded-md log-scroll"
