@@ -89,8 +89,11 @@ jobs:
           docker compose config --services
           docker compose config --services | grep -qx api
 
+          echo "Stop old containers"
+          docker compose down
+
           echo "Start dependencies"
-          docker compose up -d --build --force-recreate mongo rabbitmq
+          docker compose up -d --build mongo rabbitmq
           sleep 25
 
           echo "Start API"
