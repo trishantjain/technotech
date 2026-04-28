@@ -86,15 +86,15 @@ jobs:
           git reset --hard origin/master
 
           echo "Validate compose services"
-          docker-compose config --services
-          docker-compose config --services | grep -qx api
+          docker compose config --services
+          docker compose config --services | grep -qx api
 
           echo "Start dependencies"
-          docker-compose up -d --build --force-recreate mongo rabbitmq
+          docker compose up -d --build --force-recreate mongo rabbitmq
           sleep 25
 
           echo "Start API"
-          docker-compose up -d --build --force-recreate api
+          docker compose up -d --build --force-recreate api
 
           echo "Verify API container is running"
           docker ps --filter "name=ems-api"
@@ -107,7 +107,7 @@ jobs:
           curl -fsS http://localhost:5000/api/ping
 
           echo "Start workers"
-          docker-compose up -d --build --force-recreate alarm-worker alarmcomputation-worker snapshot-worker log-worker
+          docker compose up -d --build --force-recreate alarm-worker alarmcomputation-worker snapshot-worker log-worker
 
           echo "Cleanup unused docker images"
           docker system prune -f
