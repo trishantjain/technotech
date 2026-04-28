@@ -24,9 +24,9 @@ services:
       - rabbitmq
       - mongo
 
-  alarmComputation-worker:
+  alarmcomputation-worker:
     build: ./server
-    container_name: ems-alarmComputation-worker
+    container_name: ems-alarmcomputation-worker
     command: node workers/alarmComputationWorker.js
     env_file:
       - ./server/.env
