@@ -62,21 +62,6 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # cd /home/ubuntu/technotech
-
-          # echo "Pull latest code"
-          # git fetch origin
-          # git reset --hard origin/master
-
-          # echo "Rebuild docker containers"
-          # docker-compose up -d --build
-
-          # echo "Cleanup unused docker images"
-          # docker system prune -f
-
-          # echo "Reload Nginx"
-          # sudo systemctl reload nginx
-
           set -e
 
           cd /home/ubuntu/technotech
@@ -86,7 +71,6 @@ jobs:
           git reset --hard origin/master
 
           echo "Validate compose services"
-          docker compose config --services
           docker compose config --services | grep -qx api
 
           echo "Stop old containers"
@@ -99,12 +83,12 @@ jobs:
           echo "Start API"
           docker compose up -d --build --force-recreate api
 
+          echo "Waiting for API to be ready..."
+          sleep 20
+
           echo "Verify API container is running"
           docker ps --filter "name=ems-api"
           docker inspect -f '{{.State.Running}}' ems-api | grep true
-
-          echo "Verify latest code inside API container"
-          docker exec ems-api grep -n "api/admin/devices" /app/server_IP.js
 
           echo "Verify API health"
           curl -fsS http://localhost:5000/api/ping
