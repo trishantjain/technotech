@@ -13,6 +13,8 @@ services:
     depends_on:
       - rabbitmq
       - mongo
+    volumes:
+      - /var/lib/ems/snap:/var/lib/ems/snap
 
   alarm-worker:
     build: ./server
