@@ -207,8 +207,8 @@ function DashboardView() {
 
 
   // const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
-  const latestReading = readings.find((r) => r.mac === selectedMac);
-
+  // const latestReading = readings.find((r) => r.mac === selectedMac);
+  const latestReading = latestReadingsByMac[selectedMac];
 
   // UseEffect for fetching Data
   useEffect(() => {
@@ -257,6 +257,7 @@ function DashboardView() {
     return true;
   }
 
+  const prevReadingsRef = useRef([]);
 
   // FETCH DATA
   const fetchData = async () => {
@@ -271,9 +272,65 @@ function DashboardView() {
         fetch(`${PAPI}/${API.deviceInfo}`),
       ]);
 
+      // if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
+      //   const readingsData = await readingsRes.value.json();
+      //   setReadings(Array.isArray(readingsData) ? readingsData : []);
+      // }
+      let readingsData = [];
+
       if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
-        const readingsData = await readingsRes.value.json();
-        setReadings(Array.isArray(readingsData) ? readingsData : []);
+        const data = await readingsRes.value.json();
+        readingsData = Array.isArray(data) ? data : [];
+
+        const isSame =
+          prevReadingsRef.current.length === readingsData.length &&
+          readingsData.every((r) => {
+            const prev = prevReadingsRef.current.find(p => p.mac === r.mac);
+            return prev && prev.timestamp === r.timestamp;
+          });
+
+        console.log("FETCH TIME:", new Date().toLocaleTimeString());
+        console.log("IS SAME DATA:", isSame);
+
+        if (!isSame) {
+          console.log("✅ NEW DATA ARRIVED");
+
+          setReadings(readingsData);
+          setRackTimer(0);
+          prevReadingsRef.current = readingsData;
+
+          // 🔥 ADD THIS BLOCK (LOGGING HERE)
+          const mac = selectedMacRef.current;
+          if (mac) {
+            const reading = readingsData.find(r => r.mac === mac);
+            if (reading) {
+              const alarmResult = alarmComputation(reading, thresholds);
+
+              const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+
+              setLogsByMac(prev => {
+                const prevLogs = prev[mac] || [];
+                const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
+
+                return {
+                  ...prev,
+                  [mac]: nextLogs
+                };
+              });
+
+              setLogTimer(0);
+            }
+          }
+        } else {
+          console.log("❌ SAME DATA (NO UPDATE)");
+        }
+
+        // safe logging
+        console.log("DATA:", readingsData.map(r => ({
+          mac: r.mac,
+          ts: r.timestamp,
+          temp: r.insideTemperature
+        })));
       }
 
       if (devicesRes.status === "fulfilled" && devicesRes.value.ok) {
@@ -294,8 +351,8 @@ function DashboardView() {
         });
       }
 
-      setRackTimer(0);
 
+      // setRackTimer(0);
       // console.log("readingData", readingsData);
     } catch (err) {
       console.error("❌Error fetching data:", err);
@@ -478,6 +535,12 @@ function DashboardView() {
     if (reading.lockStatus === "OPEN") alarms.push("Lock Open ");
     if (reading.doorStatus === "OPEN") alarms.push("Door Open ");
     if (reading.pwsFailCount === 3) alarms.push("Password Blocked ")
+    if (reading.mainStatus === 1) alarms.push("Main Alarm")
+    if (reading.rectStatus === 1) alarms.push("Rectifier Alarm")
+    if (reading.inveStatus === 1) alarms.push("Inverter Alarm")
+    if (reading.overStatus === 1) alarms.push("Overload Alarm")
+    if (reading.mptStatus === 1) alarms.push("MPT Alarm")
+    if (reading.mosfStatus === 1) alarms.push("MOSFET Alarm")
 
     // threshold-based
     if (reading.insideTemperatureAlarm && (reading.insideTemperature < thresholds.insideTemperature.min)) alarms.push("Low In. Temp. ");
@@ -617,39 +680,77 @@ function DashboardView() {
     latestReadingsByMacRef.current = latestReadingsByMac;
   }, [latestReadingsByMac]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const mac = selectedMacRef.current;
-      if (!mac) return;
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     const mac = selectedMacRef.current;
+  //     if (!mac) return;
 
-      const reading = latestReadingsByMacRef.current[mac];
-      if (!reading) return;
+  //     const reading = latestReadingsByMacRef.current[mac];
+  //     if (!reading) return;
 
-      const alarmResult = alarmComputation(reading, thresholds);
-      if (alarmResult.alarms.length === 0) return;
+  //     const alarmResult = alarmComputation(reading, thresholds);
+  //     if (alarmResult.alarms.length === 0) return;
 
-      const now = Date.now();
-      const lastAt = lastAlarmLogAtByMacRef.current[mac] || 0;
-      if (now - lastAt < LOG_THROTTLE_MS) return;
+  //     const now = Date.now();
+  //     const lastAt = lastAlarmLogAtByMacRef.current[mac] || 0;
+  //     if (now - lastAt < LOG_THROTTLE_MS) return;
 
-      lastAlarmLogAtByMacRef.current[mac] = now;
+  //     lastAlarmLogAtByMacRef.current[mac] = now;
 
-      setLogsByMac(prev => {
-        const prevLogs = prev[mac] || [];
-        const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
-        const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
+  //     setLogsByMac(prev => {
+  //       const prevLogs = prev[mac] || [];
+  //       const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+  //       const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
-        return {
-          ...prev,
-          [mac]: nextLogs
-        };
-      });
+  //       return {
+  //         ...prev,
+  //         [mac]: nextLogs
+  //       };
+  //     });
 
-      setLogTimer(0);
-    }, 1000);
+  //     setLogTimer(0);
+  //   }, 1000);
 
-    return () => clearInterval(interval);
-  }, []);
+  //   return () => clearInterval(interval);
+  // }, []);
+
+  // useEffect(() => {
+
+  //   const mac = selectedMac;
+  //   if (!mac) return;
+
+  //   const reading = latestReadingsByMac[mac];
+  //   if (!reading) return;
+
+  //   const alarmResult = alarmComputation(reading, thresholds);
+  //   if (alarmResult.alarms.length === 0) return;
+
+  //   const now = Date.now();
+  //   const lastAt = lastAlarmLogAtByMacRef.current[mac] || 0;
+
+  //   if (now - lastAt < LOG_THROTTLE_MS) return;
+
+  //   lastAlarmLogAtByMacRef.current[mac] = now;
+
+  //   setLogsByMac(prev => {
+  //     const prevLogs = prev[mac] || [];
+
+  //     const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+
+  //     const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
+
+  //     return {
+  //       ...prev,
+  //       [mac]: nextLogs
+  //     };
+  //   });
+
+  //   console.log("NEW DATA", reading.timestamp);
+  //   console.log("ALARMS", alarmResult.alarms);
+
+  //   setLogTimer(0);
+
+  // }, [latestReadingsByMac, selectedMac]);
 
   // STOPPING LOGS FROM DELETING AT REFRESH
   useEffect(() => {
