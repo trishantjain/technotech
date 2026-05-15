@@ -1658,6 +1658,7 @@ const server = net.createServer((socket) => {
           lockStatus,
           fireAlarm,
           fanStatus,
+          pwsFailCount,
           timestamp: new Date()
         });
 

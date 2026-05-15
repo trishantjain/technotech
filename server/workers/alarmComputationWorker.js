@@ -18,6 +18,7 @@ async function start() {
       doorStatus,
       lockStatus,
       fireAlarm,
+      pwsFailCount,
       fanStatus
     } = data;
 
@@ -61,6 +62,11 @@ async function start() {
 
     if (batteryBackup < thresholds.batteryBackup.min) {
       activeAlarms.push(`Battery Backup: ${batteryBackup}`);
+    }
+
+    const wrongPasswordAttempts = Number(pwsFailCount);
+    if (Number.isFinite(wrongPasswordAttempts) && wrongPasswordAttempts > 0) {
+      activeAlarms.push(`Wrong password attempt: ${wrongPasswordAttempts}`);
     }
 
     // 🔔 Binary alarms
