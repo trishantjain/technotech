@@ -431,7 +431,12 @@ function DashboardView() {
   };
 
   const handleFanClick = (level) => {
-    const isActive = activeFanBtns.includes(level);
+    // const isActive = activeFanBtns.includes(level);
+    const isActive =
+      level === 5
+        ? activeFanBtns.includes(5)
+        : latestReading?.[`fanLevel${level}Running`] === true;
+
     const command = isActive
       ? `%R0${level}F${getFormattedDateTime()}$`
       : `%R0${level}N${getFormattedDateTime()}$`;
@@ -454,11 +459,18 @@ function DashboardView() {
     console.log("Command: ", command);
 
     // Update UI immediately (optional, for instant feedback)
-    setActiveFanBtns(
-      isActive
-        ? activeFanBtns.filter((l) => l !== level)
-        : [...activeFanBtns, level]
-    );
+    // setActiveFanBtns(
+    //   isActive
+    //     ? activeFanBtns.filter((l) => l !== level)
+    //     : [...activeFanBtns, level]
+    // );
+    if (level === 5) {
+      setActiveFanBtns((prev) =>
+        prev.includes(5)
+          ? prev.filter((l) => l !== 5)
+          : [...prev, 5]
+      );
+    }
   };
 
   // New code for Open Lock (using Sweetalert2)
@@ -1113,21 +1125,21 @@ function DashboardView() {
                   />
                   <Gauge
                     label="DV Current"
-                    value={(latestReading.inputVoltage).toFixed(2)}
+                    value={(latestReading.hupsDVC).toFixed(2)}
                     max={45}
                     color={latestReading.inputVoltage < thresholds.inputVoltage.min ? "#ec7632" : latestReading.inputVoltage >= thresholds.inputVoltage.max ? "#fb1616" : "#67b816"}
                     alarm={alarmToggle ? latestReading.inputVoltageAlarm : false}
                   />
                   <Gauge
                     label="Battery %"
-                    value={(latestReading.batteryBackup * 1.5).toFixed(2)}
+                    value={(latestReading.hupsBatVolt * 1.5).toFixed(2)}
                     max={120}
                     color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
                   />
                   <Gauge
                     label="Battery(Hours)"
-                    value={(latestReading.batteryBackup).toFixed(2)}
+                    value={(latestReading.hupsBatVolt).toFixed(2)}
                     max={120}
                     color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
                     alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
@@ -1244,7 +1256,7 @@ function DashboardView() {
                     {hupsKeys.map((hups, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${latestReading[hups.key] ? "active" : ""
+                          className={`alarm-led ${latestReading[hups.key] ? "" : "active"
                             }`}
                         />
                         <div className="alarm-label">
@@ -1270,11 +1282,19 @@ function DashboardView() {
                     {[1, 2, 3, 4, 5].map((level) => (
                       <div key={level} className="fan-light">
                         <button
-                          className={`power-btn ${activeFanBtns.includes(level) ||
-                            (latestReading &&
-                              latestReading[`fanLevel${level}Running`] === true)
-                            ? "active"
-                            : ""
+                          // className={`power-btn ${activeFanBtns.includes(level) ||
+                          //   (latestReading &&
+                          //     latestReading[`fanLevel${level}Running`] === true)
+                          //   ? "active"
+                          //   : ""
+                          //   }`}
+                          className={`power-btn ${level === 5
+                            ? activeFanBtns.includes(5)
+                              ? "active"
+                              : ""
+                            : latestReading?.[`fanLevel${level}Running`] === true
+                              ? "active"
+                              : ""
                             }`}
                           onClick={() => handleFanClick(level)}
                         />
