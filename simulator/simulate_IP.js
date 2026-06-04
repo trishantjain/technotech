@@ -387,7 +387,7 @@ function startDevice(mac, index) {
           const outsideTemp = simulatorState.mode === 'random' ? triggerAlarm ? 65 + Math.random() * 10 : 40 + Math.random() * 5 : simulatorState.outsideTemperature;
           const lockStatus = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.lock ? 1 : 0;
           // const doorStatus = Math.random() < 0.5 ? 1 : 0;
-          console.log("Lock Status: ", lockStatus);
+          // console.log("Lock Status: ", lockStatus);
           const doorStatus = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.door ? 1 : 0;
           const waterLogging = simulatorState.mode === 'random' ? triggerAlarm && Math.random() < 0.2 ? 1 : 0 : simulatorState.logging ? 1 : 0;
           const waterLeakage = simulatorState.mode === 'random' ? !triggerAlarm && Math.random() < 0.2 ? 1 : 0 : simulatorState.leakage ? 1 : 0;
@@ -523,12 +523,13 @@ function startDevice(mac, index) {
           console.log(`Byte used by packet: ${len}`);
 
           const status = isDisconnectedSim && sendCount >= 3 ? '❌ DISCONNECTED' : triggerAlarm ? '🚨 ALARM' : '✅ NORMAL';
-          console.log(`📤 [${mac}] ${status} | Sending packet PACKET ${packet.toString('hex')} of COUNT #${sendCount}`);
-          console.log(`[${mac}] Packet padding byte at offset 51: 0x${packet[51]}`);
-          console.log(
-            "Simulator sending IP bytes:",
-            packet.slice(0, 4)
-          );
+          // console.log(`📤 [${mac}] ${status} | Sending packet PACKET ${packet.toString('hex')} of COUNT #${sendCount}`);
+          console.log(`📤 [${mac}] ${status} | Sending packet of COUNT #${sendCount}`);
+          // console.log(`[${mac}] Packet padding byte at offset 51: 0x${packet[51]}`);
+          // console.log(
+          //   "Simulator sending IP bytes:",
+          //   packet.slice(0, 4)
+          // );
 
           client.write(packet);
         }, SEND_INTERVAL);
