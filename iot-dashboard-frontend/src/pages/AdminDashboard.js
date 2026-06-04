@@ -315,8 +315,8 @@ const UserRow = ({ user, onEdit, onDelete }) => {
       alert("⚠️ Username and Password are required.");
       return;
     }
-    console.log("User Edit Form Data", formData);
-    console.log("user", user)
+    // console.log("User Edit Form Data", formData);
+    // console.log("user", user)
     onEdit(user, formData.username, formData.password);
     setEditMode(false);
   };
@@ -988,13 +988,13 @@ const HistoricalDataTab = () => {
       const fromStr = formatLocalNoTz(fromObj);
       const toStr = formatLocalNoTz(toObj);
 
-      console.log("Alarm-history:", selectedMac, fromStr, "->", toStr);
+      // console.log("Alarm-history:", selectedMac, fromStr, "->", toStr);
       const res = await fetch(
         `${API}/alarm-history?mac=${encodeURIComponent(selectedMac)}&from=${encodeURIComponent(fromDateTime)}&to=${encodeURIComponent(toDateTime)}`
       );
       const data = await res.json();
 
-      console.log("Data: ", data);
+      // console.log("Data: ", data);
       if (!res.ok)
         throw new Error(data.error || "Failed to fetch historical data");
 

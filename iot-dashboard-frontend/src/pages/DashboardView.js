@@ -290,10 +290,10 @@ function DashboardView() {
           });
 
         console.log("FETCH TIME:", new Date().toLocaleTimeString());
-        console.log("IS SAME DATA:", isSame);
+        // console.log("IS SAME DATA:", isSame);
 
         if (!isSame) {
-          console.log("✅ NEW DATA ARRIVED");
+          // console.log("✅ NEW DATA ARRIVED");
 
           setReadings(readingsData);
           setRackTimer(0);
@@ -326,11 +326,22 @@ function DashboardView() {
         }
 
         // safe logging
-        console.log("DATA:", readingsData.map(r => ({
-          mac: r.mac,
-          ts: r.timestamp,
-          temp: r.insideTemperature
-        })));
+        // console.log("DATA:", readingsData.map(r => ({
+        //   mac: r.mac,
+        //   ts: r.timestamp,
+        //   temp: r.insideTemperature,
+        //   mac: r.mac,
+        //   fan1Status: r.fan1Status,
+        //   fan2Status: r.fan2Status,
+        //   fan3Status: r.fan3Status,
+        //   fan4Status: r.fan4Status,
+        //   fan5Status: r.fan5Status,
+        //   fan6Status: r.fan6Status,
+        //   fanLevel1Running: r.fanLevel1Running,
+        //   fanLevel2Running: r.fanLevel2Running,
+        //   fanLevel3Running: r.fanLevel3Running,
+        //   fanLevel4Running: r.fanLevel4Running
+        // })));
       }
 
       if (devicesRes.status === "fulfilled" && devicesRes.value.ok) {
@@ -440,6 +451,7 @@ function DashboardView() {
 
     }
     sendCommand(command);
+    console.log("Command: ", command);
 
     // Update UI immediately (optional, for instant feedback)
     setActiveFanBtns(

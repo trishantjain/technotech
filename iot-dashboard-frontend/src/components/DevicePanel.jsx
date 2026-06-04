@@ -16,7 +16,7 @@ const DevicePanel = React.memo(function DevicePanel({
     filteredDevices,
     loading
 }) {
-    console.log("📦 DevicePanel render");
+    // console.log("📦 DevicePanel render");
 
     return (
         <>

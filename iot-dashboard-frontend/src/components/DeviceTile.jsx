@@ -7,7 +7,7 @@ const DeviceTile = React.memo(function DeviceTile({
     isSelected,
     onClick,
 }) {
-    console.count(`🔷 Tile render: ${mac}`);
+    // console.count(`🔷 Tile render: ${mac}`);
 
     return (
         <div

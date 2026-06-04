@@ -44,7 +44,7 @@ const DeviceMarker = React.memo(function DeviceMarker({
 
     const icon = getIcon(status);
 
-    console.log("Rendering Marker:", mac); // 🔥 debug
+    // console.log("Rendering Marker:", mac); // 🔥 debug
 
     return (
         <Marker
@@ -72,7 +72,7 @@ const DeviceMap = React.memo(function DeviceMap({
     selectedMac,
     onMarkerClick
 }) {
-    console.log("Rendering DeviceMap");
+    // console.log("Rendering DeviceMap");
 
     // ✅ memoized center
     const selectedCenter = useMemo(() => {

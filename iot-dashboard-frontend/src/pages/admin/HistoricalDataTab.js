@@ -76,7 +76,7 @@ const HistoricalDataTab = () => {
             );
             const data = await res.json();
 
-            console.log("Data: ", data);
+            // console.log("Data: ", data);
             if (!res.ok)
                 throw new Error(data.error || "Failed to fetch historical data");
 
