@@ -8,6 +8,23 @@ const axios = require("axios");
 const { spawn } = require("child_process");
 const sharp = require("sharp");
 
+const RECONNECT_DELAY_MS = 5000;
+let restarting = false;
+
+function scheduleRestart(reason) {
+    if (restarting) return;
+
+    restarting = true;
+    console.error(`RabbitMQ worker disconnected: ${reason}. Restarting in ${RECONNECT_DELAY_MS / 1000}s...`);
+
+    setTimeout(() => {
+        restarting = false;
+        startWorker().catch((err) => {
+            console.error("Worker restart failed:", err.message);
+            scheduleRestart(err.message);
+        });
+    }, RECONNECT_DELAY_MS);
+}
 
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
@@ -340,141 +357,173 @@ async function captureTechno(ip, outputPath) {
 
 
 async function startWorker() {
-    const rabbitUrl = process.env.RABBIT_URL;
-    if (!rabbitUrl) {
-        throw new Error("RABBIT_URL is not set");
-    }
+    let connection;
 
-    const snapshotBaseDir = process.env.SNAP_DIR;
-    if (!snapshotBaseDir) {
-        throw new Error("SNAP_DIR is not set");
-    }
-
-    const sparshDelayMs = Number.parseInt(process.env.SPARSH_SNAPSHOT_DELAY_MS || "3000", 10);
-
-    const connection = await amqp.connect(rabbitUrl);
-    const channel = await connection.createChannel();
-
-    // await channel.assertQueue("snapshot.queue", {
-    //     durable: true,
-    //     arguments: {
-    //         "x-dead-letter-exchange": "",
-    //         "x-dead-letter-routing-key": "snapshot.dead"
-    //     }
-    // });
-
-    await channel.assertQueue("snapshot.queue", { durable: true });
-    await channel.assertQueue("snapshot.done", { durable: true });
-    channel.prefetch(50);
-
-    console.log("📸 Snapshot Worker started");
-
-    channel.consume("snapshot.queue", async (msg) => {
-        if (!msg) return;
-
-        let data;
-        try {
-            data = JSON.parse(msg.content.toString());
-        } catch (err) {
-            console.error("Invalid snapshot message (not JSON), dropping:", err.message);
-            channel.ack(msg);
-            return;
+    try {
+        const rabbitUrl = process.env.RABBIT_URL;
+        if (!rabbitUrl) {
+            throw new Error("RABBIT_URL is not set");
         }
 
-        const mac = data?.mac;
-        const cameraType = data?.cameraType;
-        const cameraIP = data?.cameraIP;
-
-        console.log(mac, cameraIP, cameraType);
-
-        if (!mac || !cameraType || !cameraIP) {
-            console.error("Invalid snapshot message (missing mac/cameraType/cameraIP), dropping:", data);
-            channel.ack(msg);
-            return;
+        const snapshotBaseDir = process.env.SNAP_DIR;
+        if (!snapshotBaseDir) {
+            throw new Error("SNAP_DIR is not set");
         }
 
-        const timestamp = getFormattedDateTime();
-        const snapshotFileName = `image_${timestamp}.jpg`;
-        const macSuffix = String(mac).slice(8).replace(/[. ]/g, "_");
-        const snapshotOutputDirMac = path.join(snapshotBaseDir, macSuffix);
-        const snapshotOutputPath = path.join(snapshotOutputDirMac, snapshotFileName);
+        const sparshDelayMs = Number.parseInt(process.env.SPARSH_SNAPSHOT_DELAY_MS || "3000", 10);
 
-        try {
-            fs.mkdirSync(snapshotOutputDirMac, { recursive: true });
+        connection = await amqp.connect(rabbitUrl);
+        const channel = await connection.createChannel();
 
-            const make = String(cameraType).trim().toUpperCase();
+        connection.on("error", (err) => {
+            console.error("RabbitMQ connection error:", err.message);
+        });
 
-            console.log("snapshot request came :", mac)
+        connection.on("close", () => {
+            scheduleRestart("connection closed");
+        });
 
-            if (make === "T") {
-                console.log("⏰ Snapshot for Techno Camera ⏰", mac);
-                await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
-            } else if (make === "S") {
-                console.log("⏰ Snapshot for Sparsh Camera ⏰", mac);
-                // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
-                await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
-            } else {
-                console.log("⏰ Snapshot for Hifocus Camera ⏰", mac);
-                // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
-                await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
+        channel.on("error", (err) => {
+            console.error("RabbitMQ channel error:", err.message);
+        });
+
+        channel.on("close", () => {
+            scheduleRestart("channel closed");
+        });
+
+
+        // await channel.assertQueue("snapshot.queue", {
+        //     durable: true,
+        //     arguments: {
+        //         "x-dead-letter-exchange": "",
+        //         "x-dead-letter-routing-key": "snapshot.dead"
+        //     }
+        // });
+
+        await channel.assertQueue("snapshot.queue", { durable: true });
+        await channel.assertQueue("snapshot.done", { durable: true });
+        channel.prefetch(50);
+
+        console.log("📸 Snapshot Worker started");
+
+        channel.consume("snapshot.queue", async (msg) => {
+            if (!msg) return;
+
+            let data;
+            try {
+                data = JSON.parse(msg.content.toString());
+            } catch (err) {
+                console.error("Invalid snapshot message (not JSON), dropping:", err.message);
+                channel.ack(msg);
+                return;
             }
 
-            const isValid = await validateImage(snapshotOutputPath);
-            if (!isValid) {
-                throw new Error("Corrupted image detected by sharp");
+            const mac = data?.mac;
+            const cameraType = data?.cameraType;
+            const cameraIP = data?.cameraIP;
+
+            console.log(mac, cameraIP, cameraType);
+
+            if (!mac || !cameraType || !cameraIP) {
+                console.error("Invalid snapshot message (missing mac/cameraType/cameraIP), dropping:", data);
+                channel.ack(msg);
+                return;
             }
 
-            // await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
+            const timestamp = getFormattedDateTime();
+            const snapshotFileName = `image_${timestamp}.jpg`;
+            const macSuffix = String(mac).slice(8).replace(/[. ]/g, "_");
+            const snapshotOutputDirMac = path.join(snapshotBaseDir, macSuffix);
+            const snapshotOutputPath = path.join(snapshotOutputDirMac, snapshotFileName);
+
+            try {
+                fs.mkdirSync(snapshotOutputDirMac, { recursive: true });
+
+                const make = String(cameraType).trim().toUpperCase();
+
+                console.log("snapshot request came :", mac)
+
+                if (make === "T") {
+                    console.log("⏰ Snapshot for Techno Camera ⏰", mac);
+                    await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
+                } else if (make === "S") {
+                    console.log("⏰ Snapshot for Sparsh Camera ⏰", mac);
+                    // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
+                    await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
+                } else {
+                    console.log("⏰ Snapshot for Hifocus Camera ⏰", mac);
+                    // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
+                    await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
+                }
+
+                const isValid = await validateImage(snapshotOutputPath);
+                if (!isValid) {
+                    throw new Error("Corrupted image detected by sharp");
+                }
+
+                // await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
 
 
-            console.log("sending to done queue", mac)
-            channel.sendToQueue(
-                "snapshot.done",
-                Buffer.from(JSON.stringify({
-                    mac,
-                    filename: snapshotFileName,
-                    createdAt: new Date().toISOString(),
-                    source: "camera"
-                })),
-                { persistent: true }
-            );
-
-            channel.ack(msg);
-        }
-
-        // catch (err) {
-        //     console.error("Snapshot worker error:", err?.stack || err);
-        //     // transient errors (camera offline etc) can be retried
-        //     channel.nack(msg, false, true);    
-        // }
-
-
-        catch (err) {
-            console.error("Snapshot worker error:", err?.stack || err);
-
-            const retryCount = data.retryCount || 0;
-
-            // RETRY THE JOB MAXIMUM 3 TIMES
-            if (retryCount >= 3) {
-                console.error("Max retries reached → sending to DLQ");
-
-                channel.nack(msg, false, false); // ❗ goes to DLQ
-            } else {
-                console.log(`Retrying... attempt ${retryCount + 1}`);
-
-                channel.sendToQueue("snapshot.queue",
+                console.log("sending to done queue", mac)
+                channel.sendToQueue(
+                    "snapshot.done",
                     Buffer.from(JSON.stringify({
-                        ...data,
-                        retryCount: retryCount + 1
+                        mac,
+                        filename: snapshotFileName,
+                        createdAt: new Date().toISOString(),
+                        source: "camera"
                     })),
                     { persistent: true }
                 );
 
-                // REMOVE OLD MESSAGE
                 channel.ack(msg);
             }
+
+            // catch (err) {
+            //     console.error("Snapshot worker error:", err?.stack || err);
+            //     // transient errors (camera offline etc) can be retried
+            //     channel.nack(msg, false, true);    
+            // }
+
+
+            catch (err) {
+                console.error("Snapshot worker error:", err?.stack || err);
+
+                const retryCount = data.retryCount || 0;
+
+                // RETRY THE JOB MAXIMUM 3 TIMES
+                if (retryCount >= 3) {
+                    console.error("Max retries reached → sending to DLQ");
+
+                    channel.nack(msg, false, false); // ❗ goes to DLQ
+                } else {
+                    console.log(`Retrying... attempt ${retryCount + 1}`);
+
+                    channel.sendToQueue("snapshot.queue",
+                        Buffer.from(JSON.stringify({
+                            ...data,
+                            retryCount: retryCount + 1
+                        })),
+                        { persistent: true }
+                    );
+
+                    // REMOVE OLD MESSAGE
+                    channel.ack(msg);
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Worker failed to start:", err.message);
+
+        try {
+            await connection?.close();
+        } catch {
+            // ignore
         }
-    });
+
+        scheduleRestart(err.message);
+
+    }
 
     // channel.consume("snapshot.queue", async (msg) => {
     //     if (!msg) return;
