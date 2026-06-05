@@ -356,7 +356,7 @@ function DashboardView() {
           const next = Array.isArray(metadata) ? metadata : [];
 
           if (shallowEqualDevices(prev, next)) {
-            return prev; // ✅ KEEP SAME REFERENCE
+            return prev;
           }
           return next;
         });
@@ -456,7 +456,7 @@ function DashboardView() {
 
     }
     sendCommand(command);
-    console.log("Command: ", command);
+    // console.log("Command: ", command);
 
     // Update UI immediately (optional, for instant feedback)
     // setActiveFanBtns(
