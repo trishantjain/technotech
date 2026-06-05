@@ -36,9 +36,12 @@ const RegisteredDevices = () => {
                 }
             });
             const data = await res.json();
-            setDeviceList(data);
+            
+            // setDeviceList(data);
+            setDeviceList(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error("Failed to fetch devices:", err);
+            setDeviceList([]);
         } finally {
             if (showLoader) setLoadingDevices(false);
         }
