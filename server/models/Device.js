@@ -12,7 +12,8 @@ const deviceSchema = new mongoose.Schema({
   ipCamera: {
     type: {
       type: String,
-      required: false
+      required: false, 
+      default: "T"
     },
     ip: {
       type: String,
