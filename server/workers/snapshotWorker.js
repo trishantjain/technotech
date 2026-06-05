@@ -443,17 +443,17 @@ async function startWorker() {
 
                 console.log("snapshot request came :", mac)
 
-                if (make === "T") {
-                    console.log("⏰ Snapshot for Techno Camera ⏰", mac);
-                    await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
+                if (make === "H") {
+                    console.log("⏰ Snapshot for Hi-Focus Camera ⏰", mac);
+                    await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
                 } else if (make === "S") {
                     console.log("⏰ Snapshot for Sparsh Camera ⏰", mac);
                     // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
                     await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
                 } else {
-                    console.log("⏰ Snapshot for Hifocus Camera ⏰", mac);
+                    console.log("⏰ Snapshot for Techno Camera ⏰", mac);
                     // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
-                    await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
+                    await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
                 }
 
                 const isValid = await validateImage(snapshotOutputPath);

@@ -123,23 +123,23 @@ const RegisterDevice = () => {
                     required
                 />
 
-                <input
+                {/* <input
                     placeholder="Camera Make"
                     value={form.ipCameraMake}
                     onChange={(e) =>
                         setForm({ ...form, ipCameraMake: e.target.value })
                     }
                     // required
-                />
+                /> */}
 
-                <input
+                {/* <input
                     placeholder="Camera IP"
                     value={form.ipCameraIp}
                     onChange={(e) =>
                         setForm({ ...form, ipCameraIp: e.target.value })
                     }
                     // required
-                />
+                /> */}
 
                 <button type="submit">Register Device</button>
 

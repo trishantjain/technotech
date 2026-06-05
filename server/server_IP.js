@@ -319,18 +319,18 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
       return res.status(409).json({ error: "Device IP already exists" });
     }
 
-    if (ipCamera && typeof ipCamera === 'string') {
-      const [camType, camIP] = ipCamera.split(',');
-      parsedCamera = {
-        type: camType,
-        ip: camIP.trim()
-      }
-    }
+    // if (ipCamera && typeof ipCamera === 'string') {
+    //   const [camType, camIP] = ipCamera.split(',');
+    //   parsedCamera = {
+    //     type: camType,
+    //     ip: camIP.trim()
+    //   }
+    // }
 
-    const ipMatch = await Device.find({ "ipCamera.ip": parsedCamera.ip });
-    if (ipMatch && ipMatch.length > 0) {
-      return res.status(409).json({ error: "Camera Ip already present" });
-    }
+    // const ipMatch = await Device.find({ "ipCamera.ip": parsedCamera.ip });
+    // if (ipMatch && ipMatch.length > 0) {
+    //   return res.status(409).json({ error: "Camera Ip already present" });
+    // }
 
 
     // console.log("Parsed Camera: ", parsedCamera);
@@ -340,7 +340,7 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
       address,
       latitude,
       longitude,
-      ipCamera: parsedCamera || "",
+      // ipCamera: parsedCamera || "",
 
       status: req.user.role === "admin" ? "approved" : "pending",
       createdBy: req.user.username
