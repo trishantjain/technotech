@@ -1494,17 +1494,27 @@ const server = net.createServer((socket) => {
           console.log("Inside snapshot", mac)
           const deviceMeta = deviceCache.get(String(mac).toLowerCase());
 
-          if (!deviceMeta || !deviceMeta.cameraType || !deviceMeta.cameraIP) {
-            console.warn(`⚠ No camera metadata found for ${mac}, skipping snapshot publish`);
-          } else {
-            console.log("publish snapshot", mac)
-            publishSnapshot({
-              mac,
-              cameraType: String(deviceMeta.cameraType).trim(),
-              cameraIP: String(deviceMeta.cameraIP).trim(),
-              requestedAt: new Date().toISOString()
-            });
-          }
+          // if (!deviceMeta || !deviceMeta.cameraType || !deviceMeta.cameraIP) {
+          //   console.warn(`⚠ No camera metadata found for ${mac}, skipping snapshot publish`);
+          // } else {
+          //   console.log("publish snapshot", mac)
+          //   publishSnapshot({
+          //     mac,
+          //     cameraType: String(deviceMeta.cameraType).trim(),
+          //     cameraIP: mac,
+          //     // cameraIP: String(deviceMeta.cameraIP).trim(),
+          //     requestedAt: new Date().toISOString()
+          //   });
+          // }
+
+          publishSnapshot({
+            mac,
+            cameraType: String(deviceMeta.cameraType).trim(),
+            cameraIP: mac,
+            // cameraIP: String(deviceMeta.cameraIP).trim(),
+            requestedAt: new Date().toISOString()
+          });
+
         }
         // ===================== RABBITMQ SNAPSHOT LOGIC =====================
 
