@@ -1,6 +1,6 @@
-# TechnoTech - Energy Management System (EMS)
+# TechnoTech - Entity Management System (EMS)
 
-A full-stack IoT-based Energy Management System for real-time monitoring and control of remote electrical/environmental equipment. The platform ingests live sensor data over TCP from field devices, processes alarms, captures IP camera snapshots, and presents everything through a responsive React dashboard.
+A full-stack IoT-based Entity Management System for real-time monitoring and control of remote electrical/environmental equipment. The platform ingests live sensor data over TCP from field devices, processes alarms, captures IP camera snapshots, and presents everything through a responsive React dashboard.
 
 ---
 
