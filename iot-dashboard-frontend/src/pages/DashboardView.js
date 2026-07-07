@@ -18,7 +18,8 @@ import { useNavigate } from "react-router-dom";
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
 
 const LOG_STORAGE_KEY = "tt.logsByMac.v1";
-const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE, LOG_THROTTLE_MS } = LOG_CONSTANTS; // 1 hour
+const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE } = LOG_CONSTANTS; // 1 hour
+// const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE, LOG_THROTTLE_MS } = LOG_CONSTANTS; // 1 hour
 // const {  } = CONSTANTS;
 // const LOG_THROTTLE_MS = 5000; // log at most once per 5 seconds per device
 const EMPTY_LOGS = [];
@@ -44,7 +45,7 @@ function DashboardView() {
   const [selectedDevice, setSelectedDevice] = useState("");
 
   const selectedMacRef = useRef("");
-  const deviceStatusRef = useRef({});
+  // const deviceStatusRef = useRef({});
 
   const [deviceStatusMap, setDeviceStatusMap] = useState({});
 

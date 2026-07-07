@@ -1,4 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({
+  path: path.join(__dirname, "/.env")
+});
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("./models/User");
@@ -10,12 +13,15 @@ const bodyParser = require("body-parser");
 const SensorReading = require("./models/SensorReading");
 const thresholds = require("./thresholds");
 const fs = require("fs");
-const path = require("path");
 const axios = require('axios');
 const { spawn } = require('child_process');
 const readline = require("readline");
 const { connectRabbit, publishAlarm, publishSnapshot, consume, publishLog, publishAlarmResult } = require("./services/rabbit");
-
+const parseQueryDate = require("./alarm/dateParser.js");
+const parseIstLogTimestamp = require("./alarm/timestampParser.js");
+const parseAlarmLine = require("./alarm/alarmParser.js");
+const getAlarmFiles = require("./alarm/fileScanner.js");
+const alarmHistoryCache = require("./cache/alarmHistoryCache.js")
 
 const app = express();
 const connectedDevices = new Map();
@@ -803,25 +809,93 @@ app.post("/api/log-command", (req, res) => {
 
 // });
 
+
+
+// OLD LOG FILE PARSING
+// function parseOldAlarm(payload, timestamp) {
+//   const entries = [];
+
+//   const tokens = String(payload)
+//     .split(",")
+//     .map(t => t.trim())
+//     .filter(Boolean);
+
+//   for (const token of tokens) {
+
+//     const idx = token.indexOf(":");
+
+//     if (idx === -1) {
+
+//       entries.push({
+//         timestamp: timestamp.toISOString(),
+//         alarm: token,
+//         event: "ACTIVE"
+//       });
+
+//       continue;
+//     }
+
+//     const alarm = token.slice(0, idx).trim();
+//     const value = token.slice(idx + 1).trim();
+
+//     entries.push({
+//       timestamp: timestamp.toISOString(),
+//       alarm,
+//       event: value
+//     });
+
+//   }
+
+//   return entries;
+// }
+
+// NEW LOG FILE PARSING
+// function parseNewAlarm(line, timestamp) {
+
+//   const alarmMatch = line.match(
+//     /\|\s*ALARM:\s*(.*?)\s*\|\s*EVENT:\s*(.*?)\s*$/
+//   );
+
+//   if (!alarmMatch)
+//     return [];
+
+//   return [{
+//     timestamp: timestamp.toISOString(),
+//     alarm: alarmMatch[1].trim(),
+//     event: alarmMatch[2].trim()
+//   }];
+// }
+
+// function parseAlarmLine(line, payload, timestamp) {
+//   if (
+//     line.includes("ALARM:") &&
+//     line.includes("EVENT:")
+//   ) {
+
+//     return parseNewAlarm(
+//       line,
+//       timestamp
+//     );
+
+//   }
+
+//   return parseOldAlarm(
+//     payload,
+//     timestamp
+//   );
+// }
+
 app.get("/api/alarm-history", async (req, res) => {
   try {
     console.log("Calling Alarm History API")
-    const { mac, from, to } = req.query;
+    const { mac, from, to, page = 1, limit = 100 } = req.query;
+
+    const pageNo = Number(page);
+    const pageLimit = Number(limit);
 
     if (!mac || !from || !to) {
       return res.status(400).json({ error: "Missing mac, from or to" });
     }
-
-    const parseQueryDate = (value) => {
-      const raw = String(value || "").trim();
-      if (!raw) return new Date("invalid");
-      // If caller already supplies timezone/offset, respect it.
-      if (/[zZ]$/.test(raw) || /[+-]\d{2}:?\d{2}$/.test(raw)) {
-        return new Date(raw);
-      }
-      // Otherwise interpret as IST-local timestamp.
-      return new Date(`${raw}+05:30`);
-    };
 
     const fromDate = parseQueryDate(from);
     const toDate = parseQueryDate(to);
@@ -837,67 +911,40 @@ app.get("/api/alarm-history", async (req, res) => {
     const macFolder = mac.replace(/[:. ]/g, "_");
     const baseDir = `C:/CommandLogs/alarm/${macFolder}`;
 
+    const cacheKey = `${mac}|${from}|${to}`;
+
     console.log("Base Dir: ", baseDir);
 
     if (!fs.existsSync(baseDir)) {
       console.log("Sending empty")
       return res.json({ mac, from, to, entries: [] });
     }
+    let cache = alarmHistoryCache.get(cacheKey);
 
-    // 🟢 Generate all hour blocks between from and to
-    const filesToScan = [];
-    let current = new Date(fromDate);
+    if (cache) {
 
-    while (current <= toDate) {
-      const ist = new Date(
-        current.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-      );
+      console.log("✅ Returning alarm history from cache");
 
-      const dd = ist.getDate();
-      const mm = ist.getMonth() + 1;
-      const hh = ist.getHours();
+      const start = (pageNo - 1) * pageLimit;
 
-      const fileName = `${dd}_${mm}_${hh}_Alarm.inc`;
-      const filePath = `${baseDir}/${fileName}`;
+      return res.json({
+        entries: cache.entries.slice(start, start + pageLimit),
+        total: cache.total,
+        page: pageNo,
+        limit: pageLimit,
+        totalPages: Math.ceil(cache.total / pageLimit)
+      });
 
-      if (fs.existsSync(filePath)) {
-        filesToScan.push(filePath);
-      }
-
-      current.setHours(current.getHours() + 1);
     }
 
-    console.log("Files to scan: ", filesToScan);
+    // 🟢 Generate all hour blocks between from and to
+    const filesToScan = getAlarmFiles(
+      baseDir,
+      fromDate,
+      toDate
+    );
 
-    const parseIstLogTimestamp = (timestampText) => {
-      // Example: "24/2/2026, 3:00:20 pm"
-      const txt = String(timestampText || "").trim();
-      const match = txt.match(
-        /^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(am|pm)$/i
-      );
-      if (!match) return null;
-
-      const day = Number(match[1]);
-      const month = Number(match[2]);
-      const year = Number(match[3]);
-      let hours = Number(match[4]);
-      const minutes = Number(match[5]);
-      const seconds = Number(match[6]);
-      const ampm = String(match[7]).toLowerCase();
-
-      if (ampm === "pm" && hours !== 12) hours += 12;
-      if (ampm === "am" && hours === 12) hours = 0;
-
-      const mm = String(month).padStart(2, "0");
-      const dd = String(day).padStart(2, "0");
-      const hh = String(hours).padStart(2, "0");
-      const mi = String(minutes).padStart(2, "0");
-      const ss = String(seconds).padStart(2, "0");
-
-      const iso = `${year}-${mm}-${dd}T${hh}:${mi}:${ss}+05:30`;
-      const date = new Date(iso);
-      return isNaN(date.getTime()) ? null : date;
-    };
+    console.log("Files to scan:", filesToScan);
 
     const entries = [];
 
@@ -925,57 +972,62 @@ app.get("/api/alarm-history", async (req, res) => {
         if (!timestamp) continue;
         if (timestamp < fromDate || timestamp > toDate) continue;
 
-        // Support BOTH formats:
-        // 1) New: [ts] | [InVolt:11,OutVolt:35,...,Door Alarm]
-        // 2) Old: [ts] | MAC: ... | Input Voltage: ...,Door Alarm
-        let payload = "";
+        let payload = null;
 
-        const newPayloadMatch = text.match(/\|\s*\[([^\]]*)\]\s*$/);
-        if (newPayloadMatch) {
-          payload = newPayloadMatch[1];
-        } else {
+        if (!text.includes("ALARM:")) {
+
           const pipeParts = text
             .split("|")
-            .map((p) => p.trim())
+            .map(p => p.trim())
             .filter(Boolean);
-          if (pipeParts.length < 3) continue;
+
+          if (pipeParts.length < 3)
+            continue;
+
           payload = pipeParts.slice(2).join(" | ");
         }
 
-        const tokens = String(payload)
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean);
+        const parsedEntries = parseAlarmLine(
+          text,
+          payload,
+          timestamp
+        );
 
-        // Build UI-friendly rows: time / name / value
-        for (const token of tokens) {
-          const idx = token.indexOf(":");
-          if (idx === -1) {
-            entries.push({
-              timestamp: timestamp.toISOString(),
-              name: token,
-              value: "1",
-            });
-            continue;
-          }
-          const name = token.slice(0, idx).trim();
-          const value = token.slice(idx + 1).trim();
-          if (!name) continue;
-          entries.push({
-            timestamp: timestamp.toISOString(),
-            name,
-            value,
-          });
-        }
+        entries.push(...parsedEntries);
       }
     }
+    console.log("Logs send successfully to UI")
+
+    const start = (pageNo - 1) * pageLimit;
+
+    const pageEntries = entries.slice(
+      start,
+      start + pageLimit
+    );
 
     res.json({
+
       mac,
       from,
       to,
-      entries,
+
+      entries: pageEntries,
+
+      total: entries.length,
+
+      page: pageNo,
+
+      limit: pageLimit,
+
+      totalPages: Math.ceil(entries.length / pageLimit)
+
     });
+
+    alarmHistoryCache.set(
+      cacheKey,
+      entries,
+      baseDir
+    );
 
   } catch (error) {
     console.error("Error in /api/alarm-history:", error?.stack || error);
@@ -1024,6 +1076,26 @@ app.get("/api/historical-data", async (req, res) => {
   }
 });
 
+app.post("/api/cloud-readings", async (req, res) => {
+
+  try {
+
+    await SensorReading.create(req.body);
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
 // ✅ Debug routes
 // app.use('/debug', require('./auth/debug'));
 
@@ -1067,7 +1139,7 @@ dirCheck(snapshotOutputDir, SNAP_CMD);
 /*
   Pass any string to function to get Date & Time in below format: 
   20_01_26_12_45_52
-
+ 
   Without passing any argument will get below Data & Time format: 
   20/01/26 12:45:52
 */
@@ -1272,6 +1344,20 @@ function calibrateTemperature(temp) {
   return temp * (1 + range.factor);
 }
 
+// SEND DATA TO AWS
+async function sendToCloud(reading) {
+
+  try {
+
+    await axios.post(
+      "http://98.88.250.83/api/cloud-readings",
+      reading.toObject()
+    );
+  } catch (err) {
+    console.log("Cloud not reachable");
+  }
+}
+
 setInterval(() => {
   if (readingBuffer.length === 0) return;
 
@@ -1288,6 +1374,7 @@ setInterval(() => {
 const server = net.createServer((socket) => {
   // let buffer = Buffer.alloc(0);
   socket.buffer = Buffer.alloc(0);
+  let packetCount = 0;
 
 
   const clientInfo = `${socket.remoteAddress}:${socket.remotePort}`;
@@ -1299,7 +1386,6 @@ const server = net.createServer((socket) => {
   console.log(`New TCP Connection from`, clientInfo);
 
   socket.on("data", async (data) => {
-    let packetCount = 0;
     const dataStart = Date.now();
     // buffer = Buffer.concat([buffer, data]);
     socket.buffer = Buffer.concat([socket.buffer, data]);
@@ -1311,7 +1397,9 @@ const server = net.createServer((socket) => {
       // debug.bufferStats.discardedBytes.totalBytes += data.length;
 
       // console.log(`Raw data received ${data.toString('hex')} with length (${data.length} bytes) from`, clientInfo);
-      console.log(`Raw data received with length (${data.length} bytes) from`, clientInfo);
+      console.log(`Raw data received ${packetCount} with length (${data.length} bytes) from`, clientInfo);
+      // packetCount++;
+
       // console.log("Raw data received")
       // console.log(`Raw data hex preview:`, data.toString('hex').substring(0, 100) + '...');
 
@@ -1446,9 +1534,6 @@ const server = net.createServer((socket) => {
         const hupsRes = packet[56];
         const failMask = packet[57];
 
-        // console.log("Door status: ", doorStatus);
-        // console.log("pwsFailCount: ", pwsFailCount);
-
         const packetTimestamp = new Date();
         const macDir = mac.replace(/[:. ]/g, '_');
 
@@ -1476,10 +1561,22 @@ const server = net.createServer((socket) => {
         }
         // console.log("Padding: ", padding);
 
-        // ==== LOGGING EXTRACTED VALUES ====
+
+        //* ===================== LOGGING EXTRACTED VALUES =====================
         // console.log("Humidity: ", humidity);
         // console.log("Input Voltage: ", inputVoltage);
-        // ==== LOGGING EXTRACTED VALUES ====
+
+        // console.log("firealarm : ", fireAlarm);
+        // console.log("Fan Status: ", fanStatus);
+        // console.log(fanLevel1Running, fanLevel2Running, fanLevel3Running, fanLevel4Running);
+
+        // console.log("BAT Volt: ", hupsBatVolt);
+        // console.log("DV Current: ", hupsDVC);
+
+        // console.log("Door status: ", doorStatus);
+        // console.log("pwsFailCount: ", pwsFailCount);
+
+        //* ===================== LOGGING EXTRACTED VALUES =====================
 
 
 
@@ -1719,7 +1816,21 @@ const server = net.createServer((socket) => {
           timestamp: packetTimestamp
         });
 
+
+        // console.log("Fan1Status: ", reading.fan1Status)
+        // console.log("Fan2Status: ", reading.fan2Status)
+        // console.log("Fan3Status: ", reading.fan3Status)
+        // console.log("Fan4Status: ", reading.fan4Status)
+        // console.log("Fan5Status: ", reading.fan5Status)
+        // console.log("Fan6Status: ", reading.fan6Status)
+
+        // console.log("FanGroup1Status: ", reading.fanLevel1Running);
+        // console.log("FanGroup2Status: ", reading.fanLevel2Running);
+        // console.log("FanGroup3Status: ", reading.fanLevel3Running);
+        // console.log("FanGroup4Status: ", reading.fanLevel4Running);
+
         // readingBuffer = readingBuffer.filter(r => r.mac !== mac);
+        // sendToCloud(reading);
         readingBuffer.push(reading);
         // console.log(`[BUFFER] pushed reading; readingBuffer.length=${readingBuffer.length}`);
         // console.log(`[eMS_LOGS] Finished parsing packet for MAC: ${mac}`);
