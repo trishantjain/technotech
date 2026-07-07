@@ -229,11 +229,11 @@ async function captureTechno(ip, outputPath) {
         throw new Error("Corrupted image detected by sharp");
     }
 
-    // const fileCheck = await imageSizeCheck(outputPath);
+    const fileCheck = await imageSizeCheck(outputPath);
 
-    // if (fileCheck.fileSize.kb < 50) {
-    //     throw new Error("Invalid Image | Size is less than 50kb");
-    // }
+    if (fileCheck.fileSize.kb < 50) {
+        throw new Error("Invalid Image | Size is less than 50kb");
+    }
 }
 
 
