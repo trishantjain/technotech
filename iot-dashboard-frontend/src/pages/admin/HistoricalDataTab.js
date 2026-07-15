@@ -23,6 +23,8 @@ const HistoricalDataTab = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
 
+    const [activeFilter, setActiveFilter] = useState("all");
+
     const filteredDevices = devices.filter((dev) =>
         dev.mac.toLowerCase().includes(query.toLowerCase())
     );
@@ -436,7 +438,7 @@ const HistoricalDataTab = () => {
                                             <td className="px-5 py-4">
 
                                                 <span
-                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold border shadow-lg rounded-full text-xs font-bold tracking-wide border shadow-md
+                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-wide border shadow-md
                                     ${row.event === "RAISED"
                                                             ? "bg-red-500/15 text-red-300 border-red-500/30"
                                                             : "bg-green-500/15 text-green-300 border-green-500/30"
@@ -461,7 +463,7 @@ const HistoricalDataTab = () => {
                                             <td className="px-5 py-4">
 
                                                 <span
-                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold border shadow-lg rounded-full text-sm font-semibold border
+                                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold tracking-wide border shadow-md
                                     ${isCritical
                                                             ? "bg-red-500/10 text-red-300 border-red-500/20"
                                                             : "bg-yellow-500/10 text-yellow-200 border-yellow-500/20"
@@ -503,7 +505,7 @@ const HistoricalDataTab = () => {
                         </table>
                     </div>
 
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-gray-900">
+                    <div className="flex items-center justify-between px-6 py-4 bg-gray-900 border-t border-gray-800">
 
                         <div className="text-sm text-gray-300">
                             Showing{" "}
@@ -525,7 +527,7 @@ const HistoricalDataTab = () => {
                             <button
                                 disabled={page === 1}
                                 onClick={() => setPage(page - 1)}
-                                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 ◀ Previous
                             </button>
@@ -537,7 +539,7 @@ const HistoricalDataTab = () => {
                             <button
                                 disabled={page === totalPages}
                                 onClick={() => setPage(page + 1)}
-                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Next ▶
                             </button>
