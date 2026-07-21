@@ -38,7 +38,7 @@ const RegisteredDevices = () => {
             const data = await res.json();
 
             console.log("Data: ", data);
-            
+
             // setDeviceList(data);
             setDeviceList(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -69,7 +69,9 @@ const RegisteredDevices = () => {
         const matchesSearch =
             device.mac?.toLowerCase().includes(term) ||
             device.location?.toLowerCase().includes(term) ||
-            device.address?.toLowerCase().includes(term)
+            device.address?.toLowerCase().includes(term) ||
+            device.deviceName?.toLowerCase().includes(term)
+
 
         const matchesStatus = device.status === filter
 
