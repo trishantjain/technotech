@@ -8,15 +8,27 @@ const api = "/api";
 const RegisterDevice = () => {
     const navigate = useNavigate();
 
+    // const [form, setForm] = useState({
+    //     mac: "",
+    //     locationId: "",
+    //     address: "",
+    //     latitude: "",
+    //     longitude: "",
+    //     ipCameraMake: "",
+    //     ipCameraIp: "",
+    // });
+
     const [form, setForm] = useState({
         mac: "",
-        locationId: "",
+        deviceName: "",
+        location: "",
         address: "",
         latitude: "",
         longitude: "",
         ipCameraMake: "",
         ipCameraIp: "",
     });
+
 
     const [status, setStatus] = useState("");
     const [showScanner, setShowScanner] = useState(false);
@@ -36,7 +48,8 @@ const RegisterDevice = () => {
                 },
                 body: JSON.stringify({
                     mac: form.mac.trim(),
-                    locationId: form.locationId,
+                    deviceName: form.deviceName,
+                    location: form.location,
                     address: form.address,
                     latitude: +form.latitude,
                     longitude: +form.longitude,
@@ -54,7 +67,8 @@ const RegisterDevice = () => {
 
             setForm({
                 mac: "",
-                locationId: "",
+                deviceName: "",
+                location: "",
                 address: "",
                 latitude: "",
                 longitude: "",
@@ -83,10 +97,10 @@ const RegisterDevice = () => {
 
                 <div className="location-id-row">
                     <input
-                        placeholder="Location ID"
-                        value={form.locationId}
+                        placeholder="Device Name"
+                        value={form.deviceName}
                         onChange={(e) =>
-                            setForm({ ...form, locationId: e.target.value })
+                            setForm({ ...form, deviceName: e.target.value })
                         }
                         required
                     />
@@ -95,6 +109,19 @@ const RegisterDevice = () => {
                         📷
                     </button>
                 </div>
+
+                <select
+                    value={form.location}
+                    onChange={(e) =>
+                        setForm({ ...form, location: e.target.value })
+                    }
+                >
+                    <option value="" disabled>
+                        Select location
+                    </option>
+                    <option value="GP">GP</option>
+                    <option value="BLOCK">BLOCK</option>
+                </select>
 
                 <input
                     placeholder="Address"
@@ -149,7 +176,7 @@ const RegisterDevice = () => {
             {showScanner && (
                 <Scanner
                     onScan={(value) => {
-                        setForm((prev) => ({ ...prev, locationId: value }));
+                        setForm((prev) => ({ ...prev, location: value }));
                         setShowScanner(false);
                     }}
                     onClose={() => setShowScanner(false)}

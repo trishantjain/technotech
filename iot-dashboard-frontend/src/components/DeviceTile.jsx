@@ -2,19 +2,24 @@ import React from "react";
 
 const DeviceTile = React.memo(function DeviceTile({
     mac,
-    locationId,
+    deviceName,
     status,
     isSelected,
     onClick,
 }) {
-    // console.count(`🔷 Tile render: ${mac}`);
+    const device = deviceName || mac;
+    const truncatedDeviceName =
+        device && device.length > 15
+            ? `${device.slice(0, 15)}...`
+            : device;
 
     return (
         <div
             className={`device-tile ${status} ${isSelected ? "selected" : ""}`}
-            onClick={() => onClick(mac, locationId)}
+            title={device}
+            onClick={() => onClick(mac, deviceName)}
         >
-            {locationId || mac}
+            {truncatedDeviceName}
         </div>
     );
 },
@@ -23,7 +28,7 @@ const DeviceTile = React.memo(function DeviceTile({
         return (
             prev.status === next.status &&
             prev.isSelected === next.isSelected &&
-            prev.locationId === next.locationId
+            prev.deviceName === next.deviceName
         );
     }
 

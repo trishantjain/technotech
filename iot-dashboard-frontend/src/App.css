@@ -869,30 +869,32 @@ body {
 
   padding: 12px 20px;
   font-size: 14px;
-  
+
   background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .modal-body {
-flex: 1;
+  flex: 1;
 
   display: flex;
   justify-content: center;
   align-items: center;
 
-  overflow: hidden;           /* 🔥 IMPORTANT */
-  padding: 0;   
+  overflow: hidden;
+  /* 🔥 IMPORTANT */
+  padding: 0;
 }
 
 .fullscreen-image {
-width: auto;
+  width: auto;
   height: auto;
 
   max-width: 100%;
   max-height: 100%;
 
-  object-fit: contain;        /* 🔥 keeps aspect ratio */
+  object-fit: contain;
+  /* 🔥 keeps aspect ratio */
 
   border-radius: 8px;
 }
@@ -930,7 +932,7 @@ width: auto;
 }
 
 .close-btn-fullscreen {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
 
   width: 36px;
@@ -1226,7 +1228,8 @@ input:not(:checked)+.slider:before {
   grid-column: span 2;
 }
 
-.device-form-grid input {
+.device-form-grid input,
+.device-form-grid select {
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid #333;

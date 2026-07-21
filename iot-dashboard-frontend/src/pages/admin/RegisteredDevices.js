@@ -36,6 +36,8 @@ const RegisteredDevices = () => {
                 }
             });
             const data = await res.json();
+
+            console.log("Data: ", data);
             
             // setDeviceList(data);
             setDeviceList(Array.isArray(data) ? data : []);
@@ -66,7 +68,7 @@ const RegisteredDevices = () => {
 
         const matchesSearch =
             device.mac?.toLowerCase().includes(term) ||
-            device.locationId?.toLowerCase().includes(term) ||
+            device.location?.toLowerCase().includes(term) ||
             device.address?.toLowerCase().includes(term)
 
         const matchesStatus = device.status === filter
@@ -132,7 +134,8 @@ const RegisteredDevices = () => {
                     <thead>
                         <tr>
                             <th>IP</th>
-                            <th>Location ID</th>
+                            <th>Name</th>
+                            <th>Location</th>
                             <th>Address</th>
                             <th>Latitude</th>
                             <th>Longitude</th>
@@ -324,12 +327,12 @@ const EditableRow = ({ device, onUpdated, onDeleted }) => {
                     {editMode ? (
                         <input
                             className="text-black"
-                            name="locationId"
-                            value={formData.locationId}
+                            name="deviceName"
+                            value={formData.deviceName}
                             onChange={handleChange}
                         />
                     ) : (
-                        device.locationId
+                        device.deviceName
                     )}
                 </td>
 
@@ -337,7 +340,19 @@ const EditableRow = ({ device, onUpdated, onDeleted }) => {
                     {editMode ? (
                         <input
                             className="text-black"
+                            name="location"
+                            value={formData.location}
+                            onChange={handleChange}
+                        />
+                    ) : (
+                        device.location
+                    )}
+                </td>
 
+                <td>
+                    {editMode ? (
+                        <input
+                            className="text-black"
                             name="address"
                             value={formData.address}
                             onChange={handleChange}
