@@ -560,12 +560,12 @@ function DashboardView() {
     if (reading.lockStatus === "OPEN") alarms.push("Lock Open ");
     if (reading.doorStatus === "OPEN") alarms.push("Door Open ");
     if (reading.pwsFailCount === 3) alarms.push("Password Blocked ")
-    if (reading.mainStatus === 1) alarms.push("Main Alarm")
-    if (reading.rectStatus === 1) alarms.push("Rectifier Alarm")
-    if (reading.inveStatus === 1) alarms.push("Inverter Alarm")
-    if (reading.overStatus === 1) alarms.push("Overload Alarm")
-    if (reading.mptStatus === 1) alarms.push("MPT Alarm")
-    if (reading.mosfStatus === 1) alarms.push("MOSFET Alarm")
+    if (reading.mainStatus === 0) alarms.push("Main Alarm")
+    if (reading.rectStatus === 0) alarms.push("Rectifier Alarm")
+    if (reading.inveStatus === 0) alarms.push("Inverter Alarm")
+    if (reading.overStatus === 0) alarms.push("Overload Alarm")
+    if (reading.mptStatus === 0) alarms.push("MPT Alarm")
+    if (reading.mosfStatus === 0) alarms.push("MOSFET Alarm")
 
     // threshold-based
     if (reading.insideTemperatureAlarm && (reading.insideTemperature < thresholds.insideTemperature.min)) alarms.push("Low In. Temp. ");
@@ -600,12 +600,12 @@ function DashboardView() {
       reading.lockStatus === "OPEN" ||
       reading.doorStatus === "OPEN" ||
       [1, 2, 3].includes(reading.password) ||
-      reading.mainStatus === 1 ||
-      reading.rectStatus === 1 ||
-      reading.inveStatus === 1 ||
-      reading.overStatus === 1 ||
-      reading.mptStatus === 1 ||
-      reading.mosfStatus === 1;
+      reading.mainStatus === 0 ||
+      reading.rectStatus === 0 ||
+      reading.inveStatus === 0 ||
+      reading.overStatus === 0 ||
+      reading.mptStatus === 0 ||
+      reading.mosfStatus === 0;
 
     if (hasStatusAlarm) return "status-alarm";
 
