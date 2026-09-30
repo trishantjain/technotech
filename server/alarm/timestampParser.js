@@ -28,4 +28,4 @@ function parseIstLogTimestamp (timestampText) {
     return isNaN(date.getTime()) ? null : date;
 };
 
-module.exports = parseIstLogTimestamp;
+module.exports = parseIstLogTimestamp;``

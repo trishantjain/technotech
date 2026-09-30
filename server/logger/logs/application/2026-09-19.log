@@ -1,0 +1,9 @@
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-19 15:44:12.754"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-19 15:44:12.968"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-19 15:44:12.969"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-19 15:44:14.167"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-19 15:44:14.339"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-19 15:44:20.691"}
+{"level":"info","message":"Sent command \"#H35400001$\" to 192.168.0.61","timestamp":"2026-09-19 15:44:38.771"}
+{"level":"info","message":"Sent command \"#H35400001$\" to 192.168.0.61","timestamp":"2026-09-19 15:45:36.288"}
+{"level":"info","message":"Sent command \"#H35400001$\" to 192.168.0.61","timestamp":"2026-09-19 15:45:45.853"}

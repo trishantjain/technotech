@@ -369,7 +369,7 @@ const UserRow = ({ user, onEdit, onDelete }) => {
 // ---------------- Register Device Tab ----------------
 const RegisterDeviceTab = () => {
   const [form, setForm] = useState({
-    mac: "",
+    ip: "",
     locationId: "",
     address: "",
     latitude: "",
@@ -418,23 +418,18 @@ const RegisterDeviceTab = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setStatus("");
-    // const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
-    /*
-      \d -> For digits 1-9
-      {1,3} -> Allows from 1 digit to 3 digit values
-      \. -> Match for dot
-    */
-    const macRegex = /^192\.168\.(\d{1})\.(\d{1,3})$/;
-    const cleanedMac = form.mac.trim();
-    if (!macRegex.test(cleanedMac)) {
-      setStatus("❌ Invalid MAC address format. Use XXX:XXX:X:X");
+
+    const ipRegex = /^192\.168\.(\d{1})\.(\d{1,3})$/;
+    const cleanedIP = form.ip.trim();
+    if (!ipRegex.test(cleanedIP)) {
+      setStatus("❌ Invalid IP address format. Use XXX:XXX:X:X");
       return;
     }
-    // Check if MAC already exists
-    const macExists = deviceList.some(
-      (device) => device.mac.toLowerCase() === cleanedMac.toLowerCase()
+    // Check if IP already exists
+    const ipExists = deviceList.some(
+      (device) => device.ip.toLowerCase() === cleanedIP.toLowerCase()
     );
-    if (macExists) {
+    if (ipExists) {
       setStatus("❌ This IP address already exists.");
       return;
     }
@@ -469,7 +464,7 @@ const RegisterDeviceTab = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            mac: cleanedMac,
+            ip: cleanedIP,
             locationId: form.locationId,
             address: form.address,
             latitude: +form.latitude,
@@ -485,7 +480,7 @@ const RegisterDeviceTab = () => {
       if (!res.ok) throw new Error(data.error || "Device registration failed");
       setStatus("✅ Device registered");
       setForm({
-        mac: "",
+        ip: "",
         locationId: "",
         address: "",
         latitude: "",
@@ -519,7 +514,7 @@ const RegisterDeviceTab = () => {
 
     setForm((prev) => ({
       ...prev,
-      mac: value
+      ip: value
     }))
   };
 
@@ -527,7 +522,7 @@ const RegisterDeviceTab = () => {
   const handleDeviceUpdated = (updatedDevice) => {
     setDeviceList((prevDevices) =>
       prevDevices.map((dev) =>
-        dev.mac === updatedDevice.mac ? { ...updatedDevice } : dev
+        dev.ip === updatedDevice.ip ? { ...updatedDevice } : dev
       )
     );
   };
@@ -536,7 +531,7 @@ const RegisterDeviceTab = () => {
     const term = searchTerm.toLowerCase();
 
     return (
-      device.mac?.toLowerCase().includes(term) ||
+      device.ip?.toLowerCase().includes(term) ||
       device.locationId?.toLowerCase().includes(term) ||
       device.address?.toLowerCase().includes(term)
     );
@@ -561,7 +556,7 @@ const RegisterDeviceTab = () => {
             className="full-width"
             type="text"
             placeholder="IP Address"
-            value={form.mac}
+            value={form.ip}
             maxLength={17}
             pattern="^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$"
             inputMode="decimal"
@@ -694,7 +689,7 @@ const RegisterDeviceTab = () => {
             ) : Array.isArray(deviceList) && deviceList.length > 0 ? (
               filteredDevices.map((device) => (
                 <EditableRow
-                  key={device.mac}
+                  key={device.ip}
                   device={device}
                   onUpdated={handleDeviceUpdated}
                 />
@@ -743,7 +738,7 @@ const EditableRow = ({ device, onUpdated }) => {
 
     try {
       const res = await fetch(
-        `${API}/device/${device.mac}`,
+        `${API}/device/${device.ip}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -770,7 +765,7 @@ const EditableRow = ({ device, onUpdated }) => {
 
     try {
       const res = await fetch(
-        `${API}/device/delete/${device.mac}`,
+        `${API}/device/delete/${device.ip}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -787,7 +782,7 @@ const EditableRow = ({ device, onUpdated }) => {
 
   return (
     <tr>
-      <td>{device.mac}</td>
+      <td>{device.ip}</td>
       <td>
         {editMode ? (
           <input
@@ -909,7 +904,7 @@ const EditableRow = ({ device, onUpdated }) => {
 // ---------------- Historical Data Tab ----------------
 const HistoricalDataTab = () => {
   const [devices, setDevices] = useState([]);
-  const [selectedMac, setSelectedMac] = useState("");
+  const [selectedIP, setSelectedIP] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [toTime, setToTime] = useState("");
@@ -919,7 +914,7 @@ const HistoricalDataTab = () => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const filteredDevices = devices.filter(dev =>
-    dev.mac.toLowerCase().includes(query.toLowerCase())
+    dev.ip.toLowerCase().includes(query.toLowerCase())
   );
 
   // eslint-disable-next-line
@@ -948,7 +943,7 @@ const HistoricalDataTab = () => {
   }
 
   const fetchHistoricalData = async () => {
-    if (!date || !time || !toTime || !selectedMac) {
+    if (!date || !time || !toTime || !selectedIP) {
       alert("Please select device, date, from time and to time.");
       return;
     }
@@ -988,9 +983,9 @@ const HistoricalDataTab = () => {
       const fromStr = formatLocalNoTz(fromObj);
       const toStr = formatLocalNoTz(toObj);
 
-      // console.log("Alarm-history:", selectedMac, fromStr, "->", toStr);
+      // console.log("Alarm-history:", selectedIP, fromStr, "->", toStr);
       const res = await fetch(
-        `${API}/alarm-history?mac=${encodeURIComponent(selectedMac)}&from=${encodeURIComponent(fromDateTime)}&to=${encodeURIComponent(toDateTime)}`
+        `${API}/alarm-history?ip=${encodeURIComponent(selectedIP)}&from=${encodeURIComponent(fromDateTime)}&to=${encodeURIComponent(toDateTime)}`
       );
       const data = await res.json();
 
@@ -1011,47 +1006,6 @@ const HistoricalDataTab = () => {
 
   return (
     <div className="historical-data-tab">
-      {/* <h2>📈 Historical Data Viewer</h2>
-
-      <div
-        className="filter-row"
-        style={{
-          display: "flex",
-          gap: "10px",
-          alignItems: "center",
-          marginBottom: "10px",
-        }}
-      >
-        <select
-          value={selectedMac}
-          onChange={(e) => setSelectedMac(e.target.value)}
-          required
-        >
-          <option value="">Select Device</option>
-          {devices.map((dev) => (
-            <option key={dev.mac} value={dev.mac}>
-              {dev.mac}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          required
-        />
-        <input
-          type="time"
-          step="1"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          required
-        />
-        <button onClick={fetchHistoricalData} disabled={loading}>
-          {loading ? "⏳ Fetching..." : "🔍 Fetch"}
-        </button>
-      </div> */}
 
       <div className="p-6 bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl">
 
@@ -1082,15 +1036,15 @@ const HistoricalDataTab = () => {
                   {filteredDevices.length > 0 ? (
                     filteredDevices.map((dev) => (
                       <div
-                        key={dev.mac}
+                        key={dev.ip}
                         onClick={() => {
-                          setQuery(dev.mac);
-                          setSelectedMac(dev.mac);
+                          setQuery(dev.ip);
+                          setSelectedIP(dev.ip);
                           setShowDropdown(false);
                         }}
                         className="px-3 py-2 cursor-pointer hover:bg-blue-100"
                       >
-                        {dev.mac}
+                        {dev.ip}
                       </div>
                     ))
                   ) : (

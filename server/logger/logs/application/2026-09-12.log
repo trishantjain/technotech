@@ -1,0 +1,240 @@
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 10:37:47.388"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 10:37:47.537"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 10:37:47.538"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 10:37:47.870"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 10:37:47.952"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 11:32:20.448"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 11:32:24$","timestamp":"2026-09-12 11:32:24.260"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 11:32:50.007"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 11:32:50.504"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 11:32:50.522"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 11:32:51.640"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 11:32:52.265"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 11:33:09.012"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 11:33:11$","timestamp":"2026-09-12 11:33:11.243"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 11:35:01.833"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 11:35:02.553"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 11:35:02.555"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 11:35:03.082"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 11:35:03.702"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 11:35:10.463"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 11:35:49.010"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 11:35:49.347"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 11:35:49.349"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 11:35:49.625"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 11:35:49.879"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 11:35:56.890"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 11:36:02$","timestamp":"2026-09-12 11:36:02.150"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:10:43.610"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:10:43.745"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:10:43.746"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:10:44.063"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:10:44.157"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:11:00.270"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:11:46.318"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:11:46.530"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:11:46.535"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:11:46.664"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:11:46.872"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:12:03.337"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:12:03.571"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:12:03.586"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:12:03.786"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:12:03.863"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:12:23.099"}
+{"level":"info","message":"Sent command \"#H35420001$\" to 192.168.0.20","timestamp":"2026-09-12 12:12:35.375"}
+{"level":"info","message":"Sent command \"#H35420001$\" to 192.168.0.20","timestamp":"2026-09-12 12:13:54.933"}
+{"level":"info","message":"Sent command \"#H35420001$\" to 192.168.0.20","timestamp":"2026-09-12 12:13:56.494"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:14:31.064"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:14:31.265"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:14:31.275"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:14:33.933"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:14:34.008"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:14:34.009"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:14:34.190"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:14:34.363"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:14:45.303"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:14:45.415"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:14:45.417"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:14:45.521"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:14:45.611"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:14:49.347"}
+{"level":"info","message":"Sent command \"#H35420001$\" to 192.168.0.20","timestamp":"2026-09-12 12:15:06.868"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:23:06.661"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:23:06.819"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:23:06.820"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:23:07.549"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:23:07.641"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:24:00.964"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 12:24:05$","timestamp":"2026-09-12 12:24:05.559"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:24:35.192"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:24:35.227"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:24:35.228"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:24:35.266"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:24:35.302"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:24:50.376"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 12:24:51$","timestamp":"2026-09-12 12:24:51.354"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:25:02.973"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:25:03.049"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:25:03.049"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:25:03.107"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:25:03.151"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:25:21.256"}
+{"level":"info","message":"Sent command \"#H31860001$\" to 192.168.0.20","timestamp":"2026-09-12 12:27:06.029"}
+{"level":"info","message":"Sent command \"#H31860001$\" to 192.168.0.20","timestamp":"2026-09-12 12:27:41.320"}
+{"level":"info","message":"Sent command \"#H33900001$\" to 192.168.0.20","timestamp":"2026-09-12 12:28:49.519"}
+{"level":"info","message":"Sent command \"#H35900001$\" to 192.168.0.20","timestamp":"2026-09-12 12:29:40.185"}
+{"level":"info","message":"Sent command \"#H35900001$\" to 192.168.0.20","timestamp":"2026-09-12 12:31:22.114"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 12:33:54.634"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 12:33:54.852"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 12:33:54.853"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 12:33:54.937"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 12:33:55.003"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 12:34:09.087"}
+{"level":"info","message":"Sent command \"#H35900001$\" to 192.168.0.20","timestamp":"2026-09-12 12:34:16.646"}
+{"level":"info","message":"Sent command \"#H35900001$\" to 192.168.0.20","timestamp":"2026-09-12 12:34:43.275"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 13:02:37.988"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 13:02:38.078"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 13:02:38.083"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 13:02:38.217"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 13:02:38.263"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 15:39:26.544"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 15:39:26.618"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 15:39:26.619"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 15:39:26.951"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 15:39:27.023"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:39:30.418"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 15:39:34$","timestamp":"2026-09-12 15:39:34.503"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:41:20.272"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 15:41:25$","timestamp":"2026-09-12 15:41:25.376"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 15:42:07.690"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 15:42:07.809"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 15:42:07.812"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 15:42:07.905"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 15:42:07.971"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 15:42:10.142"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 15:42:10.346"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 15:42:10.347"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 15:42:10.449"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 15:42:10.518"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:42:30.620"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 15:42:44.554"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 15:42:44.622"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 15:42:44.623"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 15:42:44.703"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 15:42:44.776"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:43:05.703"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:43:51.606"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 15:43:56$","timestamp":"2026-09-12 15:43:56.712"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 15:44:12.251"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 15:44:12.318"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 15:44:12.319"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 15:44:12.390"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 15:44:12.436"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:44:34.002"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:45:02.814"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 15:45:07$","timestamp":"2026-09-12 15:45:07.916"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 15:49:10.419"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 15:49:15$","timestamp":"2026-09-12 15:49:15.529"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:02:40$","timestamp":"2026-09-12 16:02:40.236"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:02:40$","timestamp":"2026-09-12 16:02:40.290"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:02:40$","timestamp":"2026-09-12 16:02:40.352"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:02:40$","timestamp":"2026-09-12 16:02:40.420"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:07:51.791"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:07:51.852"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:07:51.853"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:07:51.928"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:07:51.979"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:07:57.533"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:07:57.657"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:07:57.658"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:07:57.797"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:07:57.945"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:08:01.589"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:08:01.661"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:08:01.662"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:08:01.768"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:08:01.923"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:08:14.524"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:08:22.009"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:08:22.108"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:08:22.109"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:08:22.197"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:08:22.266"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:08:24.455"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:08:24.555"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:08:24.556"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:08:24.645"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:08:24.702"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:08:27.164"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:08:27.282"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:08:27.283"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:08:27.364"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:08:27.448"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:08:34.630"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:08:34.771"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:08:34.773"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:08:34.913"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:08:34.969"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:08:43.508"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:29:13.827"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:29:13.889"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:29:13.894"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:29:13.990"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:29:14.132"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:29:31.980"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 16:38:23.674"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 16:38:23.748"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 16:38:23.835"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 16:38:23.954"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 16:38:24.039"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:38:43.743"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:38:55.003"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:39:00$","timestamp":"2026-09-12 16:39:00.723"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:40:20.047"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:40:25$","timestamp":"2026-09-12 16:40:25.042"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 16:49:11.521"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 16:49:16$","timestamp":"2026-09-12 16:49:16.629"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:00:22$","timestamp":"2026-09-12 17:00:22.177"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:05:47.194"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:05:52$","timestamp":"2026-09-12 17:05:52.253"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:06:11.004"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:06:48$","timestamp":"2026-09-12 17:06:48.123"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:08:43.298"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:09:02$","timestamp":"2026-09-12 17:09:02.873"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:09:50$","timestamp":"2026-09-12 17:09:50.722"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 17:16:09.090"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 17:16:09.188"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 17:16:09.190"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 17:16:09.381"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 17:16:09.439"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 17:16:19.755"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 17:16:19.814"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 17:16:19.815"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 17:16:19.881"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 17:16:19.967"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:16:20.676"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 17:17:20.600"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 17:17:20.646"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 17:17:20.647"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 17:17:20.693"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 17:17:20.733"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:17:43.482"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 17:18:41.366"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 17:18:41.443"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 17:18:41.444"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 17:18:41.501"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 17:18:41.621"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-12 17:18:44.659"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-12 17:18:44.723"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-12 17:18:44.724"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-12 17:18:44.782"}
+{"level":"info","message":"📦 Device cache loaded: 767 devices","timestamp":"2026-09-12 17:18:44.877"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:18:59.958"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:19:08.763"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:19:13$","timestamp":"2026-09-12 17:19:13.859"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:39:35.807"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:39:40$","timestamp":"2026-09-12 17:39:40.785"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-12 17:45:31.106"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 17:45:36$","timestamp":"2026-09-12 17:45:36.207"}
+{"level":"info","message":"⬅️ Sending back: %X00012/09/26 18:00:16$","timestamp":"2026-09-12 18:00:16.920"}

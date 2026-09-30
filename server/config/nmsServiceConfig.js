@@ -80,18 +80,20 @@ module.exports = [
 
     // PASSWORD FAIL
     {
-        field: "passwordFail",
-
+        field: "pwsFailCount",
         serviceName: "wrongDoorCodeAttempts",
-
         unit: "",
 
-        description: "Wrong door code attempts",
+        getDescription: (reading) =>
+            Number(reading.pwsFailCount ?? 0) > 0
+                ? "Wrong door code attempts detected"
+                : "No wrong door code attempts",
 
-        getValue: (reading) => String(reading.passwordFail),
+        getValue: (reading) =>
+            String(reading.pwsFailCount ?? 0),
 
         getStatus: (reading) =>
-            reading.passwordFail > 0
+            Number(reading.pwsFailCount ?? 0) > 0
                 ? "Info"
                 : "OK"
     },
@@ -168,6 +170,94 @@ module.exports = [
                 : "OK"
     },
 
+    // IMONI BATTERY BACKUP
+    {
+        field: "batteryBackup",
+
+        serviceName: "batteryBackup",
+
+        unit: "",
+
+        getDescription: (reading) =>
+            reading.batteryBackupAlarm
+                ? "Battery backup alarm"
+                : "Battery backup is normal",
+
+        getValue: (reading) =>
+            String(reading.batteryBackup ?? 0),
+
+        getStatus: (reading) =>
+            reading.batteryBackupAlarm
+                ? "Major"
+                : "OK"
+    },
+
+    // MAINS ALARM
+    {
+        field: "mainStatus",
+
+        serviceName: "mainsFail",
+
+        unit: "",
+
+        getDescription: (reading) =>
+            reading.mainStatus === 0
+                ? "Mains supply failed"
+                : "Mains supply is normal",
+
+        getValue: (reading) =>
+            reading.mainStatus === 0,
+
+        getStatus: (reading) =>
+            reading.mainStatus === 0
+                ? "Critical"
+                : "OK"
+    },
+
+    // INVERTOR ALARM
+    {
+        field: "inveStatus",
+
+        serviceName: "inverterFail",
+
+        unit: "",
+
+        getDescription: (reading) =>
+            reading.inveStatus === 0
+                ? "Inverter failed"
+                : "Inverter is normal",
+
+        getValue: (reading) =>
+            reading.inveStatus === 0,
+
+        getStatus: (reading) =>
+            reading.inveStatus === 0
+                ? "Major"
+                : "OK"
+    },
+
+    // OVER ALARM
+    {
+        field: "overStatus",
+
+        serviceName: "overloadAlarm",
+
+        unit: "",
+
+        getDescription: (reading) =>
+            reading.overStatus === 0
+                ? "Overload detected"
+                : "No overload",
+
+        getValue: (reading) =>
+            reading.overStatus === 0,
+
+        getStatus: (reading) =>
+            reading.overStatus === 0
+                ? "Major"
+                : "OK"
+    },
+
     // RECTIFIER STATUS
     {
         field: "rectStatus",
@@ -186,6 +276,50 @@ module.exports = [
 
         getStatus: (reading) =>
             reading.rectStatus === 0
+                ? "Major"
+                : "OK"
+    },
+
+    // MOST ALARM
+    {
+        field: "mosfStatus",
+
+        serviceName: "mosfetFail",
+
+        unit: "",
+
+        getDescription: (reading) =>
+            reading.mosfStatus === 0
+                ? "MOSFET fault detected"
+                : "MOSFET is normal",
+
+        getValue: (reading) =>
+            reading.mosfStatus === 0,
+
+        getStatus: (reading) =>
+            reading.mosfStatus === 0
+                ? "Major"
+                : "OK"
+    },
+
+    // MPT
+    {
+        field: "mptStatus",
+
+        serviceName: "solarChargerFail",
+
+        unit: "",
+
+        getDescription: (reading) =>
+            reading.mptStatus === 0
+                ? "Solar charger failed"
+                : "Solar charger is OK",
+
+        getValue: (reading) =>
+            reading.mptStatus === 0,
+
+        getStatus: (reading) =>
+            reading.mptStatus === 0
                 ? "Major"
                 : "OK"
     },
@@ -216,28 +350,6 @@ module.exports = [
         getStatus: () => "OK"
     },
 
-    // MPT
-    {
-        field: "mptStatus",
-
-        serviceName: "solarChargerFail",
-
-        unit: "",
-
-        getDescription: (reading) =>
-            reading.mptStatus === 0
-                ? "Solar charger failed"
-                : "Solar charger is OK",
-
-        getValue: (reading) =>
-            reading.mptStatus === 0,
-
-        getStatus: (reading) =>
-            reading.mptStatus === 0
-                ? "Major"
-                : "OK"
-    },
-
     // UPS BATTERY INTERLOCK
     {
         serviceName: "upsBatteryInterlock",
@@ -262,6 +374,151 @@ module.exports = [
         getValue: () => "NA",
 
         getStatus: () => "Info"
-    }
+    },
+
+    // FAN FAULTY
+    {
+        serviceName: "fanFaultyCount",
+
+        unit: "",
+
+        getDescription: (reading) => {
+
+            const fanStatuses = [
+                reading.fan1Status,
+                reading.fan2Status,
+                reading.fan3Status,
+                reading.fan4Status,
+                reading.fan5Status,
+                reading.fan6Status
+            ];
+
+            const faultyCount =
+                fanStatuses.filter(
+                    status => Number(status) === 0
+                ).length;
+
+            return faultyCount > 0
+                ? `${faultyCount} fan(s) faulty`
+                : "All fans are OK";
+        },
+
+        getValue: (reading) => {
+
+            const fanStatuses = [
+                reading.fan1Status,
+                reading.fan2Status,
+                reading.fan3Status,
+                reading.fan4Status,
+                reading.fan5Status,
+                reading.fan6Status
+            ];
+
+            return String(
+                fanStatuses.filter(
+                    status => Number(status) === 0
+                ).length
+            );
+        },
+
+        getStatus: (reading) => {
+
+            const fanStatuses = [
+                reading.fan1Status,
+                reading.fan2Status,
+                reading.fan3Status,
+                reading.fan4Status,
+                reading.fan5Status,
+                reading.fan6Status
+            ];
+
+            return fanStatuses.some(
+                status => Number(status) === 0
+            )
+                ? "Major"
+                : "OK";
+        }
+    },
+
+    // INPUT VOLTAGE
+    {
+        field: "inputVoltage",
+
+        serviceName: "acInputVoltage",
+
+        unit: "V",
+
+        getDescription: (reading) =>
+            reading.inputVoltageAlarm
+                ? "AC input voltage alarm"
+                : "AC input voltage is normal",
+
+        getValue: (reading) =>
+            String(reading.inputVoltage ?? 0),
+
+        getStatus: (reading) =>
+            reading.inputVoltageAlarm
+                ? "Major"
+                : "OK"
+    },
+
+    // OUTPUT VOLTAGE
+    {
+        field: "outputVoltage",
+
+        serviceName: "dcOutputVoltage",
+
+        unit: "V",
+
+        getDescription: (reading) =>
+            reading.outputVoltageAlarm
+                ? "DC output voltage alarm"
+                : "DC output voltage is normal",
+
+        getValue: (reading) =>
+            String(reading.outputVoltage ?? 0),
+
+        getStatus: (reading) =>
+            reading.outputVoltageAlarm
+                ? "Major"
+                : "OK"
+    },
+
+    // DC OUTPUT CURRENT
+    {
+        field: "hupsDVC",
+
+        serviceName: "dcOutputCurrent",
+
+        unit: "A",
+
+        getDescription: () =>
+            "DC output current",
+
+        getValue: (reading) =>
+            String(reading.hupsDVC ?? 0),
+
+        getStatus: () => "OK"
+    },
+
+    // HUPS BAT VOLT
+    {
+        field: "hupsBatVolt",
+
+        serviceName: "upsBatteryVoltage",
+
+        unit: "V",
+
+        getDescription: () =>
+            "UPS battery voltage",
+
+        getValue: (reading) =>
+            String(reading.hupsBatVolt ?? 0),
+
+        getStatus: (reading) =>
+            Number(reading.hupsBatVolt ?? 0) > 0
+                ? "OK"
+                : "Info"
+    },
 
 ];

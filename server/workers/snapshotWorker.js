@@ -68,7 +68,7 @@ async function imageSizeCheck(filePath) {
 }
 
 
-// HiFocus Capture
+// HIFOCUS CAPTURE
 function captureHiFocus(ip, outputPath) {
     return new Promise((resolve, reject) => {
         const ffmpeg = spawn("ffmpeg", [
@@ -88,7 +88,7 @@ function captureHiFocus(ip, outputPath) {
     });
 }
 
-// Sparsh Capture
+// SPARSH CAPTURE
 async function captureSparsh(ip, outputPath) {
     const response = await axios({
         method: "GET",
@@ -112,10 +112,10 @@ async function captureSparsh(ip, outputPath) {
 
 /**
  * Captures an image from a camera using an external executable (ReadImage.exe).
- *
  * @param {string} ip - IP address of the camera
  * @param {string} outputPath - Path where the captured image will be saved
- *
+ * @param {number|string} cameraId - Camera ID passed to ReadImage.exe
+ **
  * Workflow:
  * 1. Resolve executable path and timeout
  * 2. Prepare arguments (default or via env override)
@@ -124,10 +124,10 @@ async function captureSparsh(ip, outputPath) {
  * 5. Validate output file exists and is not empty
  */
 // Techno Camera
-async function captureTechno(ip, outputPath) {
+async function captureTechno(ip, outputPath, cameraId = null) {
     // RESOLVING PATH FOR EXE FILE
     // const exePath = process.env.READIMAGE_EXE_PATH || path.join(__dirname, "ReadImage.exe");
-    const exePath = process.env.READIMAGE_EXE_PATH || path.join(__dirname, "ReadImage_recovered_5.exe");
+    const exePath = process.env.READIMAGE_EXE_PATH || path.join(__dirname, "ReadImage_recovered_6.exe");
 
 
     // HANDLING EXE FILE READ TIMEOUT
@@ -147,7 +147,15 @@ async function captureTechno(ip, outputPath) {
      * Example:
      *   ["--ip","{ip}","--out","{out}"]
      */
-    let args = [String(ip), String(outputPath)];
+    let args = [
+        String(ip),
+        String(outputPath)
+    ];
+
+    if (cameraId !== null && cameraId !== undefined) {
+        args.push(String(cameraId));
+    }
+
     if (process.env.READIMAGE_ARGS_JSON) {
         try {
             const parsed = JSON.parse(process.env.READIMAGE_ARGS_JSON);
@@ -156,10 +164,17 @@ async function captureTechno(ip, outputPath) {
             if (!Array.isArray(parsed)) throw new Error("READIMAGE_ARGS_JSON must be a JSON array");
 
             // Replace placeholders with actual values
+            // args = parsed.map((a) =>
+            //     String(a).replaceAll("{ip}",
+            //         String(ip)).replaceAll("{out}",
+            //             String(outputPath)));
+
             args = parsed.map((a) =>
-                String(a).replaceAll("{ip}",
-                    String(ip)).replaceAll("{out}",
-                        String(outputPath)));
+                String(a)
+                    .replaceAll("{ip}", String(ip))
+                    .replaceAll("{out}", String(outputPath))
+                    .replaceAll("{cameraId}", String(cameraId))
+            );
         } catch (e) {
             throw new Error(`Invalid READIMAGE_ARGS_JSON: ${e.message}`);
         }
@@ -174,6 +189,15 @@ async function captureTechno(ip, outputPath) {
         });
 
         let stderr = "";
+        let stdout = "";
+
+        child.stdout.on("data", (d) => {
+            const text = d.toString();
+            stdout += text;
+
+            console.log(`[ReadImage] ${text.trim()}`);
+        });
+
         child.stderr.on("data", (d) => {
             stderr += d.toString();
         });
@@ -194,165 +218,64 @@ async function captureTechno(ip, outputPath) {
         child.on("close", (code) => {
             clearTimeout(timer);
 
-            // SUCCESS
-            if (code === 0) return resolve();
+            if (code === 0) {
+                return resolve();
+            }
 
-            // Failure with exit code and optional stderr
-            reject(new Error(`ReadImage exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`));
+            reject(
+                new Error(
+                    `ReadImage exited with code ${code}\n` +
+                    `STDOUT:\n${stdout}\n` +
+                    `STDERR:\n${stderr}`
+                )
+            );
         });
     });
 
+    let actualOutputPath = outputPath;
 
+    if (cameraId !== null && cameraId !== undefined) {
+        actualOutputPath = path.join(
+            path.dirname(outputPath),
+            `${cameraId}_${path.basename(outputPath)}`
+        );
+    }
 
     /**
     * Validate output file
-    * - Must exist
-    * - Must not be empty
+    *   - Must exist
+    *   - Must not be empty
     */
     let stat;
     try {
-        stat = fs.statSync(outputPath);
+        stat = fs.statSync(actualOutputPath);
 
     } catch {
-        throw new Error(`ReadImage completed but output file was not created: ${outputPath}`);
+        throw new Error(`ReadImage completed but output file was not created: ${actualOutputPath}`);
     }
 
     // Ensure file is valid
     if (!stat.isFile() || stat.size === 0) {
-        throw new Error(`ReadImage output file is empty or invalid: ${outputPath}`);
+        throw new Error(`ReadImage output file is empty or invalid: ${actualOutputPath}`);
     }
+
+    return actualOutputPath;
 
     // 🔥 VALIDATE IMAGE
-    const isValid = await validateImage(outputPath);
+    // const isValid = await validateImage(outputPath);
 
-    if (!isValid) {
-        throw new Error("Corrupted image detected by sharp");
-    }
+    // if (!isValid) {
+    //     throw new Error("Corrupted image detected by sharp");
+    // }
 
-    const fileCheck = await imageSizeCheck(outputPath);
+    // const fileCheck = await imageSizeCheck(outputPath);
 
-    if (fileCheck.fileSize.kb < 50) {
-        throw new Error("Invalid Image | Size is less than 50kb");
-    }
+    // if (fileCheck.fileSize.kb < 50) {
+    //     throw new Error("Invalid Image | Size is less than 50kb");
+    // }
 }
 
 
-// Techno Camera with internal retry mechanism
-// async function captureTechno(ip, outputPath, maxRetries = 3) {
-//     let lastError = null;
-
-//     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-//         try {
-//             console.log(`📸 Capture attempt ${attempt}/${maxRetries} for ${ip}`);
-
-//             // Resolve path to ReadImage executable
-//             const exePath = process.env.READIMAGE_EXE_PATH || path.join(__dirname, "ReadImage_recovered_5.exe");
-//             const timeoutMs = Number.parseInt(process.env.READIMAGE_TIMEOUT_MS || "20000", 10);
-
-//             if (!fs.existsSync(exePath)) {
-//                 throw new Error(`ReadImage executable not found at: ${exePath}`);
-//             }
-
-//             // Prepare arguments
-//             let args = [String(ip), String(outputPath)];
-//             if (process.env.READIMAGE_ARGS_JSON) {
-//                 try {
-//                     const parsed = JSON.parse(process.env.READIMAGE_ARGS_JSON);
-//                     if (!Array.isArray(parsed)) throw new Error("READIMAGE_ARGS_JSON must be a JSON array");
-//                     args = parsed.map((a) =>
-//                         String(a).replaceAll("{ip}", String(ip)).replaceAll("{out}", String(outputPath))
-//                     );
-//                 } catch (e) {
-//                     throw new Error(`Invalid READIMAGE_ARGS_JSON: ${e.message}`);
-//                 }
-//             }
-
-//             // Execute the external process
-//             await new Promise((resolve, reject) => {
-//                 const child = spawn(exePath, args, {
-//                     windowsHide: true,
-//                     stdio: ["ignore", "pipe", "pipe"]
-//                 });
-
-//                 let stderr = "";
-//                 let stdout = "";
-
-//                 child.stdout.on("data", (d) => {
-//                     stdout += d.toString();
-//                 });
-
-//                 child.stderr.on("data", (d) => {
-//                     stderr += d.toString();
-//                 });
-
-//                 child.on("error", (err) => {
-//                     reject(err);
-//                 });
-
-//                 const timer = setTimeout(() => {
-//                     try { child.kill(); } catch { /* ignore */ }
-//                     reject(new Error(`ReadImage timed out after ${timeoutMs}ms`));
-//                 }, timeoutMs);
-
-//                 child.on("close", (code) => {
-//                     clearTimeout(timer);
-
-//                     if (code === 0) {
-//                         resolve();
-//                     } else {
-//                         reject(new Error(`ReadImage exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`));
-//                     }
-//                 });
-//             });
-
-//             // Validate output file
-//             let stat;
-//             try {
-//                 stat = fs.statSync(outputPath);
-//             } catch {
-//                 throw new Error(`Output file was not created: ${outputPath}`);
-//             }
-
-//             if (!stat.isFile() || stat.size === 0) {
-//                 throw new Error(`Output file is empty or invalid: ${outputPath} (size: ${stat.size} bytes)`);
-//             }
-
-//             // Validate image with sharp
-//             const isValid = await validateImage(outputPath);
-//             if (!isValid) {
-//                 throw new Error("Corrupted image detected by sharp");
-//             }
-
-//             // Success! Return
-//             console.log(`✅ Capture successful on attempt ${attempt}`);
-//             return;
-
-//         } catch (err) {
-//             lastError = err;
-//             console.error(`❌ Attempt ${attempt} failed:`, err.message);
-
-//             // Clean up invalid file if it exists
-//             if (fs.existsSync(outputPath)) {
-//                 try {
-//                     fs.unlinkSync(outputPath);
-//                     console.log(`🗑️ Deleted invalid file: ${outputPath}`);
-//                 } catch (cleanupErr) {
-//                     console.error(`Failed to delete invalid file:`, cleanupErr.message);
-//                 }
-//             }
-
-//             // If this wasn't the last attempt, wait before retrying
-//             if (attempt < maxRetries) {
-//                 const waitTime = attempt * 2000; // Progressive backoff: 2s, 4s, 6s
-//                 console.log(`⏳ Waiting ${waitTime / 1000}s before retry...`);
-//                 await sleep(waitTime);
-//             }
-//         }
-//     }
-
-//     // All retries failed
-//     throw new Error(`Failed to capture after ${maxRetries} attempts. Last error: ${lastError?.message}`);
-// }
 
 
 
@@ -418,60 +341,174 @@ async function startWorker() {
                 return;
             }
 
-            const mac = data?.mac;
+            const ip = data?.ip;
             const cameraType = data?.cameraType;
             const cameraIP = data?.cameraIP;
+            const cameraId = data?.cameraId;
 
-            console.log(mac, cameraIP, cameraType);
+            console.log(ip, cameraIP, cameraType, cameraId);
 
-            if (!mac || !cameraType || !cameraIP) {
-                console.error("Invalid snapshot message (missing mac/cameraType/cameraIP), dropping:", data);
+            if (!ip || !cameraIP) {
+                console.error("Invalid snapshot message (missing ip/cameraIP), dropping:", data);
                 channel.ack(msg);
                 return;
             }
 
-            const timestamp = getFormattedDateTime();
+            // if (make === "T") {
+            //     console.log(
+            //         "⏰ Snapshot for Techno Camera ⏰",
+            //         ip,
+            //         "CameraID:",
+            //         cameraId ?? "not provided"
+            //     );
+
+            //     snapshotOutputPath = await captureTechno(
+            //         String(cameraIP).trim(),
+            //         snapshotOutputPath,
+            //         cameraId
+            //     );
+            // }
+
+            // console.log("========================================");
+            // console.log("🕒 SNAPSHOT TIMESTAMP DEBUG");
+            // console.log("Source Type :", data.type);
+            // console.log("Event Date  :", data.eventDate ?? "NOT PROVIDED");
+            // console.log("Event Time  :", data.eventTime ?? "NOT PROVIDED");
+            // console.log("Camera ID   :", cameraId ?? "NOT PROVIDED");
+            // console.log("========================================");
+
+            let timestamp;
+
+            if (
+                data.type === "dump" &&
+                data.eventDate &&
+                data.eventTime
+            ) {
+                const eventDate =
+                    String(data.eventDate).replace(/\//g, "_");
+
+                const eventTime =
+                    String(data.eventTime).replace(/:/g, "_");
+
+                timestamp =
+                    `${eventDate}_${eventTime}`;
+            } else {
+                timestamp = getFormattedDateTime();
+            }
+
             const snapshotFileName = `image_${timestamp}.jpg`;
-            const macSuffix = String(mac).slice(8).replace(/[. ]/g, "_");
-            const snapshotOutputDirMac = path.join(snapshotBaseDir, macSuffix);
-            const snapshotOutputPath = path.join(snapshotOutputDirMac, snapshotFileName);
+
+            console.log(
+                "📸 Generated Snapshot Filename:",
+                snapshotFileName
+            );
+
+            // const macSuffix = String(ip).slice(8).replace(/[. ]/g, "_");
+            const ipSuffix = String(ip).slice(8).replace(/[. ]/g, "_");
+            const snapshotOutputDirMac = path.join(
+                snapshotBaseDir,
+                ipSuffix
+            );
+            // const snapshotOutputPath = path.join(snapshotOutputDirMac, snapshotFileName);
+
+            const isBackupSnapshot = data.type === "dump";
+
+            fs.mkdirSync(snapshotOutputDirMac, { recursive: true });
+
+            const captureOutputPath = path.join(
+                snapshotOutputDirMac,
+                snapshotFileName
+            );
+
+            // Final directory for the image
+            const snapshotDir = isBackupSnapshot
+                ? path.join(snapshotOutputDirMac, "backup images")
+                : snapshotOutputDirMac;
+
+            if (isBackupSnapshot) {
+                fs.mkdirSync(snapshotDir, { recursive: true });
+
+                console.log(
+                    `📦 [BACKUP] Dump snapshot directory: ${snapshotDir}`
+                );
+            }
+
+            let snapshotOutputPath = isBackupSnapshot
+                ? path.join(snapshotDir, snapshotFileName)
+                : captureOutputPath;
 
             try {
-                fs.mkdirSync(snapshotOutputDirMac, { recursive: true });
+
+                // fs.mkdirSync(snapshotOutputDirMac, { recursive: true });
 
                 const make = String(cameraType).trim().toUpperCase();
 
-                console.log("snapshot request came :", mac)
+                console.log("snapshot request came :", ip)
+
+                let actualSnapshotPath = snapshotOutputPath;
 
                 if (make === "H") {
-                    console.log("⏰ Snapshot for Hi-Focus Camera ⏰", mac);
-                    await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
+                    console.log("⏰ Snapshot for Hi-Focus Camera ⏰", ip);
+                    await captureHiFocus(
+                        String(cameraIP).trim(),
+                        snapshotOutputPath
+                    );
                 } else if (make === "S") {
-                    console.log("⏰ Snapshot for Sparsh Camera ⏰", mac);
+                    console.log("⏰ Snapshot for Sparsh Camera ⏰", ip);
                     // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
-                    await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
+                    await captureSparsh(
+                        String(cameraIP).trim(),
+                        snapshotOutputPath
+                    );
                 } else {
-                    console.log("⏰ Snapshot for Techno Camera ⏰", mac);
+
+                    console.log("========================================");
+                    console.log("🔍 SNAPSHOT DEBUG");
+                    console.log("Source Type     :", data.type);
+                    console.log("MAC             :", ip);
+                    console.log("Is Backup       :", isBackupSnapshot);
+                    console.log("Output Path     :", snapshotOutputPath);
+                    console.log("Expected Exists :", fs.existsSync(path.dirname(snapshotOutputPath)));
+                    console.log("========================================");
+
+                    console.log("⏰ Snapshot for Techno Camera ⏰", ip);
                     // await sleep(Number.isFinite(sparshDelayMs) ? sparshDelayMs : 3000);
-                    await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
+                    actualSnapshotPath = await captureTechno(
+                        String(cameraIP).trim(),
+                        snapshotOutputPath,
+                        cameraId
+                    );
+                    console.log("========================================");
+                    console.log("✅ READIMAGE COMPLETED");
+                    console.log("Actual Output   :", actualSnapshotPath);
+                    console.log("File Exists     :", fs.existsSync(actualSnapshotPath));
+
+                    if (fs.existsSync(actualSnapshotPath)) {
+                        console.log(
+                            "File Size       :",
+                            fs.statSync(actualSnapshotPath).size,
+                            "bytes"
+                        );
+                    }
+                    console.log("========================================");
                 }
 
-                const isValid = await validateImage(snapshotOutputPath);
+                const isValid = await validateImage(actualSnapshotPath);
                 if (!isValid) {
                     throw new Error("Corrupted image detected by sharp");
                 }
 
                 // await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
 
-
-                console.log("sending to done queue", mac)
+                console.log("sending to done queue", ip)
                 channel.sendToQueue(
                     "snapshot.done",
                     Buffer.from(JSON.stringify({
-                        mac,
-                        filename: snapshotFileName,
+                        ip,
+                        filename: path.basename(actualSnapshotPath),
+                        path: actualSnapshotPath,
                         createdAt: new Date().toISOString(),
-                        source: "camera"
+                        source: data.type === "dump" ? "dump" : "camera"
                     })),
                     { persistent: true }
                 );
@@ -524,74 +561,6 @@ async function startWorker() {
         scheduleRestart(err.message);
 
     }
-
-    // channel.consume("snapshot.queue", async (msg) => {
-    //     if (!msg) return;
-
-    //     let data;
-    //     try {
-    //         data = JSON.parse(msg.content.toString());
-    //     } catch (err) {
-    //         console.error("Invalid snapshot message (not JSON), dropping:", err.message);
-    //         channel.ack(msg);
-    //         return;
-    //     }
-
-    //     const mac = data?.mac;
-    //     const cameraType = data?.cameraType;
-    //     const cameraIP = data?.cameraIP;
-
-    //     if (!mac || !cameraType || !cameraIP) {
-    //         console.error("Invalid snapshot message (missing fields), dropping:", data);
-    //         channel.ack(msg);
-    //         return;
-    //     }
-
-    //     const timestamp = getFormattedDateTime();
-    //     const snapshotFileName = `image_${timestamp}.jpg`;
-    //     const macSuffix = String(mac).slice(8).replace(/[. ]/g, "_");
-    //     const snapshotOutputDirMac = path.join(snapshotBaseDir, macSuffix);
-    //     const snapshotOutputPath = path.join(snapshotOutputDirMac, snapshotFileName);
-
-    //     try {
-    //         fs.mkdirSync(snapshotOutputDirMac, { recursive: true });
-
-    //         const make = String(cameraType).trim().toUpperCase();
-
-    //         console.log(`📸 Snapshot request for ${mac} (${cameraIP}) - Type: ${make}`);
-
-    //         // The capture functions now handle their own retries internally
-    //         if (make === "T") {
-    //             await captureTechno(String(cameraIP).trim(), snapshotOutputPath);
-    //         } else if (make === "S") {
-    //             await captureSparsh(String(cameraIP).trim(), snapshotOutputPath);
-    //         } else {
-    //             await captureHiFocus(String(cameraIP).trim(), snapshotOutputPath);
-    //         }
-
-    //         // Send success message
-    //         channel.sendToQueue(
-    //             "snapshot.done",
-    //             Buffer.from(JSON.stringify({
-    //                 mac,
-    //                 filename: snapshotFileName,
-    //                 createdAt: new Date().toISOString(),
-    //                 source: "camera",
-    //                 path: snapshotOutputPath
-    //             })),
-    //             { persistent: true }
-    //         );
-
-    //         channel.ack(msg);
-    //         console.log(`✅ Successfully processed snapshot for ${mac}`);
-
-    //     } catch (err) {
-    //         console.error("Snapshot worker error after all retries:", err?.stack || err);
-
-    //         // Send to DLQ after all retries failed
-    //         channel.nack(msg, false, false);
-    //     }
-    // });
 }
 
 startWorker();

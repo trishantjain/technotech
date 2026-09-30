@@ -1,0 +1,40 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\.8a33a8905e2f56275b915ec982725af60cde6e9e-audit.json",
+    "files": [
+        {
+            "date": 1788411661962,
+            "name": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\2026-09-03.log",
+            "hash": "6ceb36290ce03df4c3bde3c1514f1ef5a2f11245ca018648e32cf09571802489"
+        },
+        {
+            "date": 1788515829235,
+            "name": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\2026-09-04.log",
+            "hash": "92abb97e97d41bba31137e521528aa00bb3c8f7e6fe485792f09b12659e5f128"
+        },
+        {
+            "date": 1789189667378,
+            "name": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\2026-09-12.log",
+            "hash": "81ec5a0e2a30836bca6ea8ea4a4c9a7c1b4fda4fa1f0ca26bda93a82d3829506"
+        },
+        {
+            "date": 1789727385972,
+            "name": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\2026-09-18.log",
+            "hash": "8e873ee001267a2145508deb67f366c81ebb4b9103ca26d11fc8cbc9425e5a66"
+        },
+        {
+            "date": 1789812820918,
+            "name": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\2026-09-19.log",
+            "hash": "5d123ba50be3b80bc06aade4626a9010eac8e377987b45bd79a233fffef841c3"
+        },
+        {
+            "date": 1790341305469,
+            "name": "D:\\TechnoTrendz\\server\\logger\\logs\\error\\2026-09-25.log",
+            "hash": "86ee713462148faa824476d3b44ddb6a140459791c71070cbbac04bc4504993b"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const sensorReadingSchema = new mongoose.Schema({
-    mac: { type: String, required: true },
+    ip: { type: String, required: true },
     humidity: { type: Number, required: true },
     insideTemperature: { type: Number, required: true },
     outsideTemperature: { type: Number, required: true },

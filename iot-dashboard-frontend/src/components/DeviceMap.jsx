@@ -35,7 +35,7 @@ const DeviceMarker = React.memo(function DeviceMarker({
     device,
     status,
 }) {
-    const { mac } = device;
+    const { ip } = device;
 
     const lat = parseFloat(device.latitude);
     const lon = parseFloat(device.longitude);
@@ -44,7 +44,7 @@ const DeviceMarker = React.memo(function DeviceMarker({
 
     const icon = getIcon(status);
 
-    // console.log("Rendering Marker:", mac); // 🔥 debug
+    // console.log("Rendering Marker:", ip); // 🔥 debug
 
     return (
         <Marker
@@ -56,7 +56,7 @@ const DeviceMarker = React.memo(function DeviceMarker({
             }}
         >
             <Popup>
-                {device.locationId || mac} <br />
+                {device.locationId || ip} <br />
                 {device.address}
             </Popup>
         </Marker>
@@ -76,7 +76,7 @@ const DeviceMap = React.memo(function DeviceMap({
 
     // ✅ memoized center
     const selectedCenter = useMemo(() => {
-        const selectedDevice = deviceMeta.find(d => d.mac === selectedMac);
+        const selectedDevice = deviceMeta.find(d => d.ip === selectedMac);
         const lat = parseFloat(selectedDevice?.latitude);
         const lon = parseFloat(selectedDevice?.longitude);
         return !isNaN(lat) && !isNaN(lon)
@@ -89,9 +89,9 @@ const DeviceMap = React.memo(function DeviceMap({
     // ✅ memoize markers (IMPORTANT for performance)
     const markers = useMemo(() => {
         return deviceMeta.map(device => {
-            const { mac } = device;
+            const { ip } = device;
 
-            const dotClass = deviceStatusMap[mac] || "disconnected";
+            const dotClass = deviceStatusMap[ip] || "disconnected";
 
             const icon = getIcon(dotClass);
 
@@ -101,11 +101,11 @@ const DeviceMap = React.memo(function DeviceMap({
 
             return (
                 <Marker
-                    key={mac}
+                    key={ip}
                     position={[lat, lon]}
                     icon={icon}
                     // eventHandlers={{
-                    //     hover: () => onMarkerClick(mac),
+                    //     hover: () => onMarkerClick(ip),
                     // }}
                     eventHandlers={{
                         mouseover: (e) => {
@@ -117,7 +117,7 @@ const DeviceMap = React.memo(function DeviceMap({
                     }}
                 >
                     <Popup>
-                        {device.locationId || mac} <br />
+                        {device.locationId || ip} <br />
                         {device.address}
                     </Popup>
                 </Marker>
@@ -147,9 +147,9 @@ const DeviceMap = React.memo(function DeviceMap({
 
             {deviceMeta.map(device => (
                 <DeviceMarker
-                    key={device.mac}
+                    key={device.ip}
                     device={device}
-                    status={deviceStatusMap[device.mac]}
+                    status={deviceStatusMap[device.ip]}
                 />
             ))}
             {/* {markers} */}

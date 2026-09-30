@@ -24,6 +24,44 @@ unsigned short idle_timer = 5000 / TIMER_TICK;
 SOCKET	sckConnImg = INVALID_SOCKET; 	/* Client Socket */
 SOCKADDR_IN sockinImg; /* SOCKADDR_IN structure Holds address,port, etc. */
 
+static void print_help()
+{
+    printf("\n");
+    printf("============================================================\n");
+    printf("                    ReadImage.exe HELP\n");
+    printf("============================================================\n");
+
+    printf("\nPURPOSE:\n");
+    printf("  Captures image from an STM over TCP.\n");
+    printf("  PORT: 8324.\n");
+
+    printf("\nUSAGE:\n");
+    printf("  ReadImage.exe <IP> <OutputPath> [ID: Optional]\n");
+
+    printf("\nINPUT PARAMETERS:\n");
+    printf("  <IP>\n");
+    printf("      IP address of the STM [192.168.0.20]\n");
+
+    printf("\n  <OutputPath>\n");
+    printf("      Complete path where the image be saved.\n");
+
+    printf("\n  [ID] - OPTIONAL\n");
+    printf("      Expected Image ID of #EVENT\n");
+
+
+    printf("\nFILENAME BEHAVIOR:\n");
+    printf("  Without ID:\n");
+    printf("      Output filename remains unchanged.\n");
+
+    printf("  With matching ID:\n");
+    printf("      <ID>_<filename>\n");
+
+    printf("  With non-matching ID:\n");
+    printf("      INV_<filename>\n");
+
+    printf("\n============================================================\n");
+}
+
 static unsigned long _stdcall tmr_handler(void* dummy)
 {
 	while (run_flag)
@@ -39,6 +77,7 @@ static unsigned long _stdcall tmr_handler(void* dummy)
 	Sleep(100);
 	return 0;
 }
+
 static unsigned long _stdcall kb_handler(void* dummy)
 {
 	static unsigned char mode2 = 0;
@@ -70,6 +109,7 @@ static unsigned long _stdcall kb_handler(void* dummy)
 	Sleep(500);
 	return 0;
 }
+
 static void ConnectImage(const char* remoteip)
 {
     printf("\n[1] ConnectImage() called with IP: %s", remoteip);
@@ -157,8 +197,70 @@ static void get_timestamp_filename(char* buffer, size_t buffer_size)
 	sprintf_s(buffer, buffer_size, "%s.jpeg", time_str);
 }
 
-#define host_to_ip(x)	"192.168.0.28"
 char filename[100];
+
+static void apply_id_prefix(const char* outputPath, const char* expectedId, bool id_match)
+{
+    // If ID was not provided, keep the original filename unchanged.
+    if (expectedId == NULL)
+    {
+        strncpy(filename, outputPath, sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+        return;
+    }
+
+    const char* prefix = id_match ? expectedId : "INV";
+
+    // Find the last directory separator.
+    const char* last_slash = strrchr(outputPath, '\\');
+
+    if (!last_slash)
+    {
+        last_slash = strrchr(outputPath, '/');
+    }
+
+    if (last_slash)
+    {
+        // Keep the directory path unchanged.
+        size_t directory_length = last_slash - outputPath + 1;
+
+        char directory[100];
+
+        if (directory_length >= sizeof(directory))
+        {
+            printf("\r\nERROR: Output path is too long");
+            return;
+        }
+
+        strncpy(directory, outputPath, directory_length);
+        directory[directory_length] = '\0';
+
+        // Add ID/INV before the actual filename.
+        snprintf(
+            filename,
+            sizeof(filename),
+            "%s%s_%s",
+            directory,
+            prefix,
+            last_slash + 1
+        );
+    }
+    else
+    {
+        // No directory, only filename.
+        snprintf(
+            filename,
+            sizeof(filename),
+            "%s_%s",
+            prefix,
+            outputPath
+        );
+    }
+
+    printf("\r\nFinal image filename: %s\n", filename);
+}
+
+#define host_to_ip(x)	"192.168.0.28"
 char indata[1024];
 int inlen, fromlen; /* no of bytes rcvd */
 static void save_image(unsigned char* img_data, unsigned long img_size)
@@ -176,7 +278,7 @@ static void save_image(unsigned char* img_data, unsigned long img_size)
 	printf("\r\nSaved: %s (%lu bytes)", filename, img_size);
 }
 
-static void recv_jpeg(void)
+static void recv_jpeg(const char* outputPath, const char* expectedId)
 {
     printf("\n\n=== Starting JPEG Reception ===");
     printf("\n[10] Socket handle: %d", sckConnImg);
@@ -238,8 +340,77 @@ static void recv_jpeg(void)
 
     // Parse ASCII length
     header[HEADER_SIZE] = '\0';
-    image_size = atol((char*)header);
+
+    bool id_match = false;
+
+    if (expectedId != NULL)
+    {
+        id_match =
+            (expectedId[0] == header[0] &&
+                expectedId[1] == '\0');
+
+        printf("\r\nExpected ID: %s", expectedId);
+        printf("\r\nHeader first byte: 0x%02X",
+            (unsigned char)header[0]);
+        printf("\r\nID Match: %s",
+            id_match ? "YES" : "NO");
+    }
+
+    apply_id_prefix(outputPath, expectedId, id_match);
+
+    // First 2 bytes contain information and are ignored.
+    // Last 6 bytes contain the image size.
+    char image_size_str[7] = { 0 };
+
+    memcpy(image_size_str, header + 2, 6);
+    image_size_str[6] = '\0';
+
+
+
+    printf("\r\n========== LOGGING IMAGE HEADER ==========\n");
+
+    printf("Header as string: [%s]\n", header);
+
+    printf("Header bytes: ");
+    for (int i = 0; i < HEADER_SIZE; i++)
+    {
+        printf("%02X ", (unsigned char)header[i]);
+    }
+    printf("\n");
+
+    printf("First byte: 0x%02X (%u) '%c'\n",
+        (unsigned char)header[0],
+        (unsigned char)header[0],
+        isprint((unsigned char)header[0])
+        ? header[0]
+        : '.');
+
+    printf("First byte bits: ");
+    for (int i = 7; i >= 0; i--)
+    {
+        printf("%d", ((unsigned char)header[0] >> i) & 1);
+    }
+    printf("\n");
+
+    printf("==================================\n");
+
+    image_size = atol((char*)image_size_str);
+    printf("\r\nHeader received: [%s]", header);
+
+    printf("\r\nFirst 2 bytes (ignored): %02X %02X",
+        (unsigned char)header[0],
+        (unsigned char)header[1]);
+
+    printf("\r\nLast 6 bytes (image size): [%s]", image_size_str);
+
+
     printf("\r\nImage size parsed: %lu bytes ", image_size);
+    //printf("\r\nImage size parsed: %lu bytes ", image_size);
+
+
+
+    //image_size = atol((char*)header);
+    //printf("\r\nImage size parsed: %lu bytes ", image_size);
 
     if (image_size == 0 || image_size > MAX_IMAGE_SIZE)
     {
@@ -384,19 +555,43 @@ static void recv_jpeg(void)
     printf("\r\n[ERROR] No data received\n");
     exit(1);
 }
+
 int main(int argc, char* argv[])
 {
 	printf("\n=== ReadImage Debug Log ===");
 	printf("\nProcess ID: %d", GetCurrentProcessId());
 	printf("\nStart time: %s", __TIMESTAMP__);
 
+    if (argc >= 2 &&
+        (strcmp(argv[1], "?") == 0 ||
+            strcmp(argv[1], "/?") == 0 ||
+            strcmp(argv[1], "-?") == 0))
+    {
+        print_help();
+        return 0;
+    }
+
 	if (argc < 3) {
-		printf("Usage: ReadImage.exe <ip> <outputPath>\n");
-		return 1;
+        printf("\nUsage: ReadImage.exe <ip> <outputPath> [ID]\n");
+        printf("Use 'ReadImage.exe ?' for help.\n");
+        return 1;
 	}
 
 	const char* ip = argv[1];
 	const char* outputPath = argv[2];
+
+    const char* expectedId = NULL;
+
+    if (argc >= 4)
+    {
+        expectedId = argv[3];
+        printf("\n  - ID: %s", expectedId);
+    }
+    else
+    {
+        printf("\n  - ID: Not provided");
+    }
+
 	printf("\nArguments received:");
 	printf("\n  - IP: %s", ip);
 	printf("\n  - Output: %s", outputPath);
@@ -427,7 +622,7 @@ int main(int argc, char* argv[])
 	{
 		if (sckConnImg != INVALID_SOCKET) /* make suer we have an open connection */
 		{
-			recv_jpeg();
+			recv_jpeg(outputPath, expectedId);
 #if 0
 			unsigned long pending;
 			/*gets the data usin gour socket and stores it in our variable */

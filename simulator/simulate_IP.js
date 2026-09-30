@@ -92,33 +92,6 @@ wss.on("connection", (ws) => {
 
 });
 
-// Single byte padding required by server to trigger picture capture
-// Behavior: send a short pulse of 67 (so outgoing packets include 0x43),
-// then reset to 0 immediately; schedule a repeating pulse every 1 minute.
-// function scheduleCameraClicker(pulseIntervalMs = 60000, pulseDurationMs = 500) {
-//   function sendPulse() {
-//     PADDING_BYTE = 67;
-//     console.log(`🔔 Padding pulse ON (0x${PADDING_BYTE.toString(16)})`);
-
-//     // After a short duration, reset back to 0
-//     setTimeout(() => {
-//       PADDING_BYTE = 0;
-//       console.log('🔕 Padding reset to 0');
-//     }, pulseDurationMs);
-//   }
-
-//   // Send immediate pulse once when called
-//   sendPulse();
-
-//   // Then schedule repeating pulses every `pulseIntervalMs`
-//   const interval = setInterval(() => {
-//     sendPulse();
-//   }, pulseIntervalMs);
-
-//   return {
-//     stop: () => clearInterval(interval)
-//   };
-// }
 
 function startPaddingPulse() {
   console.log("🕒 Starting padding pulse (toggle every second)");
@@ -208,9 +181,9 @@ function readCSV(filePath) {
 }
 
 // // Fetching Data for particular second
-// function getDataForSecond(second, mac) {
+// function getDataForSecond(second, ip) {
 //   return csvData.find(row =>
-//     parseInt(row.seconds) === second && row.mac === mac
+//     parseInt(row.seconds) === second && row.ip === ip
 //   );
 // }
 
@@ -239,7 +212,7 @@ function preIndexCSVData() {
 }
 
 
-function sendPacketForRow(client, row, mac, index) {
+function sendPacketForRow(client, row, ip, index) {
   const insideTemp = parseFloat(row.inside_temp) || (35 + Math.random() * 3);
   const outsideTemp = parseFloat(row.outside_temp) || (insideTemp + 5 + Math.random() * 3);
   const waterLeakage = parseInt(row.water_leakage) || (Math.random() < 0.2 ? 1 : 0);
@@ -283,7 +256,7 @@ function sendPacketForRow(client, row, mac, index) {
 
   // Build packet
   const packet = Buffer.concat([
-    Buffer.from(mac.padEnd(17, ' '), 'utf-8'),
+    Buffer.from(ip.padEnd(17, ' '), 'utf-8'),
     toFloatLE(humidity),
     toFloatLE(insideTemp),
     toFloatLE(outsideTemp),
@@ -304,30 +277,30 @@ function sendPacketForRow(client, row, mac, index) {
     failBuf,
   ]);
 
-  console.log(`[${mac}] CSV: Temp=${insideTemp}°C, WaterLeak=${waterLeakage}, WaterLog=${waterLogging}`);
-  console.log(`[${mac}] Packet padding byte at offset 51: 0x${packet[51].toString(16)}`);
+  console.log(`[${ip}] CSV: Temp=${insideTemp}°C, WaterLeak=${waterLeakage}, WaterLog=${waterLogging}`);
+  // console.log(`[${ip}] Packet padding byte at offset 51: 0x${packet[51].toString(16)}`);
   client.write(packet);
 }
 
 
-function startDevice(mac, index) {
+function startDevice(ip, index) {
   try {
     // const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
-    const client = net.createConnection({ host: 'localhost', port: 4000 });
-    console.log("Client connected", mac);
+    const client = net.createConnection({ host: '172.16.113.225', port: 4000 });
+    console.log("Client connected", ip);
 
     // 🔧 NEW: Store this device in our connected devices map
-    connectedDevices.set(mac, client);
+    connectedDevices.set(ip, client);
 
     client.on('connect', () => {
-      console.log(`✅ Connected as ${mac}`);
+      console.log(`✅ Connected as ${ip}`);
 
       if (isCSVMode && csvData.length > 0) {
-        console.log(`📄 ${mac} waiting for CSV data dispatcher...`);
+        console.log(`📄 ${ip} waiting for CSV data dispatcher...`);
         // Device will receive data from startDataDispatcher()
       } else if (!isCSVMode || csvData.length === 0) {
         // } else if (!isCSVMode === false) {
-        console.log(`🔄 ${mac} starting in RANDOM mode`);
+        console.log(`🔄 ${ip} starting in RANDOM mode`);
 
         // SENDING 1 PACKET / 3 SECONDS / DEVICE
         const SEND_INTERVAL = 3000; // 3 seconds
@@ -344,35 +317,36 @@ function startDevice(mac, index) {
         const interval = setInterval(() => {
           sendCount++;
 
-          console.log(`\n🎲 [${mac}] RANDOM MODE - Packet #${sendCount}`);
+          console.log(`\n🎲 [${ip}] RANDOM MODE - Packet #${sendCount}`);
 
           // Disconnection Simulation
           if (isDisconnectedSim && sendCount >= 3) {
-            console.log(`❌ [${mac}] DISCONNECTING after ${sendCount} packets`);
+            console.log(`❌ [${ip}] DISCONNECTING after ${sendCount} packets`);
             clearInterval(interval);
-            connectedDevices.delete(mac); // 🔧 NEW: Remove from map
+            connectedDevices.delete(ip); // 🔧 NEW: Remove from map
             client.end();
 
             const reconnectDelay = 10000 + Math.random() * 10000;
-            console.log(`🔄 [${mac}] Will reconnect in ${(reconnectDelay / 1000).toFixed(1)}s`);
-            setTimeout(() => startDevice(mac, index), reconnectDelay);
+            console.log(`🔄 [${ip}] Will reconnect in ${(reconnectDelay / 1000).toFixed(1)}s`);
+            setTimeout(() => startDevice(ip, index), reconnectDelay);
             return;
           }
 
           // Toggle alarm phase
           if (isHealthyDevice) {
+            console.log("Healthy device count")
             if (sendCount >= alarmStart && sendCount < alarmStart + alarmDuration) {
               inAlarmPhase = true;
-              console.log(`🚨 [${mac}] ALARM PHASE ACTIVATED`);
+              console.log(`🚨 [${ip}] ALARM PHASE ACTIVATED`);
             } else {
               inAlarmPhase = false;
-              console.log(`✅ [${mac}] NORMAL PHASE`);
+              console.log(`✅ [${ip}] NORMAL PHASE`);
             }
 
             if (sendCount >= alarmStart + alarmDuration) {
               alarmStart = sendCount + 5 + Math.floor(Math.random() * 5);
               alarmDuration = 2 + Math.floor(Math.random() * 2);
-              console.log(`🔄 [${mac}] Next alarm at packet #${alarmStart}`);
+              console.log(`🔄 [${ip}] Next alarm at packet #${alarmStart}`);
             }
           }
 
@@ -391,10 +365,10 @@ function startDevice(mac, index) {
           const doorStatus = simulatorState.mode === 'random' ? Math.random() < 0.5 ? 1 : 0 : simulatorState.door ? 1 : 0;
           const waterLogging = simulatorState.mode === 'random' ? triggerAlarm && Math.random() < 0.2 ? 1 : 0 : simulatorState.logging ? 1 : 0;
           const waterLeakage = simulatorState.mode === 'random' ? !triggerAlarm && Math.random() < 0.2 ? 1 : 0 : simulatorState.leakage ? 1 : 0;
-          const outputVoltage = simulatorState.mode === "random" ? triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10 : simulatorState.outputVoltage;
+          const outputVoltage = simulatorState.mode === "random" ? triggerAlarm ? 5000 + Math.random() * 10 : 5000 + Math.random() * 10 : simulatorState.outputVoltage;
           const hupsDVC = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           // const inputVoltage = 80;
-          const inputVoltage = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
+          const inputVoltage = triggerAlarm ? 4000 + Math.random() * 10 : 4000 + Math.random() * 10;
           const hupsBat = triggerAlarm ? 2.5 + Math.random() * 10 : 3.3 + Math.random() * 10;
           // const batteryBackup = triggerAlarm ? 12 + Math.random() * 2 : 20 + Math.random() * 3;
           const batteryBackup = 3;
@@ -449,7 +423,7 @@ function startDevice(mac, index) {
           const fanStatusBuf = Buffer.alloc(2);
           fanStatusBuf.writeUInt16LE(fanStatusBits, 0);
 
-          console.log(`🎛️ [${mac}] Fans Status: [${fanStatusBits}]`);
+          // console.log(`🎛️ [${ip}] Fans Status: [${fanStatusBits}]`);
 
 
           // FAN GROUP STATUS
@@ -488,8 +462,8 @@ function startDevice(mac, index) {
           // failBuf4.writeUInt16LE(failMask4, 0);
 
           const packet = Buffer.concat([
-            // Buffer.from(mac.padEnd(17, ' '), 'utf-8'), //0-16
-            ipStringToAsciiHexBuffer(mac),
+            // Buffer.from(ip.padEnd(17, ' '), 'utf-8'), //0-16
+            ipStringToAsciiHexBuffer(ip),
             Buffer.alloc(9, 0x00),   // 9 bytes ZERO padding
             toFloatLE(humidity),  //17-20
             toFloatLE(insideTemp), //21-24
@@ -519,13 +493,13 @@ function startDevice(mac, index) {
           ]);
 
 
-          const len = new TextEncoder().encode(JSON.stringify(outputVoltage)).length;
-          console.log(`Byte used by packet: ${len}`);
+          // const len = new TextEncoder().encode(JSON.stringify(outputVoltage)).length;
+          // console.log(`Byte used by packet: ${len}`);
 
           const status = isDisconnectedSim && sendCount >= 3 ? '❌ DISCONNECTED' : triggerAlarm ? '🚨 ALARM' : '✅ NORMAL';
-          // console.log(`📤 [${mac}] ${status} | Sending packet PACKET ${packet.toString('hex')} of COUNT #${sendCount}`);
-          console.log(`📤 [${mac}] ${status} | Sending packet of COUNT #${sendCount}`);
-          // console.log(`[${mac}] Packet padding byte at offset 51: 0x${packet[51]}`);
+          // console.log(`📤 [${ip}] ${status} | Sending packet PACKET ${packet.toString('hex')} of COUNT #${sendCount}`);
+          console.log(`📤 [${ip}] ${status} | Sending packet of COUNT #${sendCount}`);
+          // console.log(`[${ip}] Packet padding byte at offset 51: 0x${packet[51]}`);
           // console.log(
           //   "Simulator sending IP bytes:",
           //   packet.slice(0, 4)
@@ -535,141 +509,30 @@ function startDevice(mac, index) {
         }, SEND_INTERVAL);
 
         client.on('close', () => {
-          console.warn(`🔌 [${mac}] CONNECTION CLOSED`);
-          connectedDevices.delete(mac); // 🔧 NEW: Remove from map
+          console.warn(`🔌 [${ip}] CONNECTION CLOSED`);
+          connectedDevices.delete(ip); // 🔧 NEW: Remove from map
           clearInterval(interval);
         });
       }
     });
 
     client.on('error', (err) => {
-      console.error(`💥 [${mac}] CONNECTION ERROR:`, err.message);
-      connectedDevices.delete(mac); // 🔧 NEW: Remove from map
-      setTimeout(() => startDevice(mac, index), 5000);
+      console.error(`💥 [${ip}] CONNECTION ERROR:`, err.message);
+      connectedDevices.delete(ip); // 🔧 NEW: Remove from map
+      setTimeout(() => startDevice(ip, index), 5000);
     });
 
     client.on('close', () => {
-      console.warn(`🔌 [${mac}] CONNECTION CLOSED`);
-      connectedDevices.delete(mac); // 🔧 NEW: Remove from map
+      console.warn(`🔌 [${ip}] CONNECTION CLOSED`);
+      connectedDevices.delete(ip); // 🔧 NEW: Remove from map
     });
 
   } catch (err) {
-    console.error(`💥 [${mac}] START DEVICE ERROR:`, err);
-    setTimeout(() => startDevice(mac, index), 5000);
+    console.error(`💥 [${ip}] START DEVICE ERROR:`, err);
+    setTimeout(() => startDevice(ip, index), 5000);
   }
 }
 
-
-// function startDevice(mac, index) {
-//   try {
-//     const client = net.createConnection({ host: 'localhost', port: 4000 });
-//     client.on('connect', () => {
-//       console.log(`✅ Connected as ${mac}`);
-
-//       if (isCSVMode && csvData.length > 0) {
-//         console.log(`📄 ${mac} starting in CSV mode`);
-
-//         // Get ALL data for this specific device and sort by seconds
-//         const deviceData = csvData
-//           .filter(row => row.mac === mac)
-//           .sort((a, b) => parseInt(a.seconds) - parseInt(b.seconds));
-
-//         console.log(`📊 ${mac} has ${deviceData.length} data points`);
-
-//         if (deviceData.length === 0) {
-//           console.log(`❌ No CSV data for ${mac}, switching to random mode`);
-//           isCSVMode = false;
-//           client.end();
-//           setTimeout(() => startDevice(mac, index), 1000);
-//           return;
-//         }
-
-//         let dataIndex = 0;
-
-//         const interval = setInterval(() => {
-//           if (dataIndex >= deviceData.length) {
-//             console.log(`📄 CSV data completed for ${mac}! Switching to random mode...`);
-//             clearInterval(interval);
-//             isCSVMode = false;
-//             client.end();
-//             setTimeout(() => startDevice(mac, index), 1000);
-//             return;
-//           }
-
-//           const row = deviceData[dataIndex];
-//           console.log(`⏰ [${mac}] Processing second ${row.seconds} (${dataIndex + 1}/${deviceData.length})`);
-
-//           sendPacketForRow(client, row, mac, index);
-//           dataIndex++;
-
-//         }, 2000);
-//       } else {
-//         console.log(`🔄 ${mac} starting in random mode`);
-//         console.log(`🔄 ${mac} starting in random mode`);
-
-//         let sendCount = 0;
-//         const isHealthyDevice = index >= TOTAL_DEVICES - 2;
-//         const isDisconnectedSim = index >= TOTAL_DEVICES - 5 && index < TOTAL_DEVICES - 2;
-
-//         let alarmStart = 5 + Math.floor(Math.random() * 5);
-//         let alarmDuration = 2 + Math.floor(Math.random() * 2);
-//         let inAlarmPhase = false;
-
-//         const interval = setInterval(() => {
-//           sendCount++;
-
-//           // Disconnection Simulation
-//           if (isDisconnectedSim && sendCount >= 3) {
-//             console.log(`❌ [${mac}] Disconnecting after ${sendCount} packets`);
-//             clearInterval(interval);
-//             client.end();
-
-//             const reconnectDelay = 10000 + Math.random() * 10000;
-//             console.log(`🔄 [${mac}] Will reconnect in ${(reconnectDelay / 1000).toFixed(1)}s`);
-//             setTimeout(() => startDevice(mac, index), reconnectDelay);
-//             return;
-//           }
-
-//           // Toggle alarm phase
-//           if (isHealthyDevice) {
-//             if (sendCount >= alarmStart && sendCount < alarmStart + alarmDuration) {
-//               inAlarmPhase = true;
-//             } else {
-//               inAlarmPhase = false;
-//             }
-
-//             if (sendCount >= alarmStart + alarmDuration) {
-//               alarmStart = sendCount + 5 + Math.floor(Math.random() * 5);
-//               alarmDuration = 2 + Math.floor(Math.random() * 2);
-//             }
-//           }
-
-//           // Your existing random data generation code here...
-//           const triggerAlarm = !isHealthyDevice || inAlarmPhase;
-
-//           // ... (keep all your random sensor data generation code)
-
-//           const status = isDisconnectedSim && sendCount >= 3 ? '❌ DISCONNECTED' : triggerAlarm ? '🚨 ALARM' : '✅ NORMAL';
-//           console.log(`[${mac}] ${status} | Packet #${sendCount}`);
-//           // client.write(packet); // Your existing packet sending
-
-//         }, 2000);
-
-//       }
-//     });
-
-//     client.on('error', (err) => {
-//       console.error(`${mac} connection error:`, err);
-//     });
-
-//     client.on('close', () => {
-//       console.warn(`${mac} connection closed`);
-//     });
-
-//   } catch (err) {
-//     console.error(`Error in startDevice for ${mac}:`, err);
-//   }
-// }
 
 
 // 🔧 NEW: Central Data Dispatcher
@@ -690,7 +553,7 @@ function startDataDispatcher() {
     } else {
       // Parsing each data entry to the appropriate device
       allDataThisSecond.forEach(dataRow => {
-        const targetMAC = dataRow.mac;
+        const targetMAC = dataRow.ip;
 
         console.log(`🎯 Dispatching to ${targetMAC}:`, {
           humidity: dataRow.humidity,
@@ -744,7 +607,7 @@ async function initializeSimulator() {
       preIndexCSVData();
 
       // 🔍 Debug: Analyze CSV data
-      const uniqueMACs = [...new Set(csvData.map(row => row.mac))];
+      const uniqueMACs = [...new Set(csvData.map(row => row.ip))];
       console.log(`🔍 CSV Analysis:`);
       console.log(`   Total rows: ${csvData.length}`);
       console.log(`   Unique MACs: ${uniqueMACs.length}`);
@@ -756,9 +619,9 @@ async function initializeSimulator() {
 
       // Start all devices
       for (let i = 0; i < TOTAL_DEVICES; i++) {
-        const mac = generateIP(i);
-        startDevice(mac, i);
-        devices.push(mac);
+        const ip = generateIP(i);
+        startDevice(ip, i);
+        devices.push(ip);
       }
 
       // 🔧 NEW: Start the central data dispatcher after a brief delay
@@ -772,10 +635,10 @@ async function initializeSimulator() {
 
       // Start all devices in random mode
       for (let i = 0; i < TOTAL_DEVICES; i++) {
-        const mac = generateIP(i);
-        console.log("MAC", typeof (mac));
-        startDevice(mac, i);
-        devices.push(mac);
+        const ip = generateIP(i);
+        console.log("MAC", typeof (ip));
+        startDevice(ip, i);
+        devices.push(ip);
       }
     }
   } catch (err) {
@@ -801,9 +664,9 @@ const spawnInterval = setInterval(() => {
     console.log('✅ All simulated devices started.');
     return;
   }
-  const mac = generateMac(index);
-  startDevice(mac, index);
-  devices.push(mac);
+  const ip = generateMac(index);
+  startDevice(ip, index);
+  devices.push(ip);
   index++;
 }, 10);
  */

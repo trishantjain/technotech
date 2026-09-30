@@ -4,6 +4,7 @@ require("dotenv").config({
 const amqp = require("amqplib");
 const fs = require("fs");
 const path = require("path");
+const { parseDumpPacket } = require("./parsers/dumpPacketParser.js");
 
 const RECONNECT_DELAY_MS = 5000;
 let restarting = false;
@@ -47,6 +48,9 @@ async function startWorker() {
         });
 
         await channel.assertQueue("log.queue", { durable: true });
+        await channel.assertQueue("snapshot.queue", {
+            durable: true
+        });
 
         console.log("📝 Log Worker started");
 
@@ -57,10 +61,16 @@ async function startWorker() {
                 // Fetching data
                 const data = JSON.parse(msg.content.toString());
 
-                const baseDir =
-                    data.type === "inc"
-                        ? process.env.INC_LOG_DIR
-                        : process.env.OUT_LOG_DIR;
+                let baseDir;
+
+                if (
+                    data.type === "inc" ||
+                    data.type === "dump"
+                ) {
+                    baseDir = process.env.INC_LOG_DIR;
+                } else {
+                    baseDir = process.env.OUT_LOG_DIR;
+                }
 
                 if (!baseDir) {
                     console.error("Log directory not configured");
@@ -68,26 +78,163 @@ async function startWorker() {
                     return;
                 }
 
-                const macDir = String(data.mac).replace(/[:. ]/g, "_");
+                // ----------------------------------------
+                // Device directory
+                // ----------------------------------------
+                const macDir = String(data.ip).replace(/[:. ]/g, "_");
                 const deviceDir = path.join(baseDir, macDir);
 
                 fs.mkdirSync(deviceDir, { recursive: true });
 
+
+                // ----------------------------------------
+                // Log directory
+                // ----------------------------------------
+                let logDir = deviceDir;
+
+                if (data.type === "dump") {
+                    logDir = path.join(deviceDir, "backup alarms");
+
+                    if (!fs.existsSync(logDir)) {
+                        fs.mkdirSync(logDir, { recursive: true });
+
+                        console.log(
+                            `📁 [DUMP] Backup alarm folder created: ${logDir}`
+                        );
+                    }
+                }
+
+                // console.log("Dump Device Dir created")
                 const now = new Date();
-                const fileName =
-                    data.type === "inc"
-                        ? `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.inc`
-                        : `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.out`;
+
+                let fileName;
+
+                if (data.type === "inc") {
+                    fileName =
+                        `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.inc`;
+                } else if (data.type === "dump") {
+                    fileName =
+                        `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.dump`;
+                } else {
+                    fileName =
+                        `${now.getDate()}_${now.getMonth() + 1}_${now.getHours()}.out`;
+                }
+
+                const filePath = path.join(logDir, fileName);
+
+                const fileExists = fs.existsSync(filePath);
 
                 let logLine;
 
                 if (data.type === "inc") {
-                    logLine = `[${now.toLocaleString()}] | MAC:${data.mac} | Humid=${data.humidity} | IT=${data.insideTemperature} | OT=${data.outsideTemperature} | IV=${data.inputVoltage} | OV=${data.outputVoltage} | BB=${data.batteryBackup}`;
-                } else {
-                    logLine = `[${now.toLocaleString()}] | MAC:${data.mac} | ${data.status} | COMMAND:"${data.command}" | MESSAGE:"${data.message}"`;
+                    logLine = `[${now.toLocaleString()}] | 
+                    IP:${data.ip} | 
+                    Humid=${data.humidity} | 
+                    IT=${data.insideTemperature} | 
+                    OT=${data.outsideTemperature} | 
+                    IV=${data.inputVoltage} | 
+                    OV=${data.outputVoltage} | 
+                    BB=${data.batteryBackup}`;
                 }
 
-                fs.appendFileSync(path.join(deviceDir, fileName), logLine + "\n");
+                // ==================================================
+                // DUMP LOG
+                // ==================================================
+                else if (data.type === "dump") {
+                    const parsed = parseDumpPacket(data.packet);
+
+                    // ----------------------------------------
+                    // Invalid packet
+                    // ----------------------------------------
+                    if (!parsed.success) {
+                        console.error(
+                            `🚫 [DUMP] Invalid dump packet from ${data.ip}:`,
+                            parsed.error
+                        );
+
+                        logLine =
+                            `[${now.toLocaleString()}] | IP:${data.ip} | ${parsed.raw}`;
+                    } else {
+
+                        // ----------------------------------------
+                        // Camera request
+                        // ----------------------------------------
+                        if (parsed.hasCamera) {
+
+                            console.log(
+                                `📷 [DUMP] CAMR value received: ${parsed.cameraId}`
+                            );
+
+                            console.log(
+                                "📤 [DUMP → SNAPSHOT] Sending:",
+                                {
+                                    cameraId: parsed.cameraId,
+                                    eventDate: parsed.formattedDate,
+                                    eventTime: parsed.eventTime,
+                                    cameraIP: data.ip
+                                }
+                            );
+
+                            channel.sendToQueue(
+                                "snapshot.queue",
+                                Buffer.from(
+                                    JSON.stringify({
+                                        type: "dump",
+                                        ip: data.ip,
+                                        cameraIP: data.ip,
+                                        cameraType: "T",
+                                        cameraId: parsed.cameraId,
+
+                                        // Timestamp from the actual dump event
+                                        eventDate: parsed.formattedDate,
+                                        eventTime: parsed.eventTime
+                                    })
+                                ),
+                                {
+                                    persistent: true
+                                }
+                            );
+
+                            console.log(
+                                `📤 [DUMP] Snapshot request sent`,
+                                {
+                                    IP: data.ip,
+                                    CameraID: parsed.cameraId,
+                                    EventDate: parsed.formattedDate,
+                                    EventTime: parsed.eventTime
+                                }
+                            );
+                        }
+
+                        // ----------------------------------------
+                        // Log cleaned dump packet
+                        // ----------------------------------------
+                        logLine =
+                            `[${now.toLocaleString()}] | IP:${data.ip} | ${parsed.parsedPacket}`;
+                    }
+                } else {
+                    logLine = `[${now.toLocaleString()}] | IP:${data.ip} | ${data.status} | COMMAND:"${data.command}" | MESSAGE:"${data.message}"`;
+                }
+
+                fs.appendFileSync(
+                    path.join(logDir, fileName),
+                    logLine + "\n"
+                );
+
+                if (data.type === "dump") {
+                    if (!fileExists) {
+                        console.log(
+                            `📄 [DUMP] Dump file created: ${filePath}`
+                        );
+                    } else {
+                        console.log(
+                            `📝 [DUMP] Dump packet appended to: ${filePath}`
+                        );
+                    }
+                    console.log(
+                        `📜 [DUMP] Packet logged for ${data.ip}`
+                    );
+                }
 
                 channel.ack(msg);
             } catch (err) {

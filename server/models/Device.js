@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 const deviceSchema = new mongoose.Schema(
   {
     // STORING IP OF DEVICE
-    mac: {
+    ip: {
       type: String,
       unique: true,
       required: true
     },
 
-    location:String,
+    location: String,
 
     deviceName: String,
 
@@ -81,6 +81,22 @@ const deviceSchema = new mongoose.Schema(
       default: ""
     },
 
+    deviceStatus: {
+      type: String,
+      enum: ["UP", "DOWN"],
+      default: "DOWN"
+    },
+
+    lastPacketTime: {
+      type: Date,
+      default: null
+    },
+
+    lastStatusChangeTimeTicks: {
+      type: Number,
+      default: () => Date.now()
+    },
+
     maintenanceMode: {
       type: String,
       default: "Inactive"
@@ -144,7 +160,13 @@ const deviceSchema = new mongoose.Schema(
     modifyField: {
       type: String,
       default: ""
-    }
+    },
+
+    currentAlarms: {
+      critical: { type: Array, default: [] },
+      major: { type: Array, default: [] },
+      minor: { type: Array, default: [] }
+    },
   }
 );
 

@@ -9,7 +9,7 @@ const RegisterDevice = () => {
     const navigate = useNavigate();
 
     // const [form, setForm] = useState({
-    //     mac: "",
+    //     ip: "",
     //     locationId: "",
     //     address: "",
     //     latitude: "",
@@ -19,7 +19,7 @@ const RegisterDevice = () => {
     // });
 
     const [form, setForm] = useState({
-        mac: "",
+        ip: "",
         deviceName: "",
         location: "",
         address: "",
@@ -47,7 +47,7 @@ const RegisterDevice = () => {
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    mac: form.mac.trim(),
+                    ip: form.ip.trim(),
                     deviceName: form.deviceName,
                     location: form.location,
                     address: form.address,
@@ -66,7 +66,7 @@ const RegisterDevice = () => {
             setStatus("✅ Device registered");
 
             setForm({
-                mac: "",
+                ip: "",
                 deviceName: "",
                 location: "",
                 address: "",
@@ -88,9 +88,9 @@ const RegisterDevice = () => {
                 <input
                     className="full-width"
                     placeholder="IP Address"
-                    value={form.mac}
+                    value={form.ip}
                     onChange={(e) =>
-                        setForm({ ...form, mac: e.target.value })
+                        setForm({ ...form, ip: e.target.value })
                     }
                     required
                 />

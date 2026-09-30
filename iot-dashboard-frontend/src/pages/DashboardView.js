@@ -8,12 +8,17 @@ import { useMemo } from "react";
 import thresholds from "../config/thresholds";
 import DeviceMap from "../components/DeviceMap";
 import DevicePanel from "../components/DevicePanel";
-import { ADMIN_PASSWORD, ALARM_KEYS, HUPS_KEYS, LOG_CONSTANTS, STATUS_KEYS } from "../config/constants.js";
+import {
+  ADMIN_PASSWORD,
+  ALARM_KEYS,
+  HUPS_KEYS,
+  LOG_CONSTANTS,
+  STATUS_KEYS,
+} from "../config/constants.js";
 import { getFormattedDateTime } from "../utils/date.js";
 import { API } from "../config/api.js";
 import PasswordPrompt from "../components/PasswordPrompt.jsx";
 import { useNavigate } from "react-router-dom";
-
 
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
 
@@ -44,6 +49,8 @@ function DashboardView() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState("");
 
+  const [dashboardMode, setDashboardMode] = useState("monitoring");
+
   const selectedMacRef = useRef("");
   // const deviceStatusRef = useRef({});
 
@@ -64,7 +71,6 @@ function DashboardView() {
 
   const [alarmToggle, setAlarmToggle] = useState(false);
 
-
   // LOGS
   const lastResetAtRef = useRef(Date.now());
   const lastAlarmLogAtByMacRef = useRef({});
@@ -72,12 +78,12 @@ function DashboardView() {
 
   /**
    * Reads and parses logs from localStorage with age validation
-   * 
+   *
    * @returns {Object} An object containing logs indexed by MAC address, or an empty object if:
    *   - localStorage is empty or data is invalid
    *   - logs have expired based on LOG_RESET_MS window
    *   - JSON parsing fails
-   * 
+   *
    * @description
    * Attempts to retrieve logs from localStorage using LOG_STORAGE_KEY.
    * Validates the stored data structure and checks if logs have exceeded
@@ -92,7 +98,7 @@ function DashboardView() {
       // Parsing JSON
       const parsed = JSON.parse(raw);
       const lastResetAt = Number(parsed?.lastResetAt || 0);
-      // Logs by mac
+      // Logs by ip
       const stored = parsed?.logsByMac;
 
       // If Logs are not correct || not present
@@ -120,7 +126,7 @@ function DashboardView() {
         JSON.stringify({
           lastResetAt: lastResetAtRef.current,
           logsByMac: nextLogsByMac,
-        })
+        }),
       );
     } catch {
       // ignore storage errors (private mode, quota, etc.)
@@ -129,10 +135,10 @@ function DashboardView() {
 
   const [logsByMac, setLogsByMac] = useState(() => readLogsLocalStorage());
 
-  // STORING LOG OF SELECTED DEVICE 
+  // STORING LOG OF SELECTED DEVICE
   const currentLogs = useMemo(
     () => logsByMac[selectedMac] || EMPTY_LOGS,
-    [logsByMac, selectedMac]
+    [logsByMac, selectedMac],
   );
 
   // const _viewportRef = useRef(null);
@@ -141,19 +147,16 @@ function DashboardView() {
   const [autoScroll, setAutoScroll] = useState(true);
   const persistTimerRef = useRef(null);
 
-
   //Map and marker refs
   const mapRef = useRef(null);
   // const markerRefs = useRef({});
-  // const isFetchingRef = useRef(false); // TIMING TESTING
-
-
+  const isFetchingRef = useRef(false); // TIMING TESTING
 
   // const latestReadingsByMac = {};
   // readings.forEach((r) => {
-  //   const existing = latestReadingsByMac[r.mac];
+  //   const existing = latestReadingsByMac[r.ip];
   //   if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
-  //     latestReadingsByMac[r.mac] = r;
+  //     latestReadingsByMac[r.ip] = r;
   //   }
   // });
 
@@ -161,9 +164,9 @@ function DashboardView() {
   const latestReadingsByMac = useMemo(() => {
     const map = {};
     for (const r of readings) {
-      const existing = map[r.mac];
+      const existing = map[r.ip];
       if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
-        map[r.mac] = r;
+        map[r.ip] = r;
       }
     }
     return map;
@@ -176,8 +179,8 @@ function DashboardView() {
     let disconnected = 0;
 
     // let count = 0;
-    for (const mac in deviceStatusMap) {
-      const status = deviceStatusMap[mac];
+    for (const ip in deviceStatusMap) {
+      const status = deviceStatusMap[ip];
 
       if (status === "connected") connected++;
       else if (status === "status-alarm") statusAlarm++;
@@ -190,25 +193,23 @@ function DashboardView() {
       statusAlarm,
       gaugeAlarm,
       disconnected,
-      total: deviceMeta.length
+      total: deviceMeta.length,
     };
-
   }, [deviceStatusMap, deviceMeta.length]);
 
   // const frontendAlarmsByMac = useMemo(() => {
   //   const map = {};
-  //   for (const mac in latestReadingsByMac) {
-  //     map[mac] = alarmComputation(
-  //       latestReadingsByMac[mac],
+  //   for (const ip in latestReadingsByMac) {
+  //     map[ip] = alarmComputation(
+  //       latestReadingsByMac[ip],
   //       thresholds
   //     );
   //   }
   //   return map;
   // }, [latestReadingsByMac]);
 
-
-  // const selectedDeviceMeta = deviceMeta.find((d) => d.mac === selectedMac);
-  // const latestReading = readings.find((r) => r.mac === selectedMac);
+  // const selectedDeviceMeta = deviceMeta.find((d) => d.ip === selectedMac);
+  // const latestReading = readings.find((r) => r.ip === selectedMac);
   const latestReading = latestReadingsByMac[selectedMac];
 
   // UseEffect for fetching Data
@@ -224,13 +225,12 @@ function DashboardView() {
       // console.log('🛑Clearing data fetch interval');
       clearInterval(interval);
     };
-
   }, []);
 
   // 🔄 Auto-focus map on selected device
   useEffect(() => {
     if (mapRef.current && selectedMac) {
-      const selectedDevice = deviceMeta.find((d) => d.mac === selectedMac);
+      const selectedDevice = deviceMeta.find((d) => d.ip === selectedMac);
       const lat = parseFloat(selectedDevice?.latitude);
       const lon = parseFloat(selectedDevice?.longitude);
       if (!isNaN(lat) && !isNaN(lon)) {
@@ -253,7 +253,7 @@ function DashboardView() {
     if (a.length !== b.length) return false;
 
     for (let i = 0; i < a.length; i++) {
-      if (a[i].mac !== b[i].mac) return false;
+      if (a[i].ip !== b[i].ip) return false;
     }
     return true;
   }
@@ -262,16 +262,41 @@ function DashboardView() {
 
   // FETCH DATA
   const fetchData = async () => {
+    if (isFetchingRef.current) {
+      console.warn("⚠️ Previous fetch still running");
+      return;
+    }
+
+    isFetchingRef.current = true;
+
     try {
       if (!hasLoadedOnceRef.current) {
         setLoadingDevices(true);
       }
 
-      const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled([
-        fetch(`${PAPI}/${API.readings}`),
-        fetch(`${PAPI}/${API.allDevices}`),
-        fetch(`${PAPI}/${API.deviceInfo}`),
-      ]);
+      const timedFetch = async (name, url) => {
+        const start = performance.now();
+
+        const res = await fetch(url);
+
+        console.log(`${name}: ${(performance.now() - start).toFixed(1)} ms`);
+
+        return res;
+      };
+
+      const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled(
+        [
+          timedFetch("readings", `${PAPI}/${API.readings}`),
+          timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
+          timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
+        ],
+      );
+
+      // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled([
+      //   fetch(`${PAPI}/${API.readings}`),
+      //   fetch(`${PAPI}/${API.allDevices}`),
+      //   fetch(`${PAPI}/${API.deviceInfo}`),
+      // ]);
 
       // if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
       //   const readingsData = await readingsRes.value.json();
@@ -286,7 +311,7 @@ function DashboardView() {
         const isSame =
           prevReadingsRef.current.length === readingsData.length &&
           readingsData.every((r) => {
-            const prev = prevReadingsRef.current.find(p => p.mac === r.mac);
+            const prev = prevReadingsRef.current.find((p) => p.ip === r.ip);
             return prev && prev.timestamp === r.timestamp;
           });
 
@@ -301,21 +326,23 @@ function DashboardView() {
           prevReadingsRef.current = readingsData;
 
           // 🔥 ADD THIS BLOCK (LOGGING HERE)
-          const mac = selectedMacRef.current;
-          if (mac) {
-            const reading = readingsData.find(r => r.mac === mac);
+          const ip = selectedMacRef.current;
+          if (ip) {
+            const reading = readingsData.find((r) => r.ip === ip);
             if (reading) {
               const alarmResult = alarmComputation(reading, thresholds);
 
-              const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+              const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
 
-              setLogsByMac(prev => {
-                const prevLogs = prev[mac] || [];
-                const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
+              setLogsByMac((prev) => {
+                const prevLogs = prev[ip] || [];
+                const nextLogs = [...prevLogs, entry].slice(
+                  -MAX_LOGS_PER_DEVICE,
+                );
 
                 return {
                   ...prev,
-                  [mac]: nextLogs
+                  [ip]: nextLogs,
                 };
               });
 
@@ -328,10 +355,10 @@ function DashboardView() {
 
         // safe logging
         // console.log("DATA:", readingsData.map(r => ({
-        //   mac: r.mac,
+        //   ip: r.ip,
         //   ts: r.timestamp,
         //   temp: r.insideTemperature,
-        //   mac: r.mac,
+        //   ip: r.ip,
         //   fan1Status: r.fan1Status,
         //   fan2Status: r.fan2Status,
         //   fan3Status: r.fan3Status,
@@ -353,7 +380,7 @@ function DashboardView() {
       if (deviceMetaRes.status === "fulfilled" && deviceMetaRes.value.ok) {
         const metadata = await deviceMetaRes.value.json();
 
-        setDeviceMeta(prev => {
+        setDeviceMeta((prev) => {
           const next = Array.isArray(metadata) ? metadata : [];
 
           if (shallowEqualDevices(prev, next)) {
@@ -363,12 +390,13 @@ function DashboardView() {
         });
       }
 
-
       // setRackTimer(0);
       // console.log("readingData", readingsData);
     } catch (err) {
       console.error("❌Error fetching data:", err);
     } finally {
+      isFetchingRef.current = false;
+
       if (!hasLoadedOnceRef.current) {
         setLoadingDevices(false);
         hasLoadedOnceRef.current = true;
@@ -378,24 +406,23 @@ function DashboardView() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setRackTimer(prev => prev + 1);
-      setLogTimer(prev => prev + 1);
+      setRackTimer((prev) => prev + 1);
+      setLogTimer((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const handleSelectDevice = useCallback((mac, locationId) => {
-    setSelectedMac(mac);
+  const handleSelectDevice = useCallback((ip, locationId) => {
+    setSelectedMac(ip);
     setSelectedDevice(locationId);
   }, []);
-
 
   // LOGGING COMMANDS IN SYSTEM
   const sendToLog = async (status, message, command = "") => {
     const logData = {
       date: new Date().toLocaleString(),
-      mac: selectedMac,
+      ip: selectedMac,
       command: command,
       status: status,
       message: message,
@@ -421,7 +448,7 @@ function DashboardView() {
       const res = await fetch(`/${API.sendCommandToDevice}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mac: selectedMac, command: cmdToSend }),
+        body: JSON.stringify({ ip: selectedMac, command: cmdToSend }),
       });
       const data = await res.json();
       setStatus(data.message);
@@ -446,15 +473,10 @@ function DashboardView() {
       sendToLog(
         `Fan Group ${level} clicked ${isActive ? "off" : "on "}`,
         "",
-        command
+        command,
       );
     } else {
-      sendToLog(
-        `LOAD Clicked ${isActive ? "off" : "on "}`,
-        "",
-        command
-      );
-
+      sendToLog(`LOAD Clicked ${isActive ? "off" : "on "}`, "", command);
     }
     sendCommand(command);
     // console.log("Command: ", command);
@@ -467,9 +489,7 @@ function DashboardView() {
     // );
     if (level === 5) {
       setActiveFanBtns((prev) =>
-        prev.includes(5)
-          ? prev.filter((l) => l !== 5)
-          : [...prev, 5]
+        prev.includes(5) ? prev.filter((l) => l !== 5) : [...prev, 5],
       );
     }
   };
@@ -480,7 +500,7 @@ function DashboardView() {
       title: "Enter Admin password",
       input: "password",
       inputAttributes: {
-        autocomplete: "new-password"
+        autocomplete: "new-password",
       },
       inputLabel: "Password",
       inputPlaceholder: "Enter admin password",
@@ -513,12 +533,12 @@ function DashboardView() {
         if (newLock && newLock.trim() !== "") {
           sendToLog(`Lock Reset ${newLock} clicked`);
           sendCommand(`%L00R${newLock}${getFormattedDateTime()}$$`);
-          setStatus(`New password ${newLock} `)
+          setStatus(`New password ${newLock} `);
         } else {
           setStatus("New lock value cannot be empty!");
         }
       } else {
-        alert("Enter Numeric Password of 9 Digits")
+        alert("Enter Numeric Password of 9 Digits");
       }
     } else {
       setStatus("Wrong password for resetting lock!");
@@ -559,22 +579,25 @@ function DashboardView() {
     if (reading.waterLogging) alarms.push("Logging ");
     if (reading.lockStatus === "OPEN") alarms.push("Lock Open ");
     if (reading.doorStatus === "OPEN") alarms.push("Door Open ");
-    if (reading.pwsFailCount === 3) alarms.push("Password Blocked ")
-    if (reading.mainStatus === 1) alarms.push("Main Alarm")
-    if (reading.rectStatus === 1) alarms.push("Rectifier Alarm")
-    if (reading.inveStatus === 1) alarms.push("Inverter Alarm")
-    if (reading.overStatus === 1) alarms.push("Overload Alarm")
-    if (reading.mptStatus === 1) alarms.push("MPT Alarm")
-    if (reading.mosfStatus === 1) alarms.push("MOSFET Alarm")
+    if (reading.pwsFailCount === 3) alarms.push("Password Blocked ");
+    if (reading.mainStatus === 1) alarms.push("Main Alarm");
+    if (reading.rectStatus === 1) alarms.push("Rectifier Alarm");
+    if (reading.inveStatus === 1) alarms.push("Inverter Alarm");
+    if (reading.overStatus === 1) alarms.push("Overload Alarm");
+    if (reading.mptStatus === 1) alarms.push("MPT Alarm");
+    if (reading.mosfStatus === 1) alarms.push("MOSFET Alarm");
 
     // threshold-based
-    if (reading.insideTemperatureAlarm && (reading.insideTemperature < thresholds.insideTemperature.min)) alarms.push("Low In. Temp. ");
+    if (
+      reading.insideTemperatureAlarm &&
+      reading.insideTemperature < thresholds.insideTemperature.min
+    )
+      alarms.push("Low In. Temp. ");
     if (reading.outsideTemperatureAlarm) alarms.push("Out. Temp. ");
     if (reading.inputVoltageAlarm) alarms.push("Inp. Volt. ");
     if (reading.outputVoltageAlarm) alarms.push("Out. Volt. ");
     if (reading.batteryBackupAlarm) alarms.push("Batt. Backup ");
     if (reading.humidityAlarm) alarms.push("Humid. ");
-
 
     return {
       active: alarms.length > 0,
@@ -629,8 +652,6 @@ function DashboardView() {
     navigate("/");
   };
 
-
-
   // DEVICE STATUS COMPUTATION FOR MAP & DEVICE PANEL
   useEffect(() => {
     // const now = Date.now();
@@ -640,20 +661,19 @@ function DashboardView() {
 
     // let changed = false;
 
-
     // // const nextStatusMap = {};
     // // let hasAnyChange = false;
 
     // for (const device of deviceMeta) {
-    //   const mac = device.mac;
-    //   const reading = latestReadingsByMac[mac];
+    //   const ip = device.ip;
+    //   const reading = latestReadingsByMac[ip];
 
     //   // COMPUTING DEVICE STATUS
     //   const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
-    //   nextMap[mac] = newStatus;
+    //   nextMap[ip] = newStatus;
 
     //   // CHECKING PREVIOUS AND CURRENT DEVICE STATUS
-    //   if (prevMap[mac] !== newStatus) {
+    //   if (prevMap[ip] !== newStatus) {
     //     changed = true;
     //   }
     // }
@@ -678,19 +698,18 @@ function DashboardView() {
     //   });
     // }
 
-
-    setDeviceStatusMap(prev => {
+    setDeviceStatusMap((prev) => {
       let hasChange = false;
       const updated = { ...prev };
 
       for (const device of deviceMeta) {
-        const mac = device.mac;
-        const reading = latestReadingsByMac[mac];
+        const ip = device.ip;
+        const reading = latestReadingsByMac[ip];
 
         const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
 
-        if (prev[mac] !== newStatus) {
-          updated[mac] = newStatus;
+        if (prev[ip] !== newStatus) {
+          updated[ip] = newStatus;
           hasChange = true;
         }
       }
@@ -699,37 +718,36 @@ function DashboardView() {
     });
   }, [deviceMeta, latestReadingsByMac]);
 
-
-  // STORING LOGS BASED ON SELECTED MAC 
+  // STORING LOGS BASED ON SELECTED MAC
   useEffect(() => {
     latestReadingsByMacRef.current = latestReadingsByMac;
   }, [latestReadingsByMac]);
 
   // useEffect(() => {
   //   const interval = setInterval(() => {
-  //     const mac = selectedMacRef.current;
-  //     if (!mac) return;
+  //     const ip = selectedMacRef.current;
+  //     if (!ip) return;
 
-  //     const reading = latestReadingsByMacRef.current[mac];
+  //     const reading = latestReadingsByMacRef.current[ip];
   //     if (!reading) return;
 
   //     const alarmResult = alarmComputation(reading, thresholds);
   //     if (alarmResult.alarms.length === 0) return;
 
   //     const now = Date.now();
-  //     const lastAt = lastAlarmLogAtByMacRef.current[mac] || 0;
+  //     const lastAt = lastAlarmLogAtByMacRef.current[ip] || 0;
   //     if (now - lastAt < LOG_THROTTLE_MS) return;
 
-  //     lastAlarmLogAtByMacRef.current[mac] = now;
+  //     lastAlarmLogAtByMacRef.current[ip] = now;
 
   //     setLogsByMac(prev => {
-  //       const prevLogs = prev[mac] || [];
-  //       const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+  //       const prevLogs = prev[ip] || [];
+  //       const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
   //       const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
   //       return {
   //         ...prev,
-  //         [mac]: nextLogs
+  //         [ip]: nextLogs
   //       };
   //     });
 
@@ -741,32 +759,32 @@ function DashboardView() {
 
   // useEffect(() => {
 
-  //   const mac = selectedMac;
-  //   if (!mac) return;
+  //   const ip = selectedMac;
+  //   if (!ip) return;
 
-  //   const reading = latestReadingsByMac[mac];
+  //   const reading = latestReadingsByMac[ip];
   //   if (!reading) return;
 
   //   const alarmResult = alarmComputation(reading, thresholds);
   //   if (alarmResult.alarms.length === 0) return;
 
   //   const now = Date.now();
-  //   const lastAt = lastAlarmLogAtByMacRef.current[mac] || 0;
+  //   const lastAt = lastAlarmLogAtByMacRef.current[ip] || 0;
 
   //   if (now - lastAt < LOG_THROTTLE_MS) return;
 
-  //   lastAlarmLogAtByMacRef.current[mac] = now;
+  //   lastAlarmLogAtByMacRef.current[ip] = now;
 
   //   setLogsByMac(prev => {
-  //     const prevLogs = prev[mac] || [];
+  //     const prevLogs = prev[ip] || [];
 
-  //     const entry = `[${new Date().toLocaleTimeString()}] [${mac}] ${alarmResult.alarms.join("| ")}`;
+  //     const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
 
   //     const nextLogs = [...prevLogs, entry].slice(-MAX_LOGS_PER_DEVICE);
 
   //     return {
   //       ...prev,
-  //       [mac]: nextLogs
+  //       [ip]: nextLogs
   //     };
   //   });
 
@@ -777,7 +795,7 @@ function DashboardView() {
 
   // }, [latestReadingsByMac, selectedMac]);
 
-  // STOPPING LOGS FROM DELETING AT REFRESH
+  //* STOPPING LOGS FROM DELETING AT REFRESH
   useEffect(() => {
     if (persistTimerRef.current) {
       clearTimeout(persistTimerRef.current);
@@ -803,7 +821,10 @@ function DashboardView() {
       try {
         window?.localStorage?.setItem(
           LOG_STORAGE_KEY,
-          JSON.stringify({ lastResetAt: lastResetAtRef.current, logsByMac: {} })
+          JSON.stringify({
+            lastResetAt: lastResetAtRef.current,
+            logsByMac: {},
+          }),
         );
       } catch {
         // ignoree
@@ -834,16 +855,13 @@ function DashboardView() {
     }
 
     // user scrolled to bottom → re-enable
-    const distanceFromBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
 
     if (distanceFromBottom <= 2) {
       setAutoScroll(true);
     }
     lastScrollTopRef.current = currentScrollTop;
-
-  }
-
+  };
 
   // const toggleFullscreen = () => {
   //   const iframe = document.querySelector(".camera-iframe");
@@ -859,12 +877,11 @@ function DashboardView() {
   // const isAlarmActive = (reading) =>
   //   reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
 
-
   // const CHART_DELAY_MS = 2 * 60 * 1000; // 2 minutes
   // const chartCutoffTime = Date.now() - CHART_DELAY_MS;
   // const historicalData = readings
 
-  //   .filter((r) => r.mac === selectedMac && r.timestamp)
+  //   .filter((r) => r.ip === selectedMac && r.timestamp)
   //   .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // oldest to latest
   //   .slice(-15)
   //   .map((r) => {
@@ -889,7 +906,7 @@ function DashboardView() {
   // const historicalData = useMemo(() => {
   //   return readings
   //     .filter(r =>
-  //       r.mac === selectedMac &&
+  //       r.ip === selectedMac &&
   //       r.timestamp &&
   //       new Date(r.timestamp).getTime() <= chartCutoffTime
   //     )
@@ -897,15 +914,13 @@ function DashboardView() {
   //     .slice(-15);
   // }, [readings, selectedMac, chartCutoffTime]);
 
-
   const fetchSnapshots = async (selectedMac) => {
     try {
-
       if (!selectedMac) return;
 
       // setActiveTab("snapshots");
       // if (selectedMac && activeTab === "snapshots") {
-      let response = await fetch(`/api/snapshots?mac=${selectedMac}`);
+      let response = await fetch(`/api/snapshots?ip=${selectedMac}`);
       const snapshotFiles = await response.json();
       setSnapshots(snapshotFiles);
       // } else {
@@ -916,13 +931,11 @@ function DashboardView() {
     }
   };
 
-
   useEffect(() => {
     if (activeTab !== "snapshots" || !selectedMac) return;
 
     fetchSnapshots(selectedMac);
   }, [activeTab, selectedMac]);
-
 
   // Fetch snapshots on component mount
   useEffect(() => {
@@ -946,26 +959,29 @@ function DashboardView() {
     const onSnapshot = (evt) => {
       try {
         const payload = JSON.parse(evt.data);
-        const mac = payload?.mac;
-        if (!mac) return;
+        const ip = payload?.ip;
+        if (!ip) return;
 
         swal.fire({
           toast: true,
           position: "top-end",
           icon: "success",
-          title: `Snapshot captured IP: ${mac}`,
-          // text: `MAC: ${mac}`,
+          title: `Snapshot captured IP: ${ip}`,
+          // text: `MAC: ${ip}`,
           timer: 10000,
           timerProgressBar: true,
           showConfirmButton: false,
           showCloseButton: true,
           backdrop: false,
           width: 300,
-          height: 100
+          height: 100,
         });
 
         // If user is viewing the same device, refresh the snapshot list
-        if (String(selectedMacRef.current).toLowerCase() === String(mac).toLowerCase()) {
+        if (
+          String(selectedMacRef.current).toLowerCase() ===
+          String(ip).toLowerCase()
+        ) {
           fetchSnapshots(selectedMacRef.current);
         }
       } catch {
@@ -991,8 +1007,8 @@ function DashboardView() {
 
     // Status filter
     if (statusFilter !== "all") {
-      list = list.filter(device => {
-        const status = deviceStatusMap[device.mac] || "disconnected";
+      list = list.filter((device) => {
+        const status = deviceStatusMap[device.ip] || "disconnected";
         return status === statusFilter;
       });
     }
@@ -1001,9 +1017,10 @@ function DashboardView() {
     if (searchTerm.trim() !== "") {
       const lower = searchTerm.toLowerCase();
 
-      list = list.filter(device =>
-        device.locationId?.toLowerCase().includes(lower) ||
-        device.mac?.toLowerCase().includes(lower)
+      list = list.filter(
+        (device) =>
+          device.locationId?.toLowerCase().includes(lower) ||
+          device.ip?.toLowerCase().includes(lower),
       );
     }
 
@@ -1012,9 +1029,9 @@ function DashboardView() {
 
   const alarmKeys = ALARM_KEYS;
 
-  const statusKeys = STATUS_KEYS
+  const statusKeys = STATUS_KEYS;
 
-  const hupsKeys = HUPS_KEYS
+  const hupsKeys = HUPS_KEYS;
 
   return (
     <>
@@ -1056,8 +1073,11 @@ function DashboardView() {
             <div className="alarm-container">
               <span>Alarm</span>
               <label className="switch">
-                <input type="checkbox" checked={alarmToggle}
-                  onChange={(e) => setAlarmToggle(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={alarmToggle}
+                  onChange={(e) => setAlarmToggle(e.target.checked)}
+                />
                 <span className="slider"></span>
               </label>
             </div>
@@ -1079,8 +1099,10 @@ function DashboardView() {
                 </button>
                 <button
                   className={activeTab === "snapshots" ? "active" : ""}
-                  onClick={() => { setActiveTab("snapshots"); }}
-                // onClick={() => { setActiveTab("snapshots"); fetchSnapshots(selectedMac); }}
+                  onClick={() => {
+                    setActiveTab("snapshots");
+                  }}
+                  // onClick={() => { setActiveTab("snapshots"); fetchSnapshots(selectedMac); }}
                 >
                   Snapshots
                 </button>
@@ -1091,78 +1113,162 @@ function DashboardView() {
                 <div className="gauges grid-3x3">
                   <Gauge
                     label="Inside Temp"
-                    value={(latestReading.insideTemperature).toFixed(2)}
+                    value={latestReading.insideTemperature.toFixed(2)}
                     max={100}
-                    color={latestReading.insideTemperature < thresholds.insideTemperature.min ? "#ec7632" : latestReading.insideTemperature >= thresholds.insideTemperature.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.insideTemperatureAlarm : false}
+                    color={
+                      latestReading.insideTemperature <
+                      thresholds.insideTemperature.min
+                        ? "#ec7632"
+                        : latestReading.insideTemperature >=
+                            thresholds.insideTemperature.max
+                          ? "#fb1616"
+                          : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle ? latestReading.insideTemperatureAlarm : false
+                    }
                   />
                   <Gauge
                     label="Outside Temp"
-                    value={(latestReading.outsideTemperature).toFixed(2)}
+                    value={latestReading.outsideTemperature.toFixed(2)}
                     max={100}
-                    color={latestReading.outsideTemperature < thresholds.outsideTemperature.min ? "#ec7632" : latestReading.outsideTemperature >= thresholds.outsideTemperature.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.outsideTemperatureAlarm : false}
+                    color={
+                      latestReading.outsideTemperature <
+                      thresholds.outsideTemperature.min
+                        ? "#ec7632"
+                        : latestReading.outsideTemperature >=
+                            thresholds.outsideTemperature.max
+                          ? "#fb1616"
+                          : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle
+                        ? latestReading.outsideTemperatureAlarm
+                        : false
+                    }
                   />
                   <Gauge
                     label="Humidity"
                     value={latestReading.humidity}
                     max={100}
-                    color={latestReading.humidity < thresholds.humidity.min ? "#ec7632" : latestReading.humidity >= thresholds.humidity.max ? "#fb1616" : "#67b816"}
+                    color={
+                      latestReading.humidity < thresholds.humidity.min
+                        ? "#ec7632"
+                        : latestReading.humidity >= thresholds.humidity.max
+                          ? "#fb1616"
+                          : "#67b816"
+                    }
                     alarm={alarmToggle ? latestReading.humidityAlarm : false}
                   />
                   <Gauge
                     label="Input Volt"
-                    value={(latestReading.inputVoltage).toFixed(2)}
+                    value={latestReading.inputVoltage.toFixed(2)}
                     max={100}
-                    color={latestReading.inputVoltage < thresholds.inputVoltage.min ? "#ec7632" : latestReading.inputVoltage >= thresholds.inputVoltage.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.inputVoltageAlarm : false}
+                    color={
+                      latestReading.inputVoltage < thresholds.inputVoltage.min
+                        ? "#ec7632"
+                        : latestReading.inputVoltage >=
+                            thresholds.inputVoltage.max
+                          ? "#fb1616"
+                          : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle ? latestReading.inputVoltageAlarm : false
+                    }
                   />
                   <Gauge
                     label="Output Volt"
-                    value={(latestReading.outputVoltage).toFixed(2)}
+                    value={latestReading.outputVoltage.toFixed(2)}
                     max={100}
-                    color={latestReading.outputVoltage < thresholds.outputVoltage.min ? "#ec7632" : latestReading.outputVoltage >= thresholds.outputVoltage.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.outputVoltageAlarm : false}
+                    color={
+                      latestReading.outputVoltage < thresholds.outputVoltage.min
+                        ? "#ec7632"
+                        : latestReading.outputVoltage >=
+                            thresholds.outputVoltage.max
+                          ? "#fb1616"
+                          : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle ? latestReading.outputVoltageAlarm : false
+                    }
                   />
                   <Gauge
                     label="DV Current"
-                    value={(latestReading.hupsDVC).toFixed(2)}
+                    value={latestReading.hupsDVC.toFixed(2)}
                     max={45}
-                    color={latestReading.inputVoltage < thresholds.inputVoltage.min ? "#ec7632" : latestReading.inputVoltage >= thresholds.inputVoltage.max ? "#fb1616" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.inputVoltageAlarm : false}
+                    color={
+                      latestReading.inputVoltage < thresholds.inputVoltage.min
+                        ? "#ec7632"
+                        : latestReading.inputVoltage >=
+                            thresholds.inputVoltage.max
+                          ? "#fb1616"
+                          : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle ? latestReading.inputVoltageAlarm : false
+                    }
                   />
                   <Gauge
                     label="Battery %"
-                    value={(latestReading.hupsBatVolt * 1.5).toFixed(2)}
+                    value={latestReading.hupsBatVolt.toFixed(2)}
                     max={120}
-                    color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
+                    color={
+                      latestReading.batteryBackup <=
+                      thresholds.batteryBackup.min
+                        ? "#ec7632"
+                        : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle ? latestReading.batteryBackupAlarm : false
+                    }
                   />
                   <Gauge
                     label="Battery(Hours)"
-                    value={(latestReading.hupsBatVolt).toFixed(2)}
+                    value={latestReading.hupsRes.toFixed(2)}
                     max={120}
-                    color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
-                    alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
+                    color={
+                      latestReading.batteryBackup <=
+                      thresholds.batteryBackup.min
+                        ? "#ec7632"
+                        : "#67b816"
+                    }
+                    alarm={
+                      alarmToggle ? latestReading.batteryBackupAlarm : false
+                    }
                   />
-                  {latestReading.batteryBackup <= 10 ?
+                  {latestReading.batteryBackup <= 10 ? (
                     <Gauge
                       label="LockBat(Left..)"
                       value={0}
                       max={12}
-                      color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
-                      alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
-                    /> :
+                      color={
+                        latestReading.batteryBackup <=
+                        thresholds.batteryBackup.min
+                          ? "#ec7632"
+                          : "#67b816"
+                      }
+                      alarm={
+                        alarmToggle ? latestReading.batteryBackupAlarm : false
+                      }
+                    />
+                  ) : (
                     <Gauge
                       label="LockBat(Left..)"
-                      value={Math.floor(((latestReading.batteryBackup - 9) * 4))}
+                      value={Math.floor((latestReading.batteryBackup - 9) * 4)}
                       // value={6}
                       max={12}
-                      color={latestReading.batteryBackup <= thresholds.batteryBackup.min ? "#ec7632" : "#67b816"}
+                      color={
+                        latestReading.batteryBackup <=
+                        thresholds.batteryBackup.min
+                          ? "#ec7632"
+                          : "#67b816"
+                      }
                       hoverTitle={"LockBat Left Hours"}
-                      alarm={alarmToggle ? latestReading.batteryBackupAlarm : false}
+                      alarm={
+                        alarmToggle ? latestReading.batteryBackupAlarm : false
+                      }
                     />
-                  }
+                  )}
                 </div>
               )}
 
@@ -1198,18 +1304,23 @@ function DashboardView() {
                     {alarmKeys.map((alarm, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${(
-                            alarm.key === "fireAlarm" &&
-                              latestReading.doorStatus === "CLOSED" &&
-                              latestReading.insideTemperature >= 48 &&
-                              latestReading.insideTemperature < 70
-                              ? ""
-                              : latestReading[alarm.key] === 87
+                          className={`alarm-led ${
+                            alarm.key === "fireAlarm"
+                              ? latestReading[alarm.key] === 80
                                 ? "wait"
-                                : latestReading[alarm.key]
-                                  ? "active"
-                                  : ""
-                          )}`}
+                                : latestReading[alarm.key] === 81
+                                  ? "fireWait"
+                                  : latestReading[alarm.key] === 2
+                                    ? "smoke"
+                                    : latestReading[alarm.key] === 1
+                                      ? "active"
+                                      : latestReading[alarm.key] === 3
+                                        ? "active"
+                                        : ""
+                              : latestReading[alarm.key]
+                                ? "active"
+                                : ""
+                          }`}
                         />
                         <div className="alarm-label">{alarm.Name}</div>
                       </div>
@@ -1219,10 +1330,11 @@ function DashboardView() {
                         return (
                           <div key={i} className="alarm-indicator">
                             <div
-                              className={`alarm-led ${latestReading[status.key] === "OPEN"
-                                ? "active"
-                                : ""
-                                }`}
+                              className={`alarm-led ${
+                                latestReading[status.key] === "OPEN"
+                                  ? "active"
+                                  : ""
+                              }`}
                             />
                             <div className="alarm-label">{status.Name}</div>
                           </div>
@@ -1234,17 +1346,20 @@ function DashboardView() {
                               {/* <div className={`alarm-led ${latestReading[status.key] === 1 ? 'active' : ''}`} /> */}
                               <div
                                 className={`alarm-led 
-                            ${latestReading[status.key] === 1
-                                    ? "danger"
-                                    : latestReading[status.key] === 2
-                                      ? "warn"
-                                      : latestReading[status.key] === 3
-                                        ? "active"
-                                        : ""
-                                  }`}
+                            ${
+                              latestReading[status.key] === 1
+                                ? "danger"
+                                : latestReading[status.key] === 2
+                                  ? "warn"
+                                  : latestReading[status.key] === 3
+                                    ? "active"
+                                    : ""
+                            }`}
                               />
                               <div className="alarm-label">{status.Name}</div>
-                              <div className="alarm-attempt">{3 - latestReading[status.key]} Attempt Left</div>
+                              <div className="alarm-attempt">
+                                {3 - latestReading[status.key]} Attempt Left
+                              </div>
                             </div>
                           </>
                         );
@@ -1257,12 +1372,11 @@ function DashboardView() {
                     {hupsKeys.map((hups, i) => (
                       <div key={i} className="alarm-indicator">
                         <div
-                          className={`alarm-led ${latestReading[hups.key] ? "" : "active"
-                            }`}
+                          className={`alarm-led ${
+                            latestReading[hups.key] ? "" : "active"
+                          }`}
                         />
-                        <div className="alarm-label">
-                          {hups.Name}
-                        </div>
+                        <div className="alarm-label">{hups.Name}</div>
                       </div>
                     ))}
                     {/* {["O.Load", "MPT", "MOSFET"].map((key, i) => (
@@ -1289,18 +1403,22 @@ function DashboardView() {
                           //   ? "active"
                           //   : ""
                           //   }`}
-                          className={`power-btn ${level === 5
-                            ? activeFanBtns.includes(5)
-                              ? "active"
-                              : ""
-                            : latestReading?.[`fanLevel${level}Running`] === true
-                              ? "active"
-                              : ""
-                            }`}
+                          className={`power-btn ${
+                            level === 5
+                              ? activeFanBtns.includes(5)
+                                ? "active"
+                                : ""
+                              : latestReading?.[`fanLevel${level}Running`] ===
+                                  true
+                                ? "active"
+                                : ""
+                          }`}
                           onClick={() => handleFanClick(level)}
                         />
                         <div className="fan-label">
-                          {level >= 1 && level <= 4 ? `FG ${level}` : "NON-CRITICAL LOAD"}
+                          {level >= 1 && level <= 4
+                            ? `FG ${level}`
+                            : "NON-CRITICAL LOAD"}
                         </div>
                       </div>
                     ))}
@@ -1328,7 +1446,6 @@ function DashboardView() {
                 </div>
               )}
 
-
               {/* Full Screen Image Modal with Navigation */}
               {selectedImage && (
                 <div
@@ -1346,8 +1463,8 @@ function DashboardView() {
                       {selectedImage.split("/").pop()} (
                       {snapshots.findIndex(
                         (img) =>
-                          `${PAPI}/snapshots/${img}?mac=${selectedMac}` ===
-                          selectedImage
+                          `${PAPI}/snapshots/${img}?ip=${selectedMac}` ===
+                          selectedImage,
                       ) + 1}{" "}
                       of {snapshots.length})
                     </div>
@@ -1362,14 +1479,14 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${PAPI}/snapshots/${img}?mac=${selectedMac}` ===
-                              selectedImage
+                              `${PAPI}/snapshots/${img}?ip=${selectedMac}` ===
+                              selectedImage,
                           );
                           const prevIndex =
                             (currentIndex - 1 + snapshots.length) %
                             snapshots.length;
                           setSelectedImage(
-                            `${PAPI}/snapshots/${snapshots[prevIndex]}?mac=${selectedMac}`
+                            `${PAPI}/snapshots/${snapshots[prevIndex]}?ip=${selectedMac}`,
                           );
                         }}
                       >
@@ -1381,13 +1498,13 @@ function DashboardView() {
                           e.stopPropagation();
                           const currentIndex = snapshots.findIndex(
                             (img) =>
-                              `${PAPI}/snapshots/${img}?mac=${selectedMac}` ===
-                              selectedImage
+                              `${PAPI}/snapshots/${img}?ip=${selectedMac}` ===
+                              selectedImage,
                           );
                           const nextIndex =
                             (currentIndex + 1) % snapshots.length;
                           setSelectedImage(
-                            `${PAPI}/snapshots/${snapshots[nextIndex]}?mac=${selectedMac}`
+                            `${PAPI}/snapshots/${snapshots[nextIndex]}?ip=${selectedMac}`,
                           );
                         }}
                       >
@@ -1418,20 +1535,22 @@ function DashboardView() {
                           className="snapshot-item"
                           onClick={() =>
                             setSelectedImage(
-                              `${PAPI}/snapshots/${filename}?mac=${selectedMac}`
+                              `${PAPI}/snapshots/${filename}?ip=${selectedMac}`,
                             )
                           }
                         >
                           <img
                             key={i}
-                            src={`${PAPI}/snapshots/${filename}?mac=${selectedMac}`}
+                            src={`${PAPI}/snapshots/${filename}?ip=${selectedMac}`}
                             alt={`snapshot-${i + 1}`}
                             onError={(e) => {
                               e.target.src =
                                 "https://via.placeholder.com/120x90?text=Error";
                             }}
                           />
-                          <div className="snapshot-label">{filename.slice(0, 23)}</div>
+                          <div className="snapshot-label">
+                            {filename.slice(0, 23)}
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -1447,21 +1566,26 @@ function DashboardView() {
         {/* Panel 2: LOGS */}
         <div className="panel">
           <div className="flex items-center justify-between mb-2">
-            <h2>📈 Live Logs
+            <h2>
+              📈 Live Logs
               {/* <span style={{ fontSize: "12px", marginLeft: "10px" }}>
                 🔄 Logs Refresh: {Math.max(5 - logTimer, 0)}
               </span> */}
             </h2>
             {role !== "admin" && (
-              <button type="button" onClick={handleLogout} className="px-3 py-1 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-3 py-1 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700"
+              >
                 Logout
               </button>
             )}
           </div>
 
-
           {/* LOG SECTION */}
-          <div className="w-full h-64 overflow-y-auto bg-black border rounded-md log-scroll"
+          <div
+            className="w-full h-64 overflow-y-auto bg-black border rounded-md log-scroll"
             onScroll={handleScroll}
           >
             <div className="log-panel">
@@ -1469,14 +1593,15 @@ function DashboardView() {
                 <p>No logs in last 1 hour</p>
               ) : (
                 currentLogs.map((line, i) => (
-                  <pre key={i} className="log-line">{line}</pre>
+                  <pre key={i} className="log-line">
+                    {line}
+                  </pre>
                 ))
               )}
             </div>
             <div ref={bottomRef} />
           </div>
         </div>
-
 
         {/* PANEL 3: DEVICE PANEL */}
         <div className="panel device-list">
@@ -1495,7 +1620,6 @@ function DashboardView() {
           />
         </div>
 
-
         {/* PANEL 4: MAP PANEL */}
         <div className="panel device-map">
           <DeviceMap
@@ -1505,13 +1629,12 @@ function DashboardView() {
             onMarkerClick={setSelectedMac}
           />
         </div>
-      </div >
+      </div>
     </>
   );
 }
 
 function Gauge({ label, value, max, color, alarm = false, hoverTitle }) {
-
   return (
     <div className={`gauge-box small ${alarm ? "alarm" : ""}`}>
       <CircularProgressbar

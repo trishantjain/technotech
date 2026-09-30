@@ -1,13 +1,13 @@
 import React from "react";
 
 const DeviceTile = React.memo(function DeviceTile({
-    mac,
+    ip,
     deviceName,
     status,
     isSelected,
     onClick,
 }) {
-    const device = deviceName || mac;
+    const device = deviceName || ip;
     const truncatedDeviceName =
         device && device.length > 15
             ? `${device.slice(0, 15)}...`
@@ -17,7 +17,7 @@ const DeviceTile = React.memo(function DeviceTile({
         <div
             className={`device-tile ${status} ${isSelected ? "selected" : ""}`}
             title={device}
-            onClick={() => onClick(mac, deviceName)}
+            onClick={() => onClick(ip, deviceName)}
         >
             {truncatedDeviceName}
         </div>

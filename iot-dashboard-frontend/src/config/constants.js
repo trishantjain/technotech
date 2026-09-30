@@ -8,7 +8,7 @@ export const LOG_CONSTANTS = {
 export const ALARM_KEYS = [
     {
         key: "fireAlarm",
-        Name: "Fire Alarm",
+        Name: "Fire",
     },
     {
         key: "waterLogging",

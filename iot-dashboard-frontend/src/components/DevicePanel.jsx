@@ -77,17 +77,17 @@ const DevicePanel = React.memo(function DevicePanel({
                     </div>
                 ) : (<div className="grid">
                     {filteredDevices.map((device) => {
-                        const { mac, deviceName } = device;
+                        const { ip, deviceName } = device;
 
-                        const status = deviceStatusMap[mac] || "disconnected";
+                        const status = deviceStatusMap[ip] || "disconnected";
 
                         return (
                             <DeviceTile
-                                key={mac}
-                                mac={mac}
+                                key={ip}
+                                ip={ip}
                                 deviceName={deviceName}
                                 status={status}
-                                isSelected={selectedMac === mac}
+                                isSelected={selectedMac === ip}
                                 onClick={onSelectDevice}
                             />
                         );

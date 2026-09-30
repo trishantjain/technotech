@@ -1,0 +1,16 @@
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-09-18 15:59:46.494"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-09-18 15:59:50.541"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-09-18 15:59:50.686"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-18 15:59:58.618"}
+{"level":"info","message":"⬅️ Sending back: %X00018/09/26 16:00:01$","timestamp":"2026-09-18 16:00:01.102"}
+{"level":"error","message":{"error":"Operation `devices.find()` buffering timed out after 10000ms","stack":"MongooseError: Operation `devices.find()` buffering timed out after 10000ms\n    at Timeout.<anonymous> (D:\\TechnoTrendz\\server\\node_modules\\mongoose\\lib\\drivers\\node-mongodb-native\\collection.js:187:23)\n    at listOnTimeout (node:internal/timers:594:17)\n    at process.processTimers (node:internal/timers:529:7)"},"timestamp":"2026-09-18 16:00:03.089"}
+{"level":"error","message":{"error":"Operation `sensorreadings.countDocuments()` buffering timed out after 10000ms","stack":"MongooseError: Operation `sensorreadings.countDocuments()` buffering timed out after 10000ms\n    at Timeout.<anonymous> (D:\\TechnoTrendz\\server\\node_modules\\mongoose\\lib\\drivers\\node-mongodb-native\\collection.js:187:23)\n    at listOnTimeout (node:internal/timers:594:17)\n    at process.processTimers (node:internal/timers:529:7)","stage":"CLEANUP"},"timestamp":"2026-09-18 16:00:03.228"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-09-18 16:00:03.948"}
+{"level":"info","message":"⬅️ Sending back: %X00018/09/26 16:00:44$","timestamp":"2026-09-18 16:00:44.851"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-18 16:05:28.302"}
+{"level":"info","message":"⬅️ Sending back: %X00018/09/26 16:05:33$","timestamp":"2026-09-18 16:05:33.588"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-18 16:15:12.946"}
+{"level":"info","message":"⬅️ Sending back: %X00018/09/26 16:15:16$","timestamp":"2026-09-18 16:15:16.579"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-09-18 16:16:01.278"}
+{"level":"info","message":"⬅️ Sending back: %X00018/09/26 16:16:09$","timestamp":"2026-09-18 16:16:09.159"}
+{"level":"info","message":"⬅️ Sending back: %X00018/09/26 17:01:27$","timestamp":"2026-09-18 17:01:27.262"}
