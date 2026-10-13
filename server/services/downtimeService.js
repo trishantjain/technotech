@@ -8,703 +8,553 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 500;
 
 function parsePagination(page, limit) {
+  const pageNumber = Number(page) || DEFAULT_PAGE;
 
-    const pageNumber =
-        Number(page) || DEFAULT_PAGE;
+  const pageLimit = Number(limit) || DEFAULT_LIMIT;
 
-    const pageLimit =
-        Number(limit) || DEFAULT_LIMIT;
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new Error("page must be a positive integer");
+  }
 
-    if (
-        !Number.isInteger(pageNumber) ||
-        pageNumber < 1
-    ) {
-        throw new Error(
-            "page must be a positive integer"
-        );
-    }
+  if (!Number.isInteger(pageLimit) || pageLimit < 1 || pageLimit > MAX_LIMIT) {
+    throw new Error(`limit must be between 1 and ${MAX_LIMIT}`);
+  }
 
-    if (
-        !Number.isInteger(pageLimit) ||
-        pageLimit < 1 ||
-        pageLimit > MAX_LIMIT
-    ) {
-        throw new Error(
-            `limit must be between 1 and ${MAX_LIMIT}`
-        );
-    }
-
-    return {
-        pageNumber,
-        pageLimit
-    };
+  return {
+    pageNumber,
+    pageLimit,
+  };
 }
 
 function getDowntimeStatus(start, end) {
-    const now = new Date();
+  const now = new Date();
 
-    if (now < start) {
-        return "scheduled";
-    }
+  if (now < start) {
+    return "scheduled";
+  }
 
-    if (now >= start && now <= end) {
-        return "active";
-    }
+  if (now >= start && now <= end) {
+    return "active";
+  }
 
-    return "expired";
+  return "expired";
 }
-
 
 // ======================================================
 // CREATE DOWNTIME
 // ======================================================
 async function createDowntime(data = {}) {
+  const {
+    device_id,
+    downtime_start,
+    downtime_end,
+    reason,
+    initiated_by,
+    notes,
+    created_by,
+  } = data;
 
-    const {
-        device_id,
-        downtime_start,
-        downtime_end,
-        reason,
-        initiated_by,
-        notes,
-        created_by
-    } = data;
+  // -----------------------------------------
+  // Required field validation
+  // -----------------------------------------
 
+  if (!device_id) {
+    throw new Error("device_id is required");
+  }
 
-    // -----------------------------------------
-    // Required field validation
-    // -----------------------------------------
+  if (!downtime_start) {
+    throw new Error("downtime_start is required");
+  }
 
-    if (!device_id) {
-        throw new Error("device_id is required");
-    }
+  if (!downtime_end) {
+    throw new Error("downtime_end is required");
+  }
 
-    if (!downtime_start) {
-        throw new Error("downtime_start is required");
-    }
+  if (!reason) {
+    throw new Error("reason is required");
+  }
 
-    if (!downtime_end) {
-        throw new Error("downtime_end is required");
-    }
+  if (!initiated_by) {
+    throw new Error("initiated_by is required");
+  }
 
-    if (!reason) {
-        throw new Error("reason is required");
-    }
+  // -----------------------------------------
+  // Validate device
+  // -----------------------------------------
 
-    if (!initiated_by) {
-        throw new Error("initiated_by is required");
-    }
+  const device = await Device.findById(device_id);
 
+  if (!device) {
+    throw new Error("Device not found");
+  }
 
-    // -----------------------------------------
-    // Validate device
-    // -----------------------------------------
+  // -----------------------------------------
+  // Validate dates
+  // -----------------------------------------
 
-    const device = await Device.findById(device_id);
+  const startDate = new Date(downtime_start);
+  const endDate = new Date(downtime_end);
 
-    if (!device) {
-        throw new Error("Device not found");
-    }
+  if (isNaN(startDate.getTime())) {
+    throw new Error("Invalid downtime_start");
+  }
 
+  if (isNaN(endDate.getTime())) {
+    throw new Error("Invalid downtime_end");
+  }
 
-    // -----------------------------------------
-    // Validate dates
-    // -----------------------------------------
+  if (endDate <= startDate) {
+    throw new Error("downtime_end must be greater than downtime_start");
+  }
 
-    const startDate = new Date(downtime_start);
-    const endDate = new Date(downtime_end);
+  // PAST DATE & TIME CHECK
+  const now = new Date();
 
-    if (isNaN(startDate.getTime())) {
-        throw new Error("Invalid downtime_start");
-    }
+  if (startDate < now) {
+    throw new Error("downtime start date can't be of past date");
+  }
 
-    if (isNaN(endDate.getTime())) {
-        throw new Error("Invalid downtime_end");
-    }
+  if (endDate < now) {
+    throw new Error("downtime end date can't be of past date");
+  }
 
-    if (endDate <= startDate) {
-        throw new Error(
-            "downtime_end must be greater than downtime_start"
-        );
-    }
+  // -----------------------------------------
+  // Create downtime record
+  // -----------------------------------------
 
+  const downtime = await Downtime.create({
+    device_id,
+    downtime_start: startDate,
+    downtime_end: endDate,
+    reason,
+    initiated_by,
+    notes: notes || "",
+    created_by: created_by || "NMS",
+  });
 
-    // -----------------------------------------
-    // Create downtime record
-    // -----------------------------------------
+  // -----------------------------------------
+  // Determine current downtime status
+  // -----------------------------------------
+  const statusCheckTime = new Date();
 
-    const downtime = await Downtime.create({
-        device_id,
-        downtime_start: startDate,
-        downtime_end: endDate,
-        reason,
-        initiated_by,
-        notes: notes || "",
-        created_by: created_by || "NMS"
-    });
+  let downtime_status;
 
+  if (now < downtime.downtime_start) {
+    downtime_status = "scheduled";
+  } else if (
+    statusCheckTime >= downtime.downtime_start &&
+    statusCheckTime <= downtime.downtime_end
+  ) {
+    downtime_status = "active";
+  } else {
+    downtime_status = "expired";
+  }
 
-    // -----------------------------------------
-    // Determine current downtime status
-    // -----------------------------------------
+  // -----------------------------------------
+  // Return API response object
+  // -----------------------------------------
 
-    const now = new Date();
+  return {
+    downtime_id: String(downtime._id),
 
-    let downtime_status;
+    device_id: String(downtime.device_id),
 
-    if (now < downtime.downtime_start) {
-        downtime_status = "scheduled";
+    downtime_start: downtime.downtime_start,
 
-    } else if (
-        now >= downtime.downtime_start &&
-        now <= downtime.downtime_end
-    ) {
-        downtime_status = "active";
+    downtime_end: downtime.downtime_end,
 
-    } else {
-        downtime_status = "expired";
-    }
+    reason: downtime.reason,
 
+    initiated_by: downtime.initiated_by,
 
-    // -----------------------------------------
-    // Return API response object
-    // -----------------------------------------
+    downtime_status,
 
-    return {
-        downtime_id: String(downtime._id),
+    created_by: downtime.created_by,
 
-        device_id: String(downtime.device_id),
+    created_at: downtime.createdAt,
 
-        downtime_start: downtime.downtime_start,
+    updated_at: downtime.updatedAt,
 
-        downtime_end: downtime.downtime_end,
-
-        reason: downtime.reason,
-
-        initiated_by: downtime.initiated_by,
-
-        downtime_status,
-
-        created_by: downtime.created_by,
-
-        created_at: downtime.createdAt,
-
-        updated_at: downtime.updatedAt,
-
-        notes: downtime.notes
-    };
+    notes: downtime.notes,
+  };
 }
-
 
 // ======================================================
 // LIST DOWNTIME
 // ======================================================
 async function getDowntimes(queryParams = {}) {
+  const { device_id, page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = queryParams;
 
-    const {
-        device_id,
-        page = DEFAULT_PAGE,
-        limit = DEFAULT_LIMIT
-    } = queryParams;
+  const { pageNumber, pageLimit } = parsePagination(page, limit);
 
-    const {
-        pageNumber,
-        pageLimit
-    } = parsePagination(
-        page,
-        limit
-    );
+  const query = {};
 
-    const query = {};
+  if (device_id) {
+    query.device_id = device_id;
+  }
 
-    if (device_id) {
-        query.device_id = device_id;
-    }
+  const skip = (pageNumber - 1) * pageLimit;
 
-    const skip =
-        (pageNumber - 1) * pageLimit;
+  const [downtimes, total] = await Promise.all([
+    Downtime.find(query)
+      .sort({ downtime_start: -1 })
+      .skip(skip)
+      .limit(pageLimit)
+      .populate("device_id", "ip deviceName")
+      .lean(),
 
-    const [
-        downtimes,
-        total
-    ] = await Promise.all([
+    Downtime.countDocuments(query),
+  ]);
 
-        Downtime.find(query)
-            .sort({ downtime_start: -1 })
-            .skip(skip)
-            .limit(pageLimit)
-            .populate(
-                "device_id",
-                "ip deviceName"
-            )
-            .lean(),
+  const data = downtimes.map((item) => ({
+    downtime_id: String(item._id),
 
-        Downtime.countDocuments(query)
-    ]);
+    device_id: item.device_id?._id
+      ? String(item.device_id._id)
+      : String(item.device_id),
 
-    const data = downtimes.map(item => ({
+    downtime_start: item.downtime_start,
 
-        downtime_id:
-            String(item._id),
+    downtime_end: item.downtime_end,
 
-        device_id:
-            item.device_id?._id
-                ? String(item.device_id._id)
-                : String(item.device_id),
+    reason: item.reason,
 
-        downtime_start:
-            item.downtime_start,
+    initiated_by: item.initiated_by,
 
-        downtime_end:
-            item.downtime_end,
+    downtime_status: getDowntimeStatus(
+      new Date(item.downtime_start),
+      new Date(item.downtime_end),
+    ),
 
-        reason:
-            item.reason,
+    created_by: item.created_by,
 
-        initiated_by:
-            item.initiated_by,
+    created_at: item.createdAt,
 
-        downtime_status:
-            getDowntimeStatus(
-                new Date(item.downtime_start),
-                new Date(item.downtime_end)
-            ),
+    updated_at: item.updatedAt,
 
-        created_by:
-            item.created_by,
+    notes: item.notes,
+  }));
 
-        created_at:
-            item.createdAt,
+  return {
+    data,
 
-        updated_at:
-            item.updatedAt,
-
-        notes:
-            item.notes
-    }));
-
-    return {
-        data,
-
-        pagination: {
-            page: pageNumber,
-            limit: pageLimit,
-            total,
-            totalPages:
-                Math.ceil(
-                    total / pageLimit
-                )
-        }
-    };
+    pagination: {
+      page: pageNumber,
+      limit: pageLimit,
+      total,
+      totalPages: Math.ceil(total / pageLimit),
+    },
+  };
 }
-
 
 // ======================================================
 // EDIT DOWNTIME
 // ======================================================
 async function updateDowntime(id, updateData = {}) {
+  if (!id) {
+    throw new Error("downtime_id is required");
+  }
 
-    if (!id) {
-        throw new Error("downtime_id is required");
+  const downtime = await Downtime.findById(id);
+
+  if (!downtime) {
+    throw new Error("Downtime record not found");
+  }
+
+  // -----------------------------------------
+  // Fields allowed to be updated
+  // -----------------------------------------
+
+  const allowedFields = [
+    "downtime_start",
+    "downtime_end",
+    "reason",
+    "initiated_by",
+    "notes",
+  ];
+
+  for (const field of allowedFields) {
+    if (updateData[field] !== undefined) {
+      downtime[field] = updateData[field];
     }
+  }
 
-    const downtime =
-        await Downtime.findById(id);
+  // -----------------------------------------
+  // Validate downtime dates
+  // -----------------------------------------
 
-    if (!downtime) {
-        throw new Error("Downtime record not found");
-    }
+  const startDate = new Date(downtime.downtime_start);
 
+  const endDate = new Date(downtime.downtime_end);
 
-    // -----------------------------------------
-    // Fields allowed to be updated
-    // -----------------------------------------
+  if (isNaN(startDate.getTime())) {
+    throw new Error("Invalid downtime_start");
+  }
 
-    const allowedFields = [
-        "downtime_start",
-        "downtime_end",
-        "reason",
-        "initiated_by",
-        "notes"
-    ];
+  if (isNaN(endDate.getTime())) {
+    throw new Error("Invalid downtime_end");
+  }
 
-    for (const field of allowedFields) {
+  if (endDate <= startDate) {
+    throw new Error("downtime_end must be greater than downtime_start");
+  }
 
-        if (
-            updateData[field] !== undefined
-        ) {
-            downtime[field] =
-                updateData[field];
-        }
-    }
+  // -----------------------------------------
+  // Save updated downtime
+  // -----------------------------------------
 
+  await downtime.save();
 
-    // -----------------------------------------
-    // Validate downtime dates
-    // -----------------------------------------
+  // -----------------------------------------
+  // Determine current status
+  // -----------------------------------------
 
-    const startDate =
-        new Date(downtime.downtime_start);
+  const now = new Date();
 
-    const endDate =
-        new Date(downtime.downtime_end);
+  let downtime_status;
 
-    if (isNaN(startDate.getTime())) {
-        throw new Error(
-            "Invalid downtime_start"
-        );
-    }
+  if (now < downtime.downtime_start) {
+    downtime_status = "scheduled";
+  } else if (now >= downtime.downtime_start && now <= downtime.downtime_end) {
+    downtime_status = "active";
+  } else {
+    downtime_status = "expired";
+  }
 
-    if (isNaN(endDate.getTime())) {
-        throw new Error(
-            "Invalid downtime_end"
-        );
-    }
+  // -----------------------------------------
+  // Return standardized response
+  // -----------------------------------------
 
-    if (endDate <= startDate) {
-        throw new Error(
-            "downtime_end must be greater than downtime_start"
-        );
-    }
+  return {
+    downtime_id: String(downtime._id),
 
+    device_id: String(downtime.device_id),
 
-    // -----------------------------------------
-    // Save updated downtime
-    // -----------------------------------------
+    downtime_start: downtime.downtime_start,
 
-    await downtime.save();
+    downtime_end: downtime.downtime_end,
 
+    reason: downtime.reason,
 
-    // -----------------------------------------
-    // Determine current status
-    // -----------------------------------------
+    initiated_by: downtime.initiated_by,
 
-    const now = new Date();
+    downtime_status,
 
-    let downtime_status;
+    created_by: downtime.created_by,
 
-    if (now < downtime.downtime_start) {
+    created_at: downtime.createdAt,
 
-        downtime_status = "scheduled";
+    updated_at: downtime.updatedAt,
 
-    } else if (
-        now >= downtime.downtime_start &&
-        now <= downtime.downtime_end
-    ) {
-
-        downtime_status = "active";
-
-    } else {
-
-        downtime_status = "expired";
-    }
-
-
-    // -----------------------------------------
-    // Return standardized response
-    // -----------------------------------------
-
-    return {
-        downtime_id:
-            String(downtime._id),
-
-        device_id:
-            String(downtime.device_id),
-
-        downtime_start:
-            downtime.downtime_start,
-
-        downtime_end:
-            downtime.downtime_end,
-
-        reason:
-            downtime.reason,
-
-        initiated_by:
-            downtime.initiated_by,
-
-        downtime_status,
-
-        created_by:
-            downtime.created_by,
-
-        created_at:
-            downtime.createdAt,
-
-        updated_at:
-            downtime.updatedAt,
-
-        notes:
-            downtime.notes
-    };
+    notes: downtime.notes,
+  };
 }
-
 
 // ======================================================
 // DELETE DOWNTIME
 // ======================================================
 async function deleteDowntime(downtimeIds) {
+  // -----------------------------------------
+  // Validate input
+  // -----------------------------------------
 
-    // -----------------------------------------
-    // Validate input
-    // -----------------------------------------
+  if (!Array.isArray(downtimeIds) || downtimeIds.length === 0) {
+    throw new Error("downtime_ids must be a non-empty array");
+  }
 
-    if (
-        !Array.isArray(downtimeIds) ||
-        downtimeIds.length === 0
-    ) {
-        throw new Error(
-            "downtime_ids must be a non-empty array"
-        );
-    }
+  // -----------------------------------------
+  // Remove duplicate IDs
+  // -----------------------------------------
 
+  const uniqueIds = [...new Set(downtimeIds.map(String))];
 
-    // -----------------------------------------
-    // Remove duplicate IDs
-    // -----------------------------------------
+  // -----------------------------------------
+  // Find records first
+  // -----------------------------------------
 
-    const uniqueIds = [
-        ...new Set(downtimeIds.map(String))
-    ];
+  const existingDowntimes = await Downtime.find({
+    _id: {
+      $in: uniqueIds,
+    },
+  }).select("_id");
 
+  if (existingDowntimes.length === 0) {
+    throw new Error("No downtime records found");
+  }
 
-    // -----------------------------------------
-    // Find records first
-    // -----------------------------------------
+  // -----------------------------------------
+  // Delete records
+  // -----------------------------------------
 
-    const existingDowntimes =
-        await Downtime.find({
-            _id: {
-                $in: uniqueIds
-            }
-        }).select("_id");
+  const existingIds = existingDowntimes.map((item) => String(item._id));
 
+  await Downtime.deleteMany({
+    _id: {
+      $in: existingIds,
+    },
+  });
 
-    if (existingDowntimes.length === 0) {
-        throw new Error(
-            "No downtime records found"
-        );
-    }
+  // -----------------------------------------
+  // Return standardized result
+  // -----------------------------------------
 
+  return {
+    requested_count: uniqueIds.length,
 
-    // -----------------------------------------
-    // Delete records
-    // -----------------------------------------
+    deleted_count: existingIds.length,
 
-    const existingIds =
-        existingDowntimes.map(
-            item => String(item._id)
-        );
-
-    await Downtime.deleteMany({
-        _id: {
-            $in: existingIds
-        }
-    });
-
-
-    // -----------------------------------------
-    // Return standardized result
-    // -----------------------------------------
-
-    return {
-        requested_count:
-            uniqueIds.length,
-
-        deleted_count:
-            existingIds.length,
-
-        deleted_downtime_ids:
-            existingIds
-    };
+    deleted_downtime_ids: existingIds,
+  };
 }
 
 // ======================================================
 // STOP MAINTENANCE
 // ======================================================
 async function stopMaintenance(deviceIds) {
+  if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
+    throw new Error("device_id must be a non-empty array");
+  }
 
-    if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
-        throw new Error("device_id must be a non-empty array");
+  const activeDowntimes = await Downtime.find({
+    device_id: { $in: deviceIds },
+    downtime_start: { $lte: new Date() },
+    downtime_end: { $gte: new Date() },
+  }).select("_id device_id");
+
+  for (const downtime of activeDowntimes) {
+    const timer = maintenanceTimers.get(String(downtime._id));
+
+    if (timer) {
+      clearTimeout(timer);
+      maintenanceTimers.delete(String(downtime._id));
     }
+  }
 
-    const activeDowntimes = await Downtime.find({
-        device_id: { $in: deviceIds },
-        downtime_start: { $lte: new Date() },
-        downtime_end: { $gte: new Date() }
-    }).select("_id device_id");
+  await Device.updateMany(
+    { _id: { $in: deviceIds } },
+    {
+      $set: {
+        maintenanceMode: "Inactive",
+      },
+    },
+  );
 
-    for (const downtime of activeDowntimes) {
-
-        const timer = maintenanceTimers.get(
-            String(downtime._id)
-        );
-
-        if (timer) {
-            clearTimeout(timer);
-            maintenanceTimers.delete(
-                String(downtime._id)
-            );
-        }
-    }
-
-    await Device.updateMany(
-        { _id: { $in: deviceIds } },
-        {
-            $set: {
-                maintenanceMode: "Inactive"
-            }
-        }
-    );
-
-    return {
-        success: true,
-        deviceIds
-    };
+  return {
+    success: true,
+    deviceIds,
+  };
 }
-
 
 async function syncDeviceMaintenanceMode(deviceId) {
-    const now = new Date();
+  const now = new Date();
 
-    const activeDowntime = await Downtime.findOne({
-        device_id: deviceId,
-        downtime_start: { $lte: now },
-        downtime_end: { $gte: now }
-    }).lean();
+  const activeDowntime = await Downtime.findOne({
+    device_id: deviceId,
+    downtime_start: { $lte: now },
+    downtime_end: { $gte: now },
+  }).lean();
 
-    await Device.updateOne(
-        { _id: deviceId },
-        {
-            $set: {
-                maintenanceMode: activeDowntime
-                    ? "Active"
-                    : "Inactive"
-            }
-        }
-    );
+  await Device.updateOne(
+    { _id: deviceId },
+    {
+      $set: {
+        maintenanceMode: activeDowntime ? "Active" : "Inactive",
+      },
+    },
+  );
 
-    return Boolean(activeDowntime);
+  return Boolean(activeDowntime);
 }
 
-
 async function restoreMaintenanceTimers() {
+  try {
+    const now = new Date();
 
-    try {
-        const now = new Date();
+    const downtimes = await Downtime.find({
+      downtime_end: { $gt: now },
+    }).lean();
 
-        const downtimes = await Downtime.find({
-            downtime_end: { $gt: now }
-        }).lean();
+    for (const downtime of downtimes) {
+      await syncDeviceMaintenanceMode(downtime.device_id);
 
-        for (const downtime of downtimes) {
-            await syncDeviceMaintenanceMode(downtime.device_id);
-
-            scheduleMaintenanceExpiry(downtime);
-        }
-
-        console.log(
-            `🔄 Restored ${downtimes.length} maintenance timers`
-        );
-
-    } catch (error) {
-        console.error(
-            "❌ Failed to restore maintenance timers:",
-            error
-        );
+      scheduleMaintenanceExpiry(downtime);
     }
+
+    console.log(`🔄 Restored ${downtimes.length} maintenance timers`);
+  } catch (error) {
+    console.error("❌ Failed to restore maintenance timers:", error);
+  }
 }
 
 function scheduleMaintenanceExpiry(downtime) {
-    const downtimeId = String(downtime._id);
+  const downtimeId = String(downtime._id);
 
-    // Clear existing timer for this downtime
-    if (maintenanceTimers.has(downtimeId)) {
-        clearTimeout(maintenanceTimers.get(downtimeId));
-        maintenanceTimers.delete(downtimeId);
+  // Clear existing timer for this downtime
+  if (maintenanceTimers.has(downtimeId)) {
+    clearTimeout(maintenanceTimers.get(downtimeId));
+    maintenanceTimers.delete(downtimeId);
+  }
+
+  const now = Date.now();
+  const start = new Date(downtime.downtime_start).getTime();
+  const end = new Date(downtime.downtime_end).getTime();
+
+  // --------------------------------------------------
+  // Downtime already expired
+  // --------------------------------------------------
+  if (end <= now) {
+    return;
+  }
+
+  // --------------------------------------------------
+  // Future downtime
+  // --------------------------------------------------
+  if (start > now) {
+    const startTimer = setTimeout(async () => {
+      try {
+        await syncDeviceMaintenanceMode(downtime.device_id);
+
+        console.log(`🟢 Maintenance started: ${downtime.device_id}`);
+
+        scheduleMaintenanceExpiry(downtime);
+      } catch (error) {
+        console.error("❌ Failed to start maintenance:", error);
+      }
+    }, start - now);
+
+    maintenanceTimers.set(downtimeId, startTimer);
+
+    return;
+  }
+
+  // --------------------------------------------------
+  // Already active → schedule expiry
+  // --------------------------------------------------
+  const expiryTimer = setTimeout(async () => {
+    try {
+      await syncDeviceMaintenanceMode(downtime.device_id);
+
+      maintenanceTimers.delete(downtimeId);
+
+      console.log(`🔴 Maintenance expired: ${downtime.device_id}`);
+    } catch (error) {
+      console.error("❌ Failed to expire maintenance:", error);
     }
+  }, end - now);
 
-    const now = Date.now();
-    const start = new Date(downtime.downtime_start).getTime();
-    const end = new Date(downtime.downtime_end).getTime();
-
-    // --------------------------------------------------
-    // Downtime already expired
-    // --------------------------------------------------
-    if (end <= now) {
-        return;
-    }
-
-    // --------------------------------------------------
-    // Future downtime
-    // --------------------------------------------------
-    if (start > now) {
-
-        const startTimer = setTimeout(async () => {
-
-            try {
-                await syncDeviceMaintenanceMode(
-                    downtime.device_id
-                );
-
-                console.log(`🟢 Maintenance started: ${downtime.device_id}`);
-
-                scheduleMaintenanceExpiry(downtime);
-
-            } catch (error) {
-                console.error(
-                    "❌ Failed to start maintenance:",
-                    error
-                );
-            }
-
-        }, start - now);
-
-        maintenanceTimers.set(downtimeId, startTimer);
-
-        return;
-    }
-
-    // --------------------------------------------------
-    // Already active → schedule expiry
-    // --------------------------------------------------
-    const expiryTimer = setTimeout(async () => {
-
-        try {
-
-            await syncDeviceMaintenanceMode(
-                downtime.device_id
-            );
-
-            maintenanceTimers.delete(downtimeId);
-
-            console.log(
-                `🔴 Maintenance expired: ${downtime.device_id}`
-            );
-
-        } catch (error) {
-            console.error(
-                "❌ Failed to expire maintenance:",
-                error
-            );
-        }
-
-    }, end - now);
-
-    maintenanceTimers.set(downtimeId, expiryTimer);
+  maintenanceTimers.set(downtimeId, expiryTimer);
 }
 
 restoreMaintenanceTimers();
 
 // setInterval(syncAllMaintenanceModes, 60 * 1000);
 
-
 module.exports = {
-    createDowntime,
-    getDowntimes,
-    updateDowntime,
-    deleteDowntime,
-    getDowntimeStatus,
-    syncDeviceMaintenanceMode,
-    stopMaintenance
+  createDowntime,
+  getDowntimes,
+  updateDowntime,
+  deleteDowntime,
+  getDowntimeStatus,
+  syncDeviceMaintenanceMode,
+  stopMaintenance,
 };
