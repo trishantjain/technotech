@@ -30,6 +30,13 @@ const parseAlarmLine = require("./alarm/alarmParser.js");
 const getAlarmFiles = require("./alarm/fileScanner.js");
 const alarmHistoryCache = require("./cache/alarmHistoryCache.js");
 const { startStatusMonitor } = require("./workers/statusMonitor.js");
+const {
+  initializeDeviceStatusCache,
+  updateDeviceStatusCache,
+  registerDeviceInStatusCache,
+} = require("./services/deviceStatusCache");
+
+const { startPingRecordService } = require("./services/pingRecordService");
 
 const logger = require("./logger/logger.js");
 
@@ -108,7 +115,34 @@ const logStreams = {};
 // 🔌 DB connection
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => logger.info("MongoDB connected"))
+  .then(async () => {
+    logger.info("MongoDB connected");
+
+    try {
+      // LOAD THE EXISTING CAMERA/DEVICE METADATA CACHE.
+      await loadDeviceCache();
+
+      // INITIALIZE IP -> MongoDB DEVICE ID + CURRENT STATUS
+      await initializeDeviceStatusCache();
+
+      // START MONITORING AND PERIODIC PING-RECORD CREATION
+      startStatusMonitor();
+      startPingRecordService();
+
+      logger.info("Device status cache and ping-record service started");
+    } catch (err) {
+      console.error("Failed to initialize device services:", err);
+
+      logger.error(
+        {
+          error: err.message,
+          stack: err.stack,
+        },
+        "Failed to initialize device services",
+      );
+    }
+  })
+
   .catch((err) => {
     console.error("MongoDB connection error:", err);
 
@@ -135,7 +169,7 @@ mongoose
   );
 })();
 
-startStatusMonitor();
+// startStatusMonitor();
 
 app.get("/test-alarm", (req, res) => {
   publishAlarm({
@@ -172,7 +206,7 @@ async function loadDeviceCache() {
   }
 }
 
-loadDeviceCache();
+// loadDeviceCache();
 
 // ===================== HTTP API Endpoints (unchanged) =====================
 /* When a GET request is made to "/ping", it will attempt to ping the MongoDB database using Mongoose. 
@@ -393,8 +427,7 @@ app.delete("/api/user/:username", async (req, res) => {
 app.post("/api/register-device", authMiddleware, async (req, res) => {
   const { ip, deviceName, location, address, latitude, longitude, ipCamera } =
     req.body;
-  // const { ip, locationId, address, latitude, longitude } = req.body;
-  console.log("Location: ", location);
+
   try {
     // const normalizedMac = ip.toLowerCase(); // Converting to LowerCase()
     let parsedCamera = ipCamera;
@@ -410,19 +443,6 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
       return res.status(409).json({ error: "Device IP already exists" });
     }
 
-    // if (ipCamera && typeof ipCamera === 'string') {
-    //   const [camType, camIP] = ipCamera.split(',');
-    //   parsedCamera = {
-    //     type: camType,
-    //     ip: camIP.trim()
-    //   }
-    // }
-
-    // const ipMatch = await Device.find({ "ipCamera.ip": parsedCamera.ip });
-    // if (ipMatch && ipMatch.length > 0) {
-    //   return res.status(409).json({ error: "Camera Ip already present" });
-    // }
-
     // console.log("Parsed Camera: ", parsedCamera);
     const device = new Device({
       // ip: normalizedr,
@@ -432,13 +452,14 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
       address,
       latitude,
       longitude,
-      // ipCamera: parsedCamera || "",
-
       status: req.user.role === "admin" ? "approved" : "pending",
       createdBy: req.user.username,
     });
 
     await device.save();
+
+    // ADDING NEW DEVICE TO PING-RECORD
+    registerDeviceInStatusCache(device);
 
     deviceCache.set(ip, {
       cameraType: parsedCamera?.type || null,
@@ -507,7 +528,7 @@ app.get("/api/admin/devices", authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Get connected MACs
+// ✅ Get connected IPs
 app.get("/api/devices", (req, res) => {
   try {
     res.json(Array.from(connectedDevices.keys()).map((ip) => ip)); //! Converting to LowerCase()
@@ -526,7 +547,7 @@ app.get("/api/devices", (req, res) => {
   }
 });
 
-// ✅ Update device by MAC
+// ✅ Update device by IP
 app.put("/api/device/:ip", async (req, res) => {
   try {
     /* NEW ADDED*/
@@ -573,7 +594,7 @@ app.put("/api/device/:ip", async (req, res) => {
 });
 
 //! Have to check this API
-// ✅ Deleting device by MAC
+// ✅ Deleting device by IP
 app.post("/api/device/delete/:ip", async (req, res) => {
   const { password } = req.body;
 
@@ -924,7 +945,7 @@ app.get("/api/snapshots", (req, res) => {
       return res.status(400).json({ error: "IP address is required" });
     }
 
-    // Extract the last part of MAC
+    // Extract the last part of IP
     const ipSuffix = rawIP.slice(8).replace(/[. ]/g, "_"); // Gets characters 9-16 (0-indexed)
     // console.log("MAC ADDRESS: ", macSuffix);
 
@@ -1902,20 +1923,62 @@ async function sendToCloud(reading) {
   }
 }
 
+// async function updateDeviceStatus(ip) {
+//   try {
+//     const now = new Date();
+
+//     // const device = await Device.findOne({ ip });
+
+//     // if (!device) return;
+
+//     // DeviceStatus was DOWN -> make it UP
+//     //! HERE WE CAN MARK DEVICE PING AS SUCCESS
+//     const result = await Device.updateOne(
+//       {
+//         ip,
+//         deviceStatus: { $ne: "UP" },
+//       },
+//       {
+//         $set: {
+//           deviceStatus: "UP",
+//           lastPacketTime: now,
+//           lastStatusChangeTimeTicks: Date.now(),
+//         },
+//       },
+//     );
+
+//     // Already UP -> only refresh heartbeat
+//     if (result.modifiedCount === 0) {
+//       await Device.updateOne(
+//         { ip },
+//         {
+//           $set: {
+//             lastPacketTime: now,
+//           },
+//         },
+//       );
+//     }
+//   } catch (err) {
+//     console.error(`Failed to update device status for ${ip}:`, err);
+
+//     logger.error(
+//       {
+//         error: err.message,
+//         stack: err.stack,
+//         ip,
+//       },
+//       "Failed to update device status",
+//     );
+//   }
+// }
+
 async function updateDeviceStatus(ip) {
   try {
     const now = new Date();
 
-    // const device = await Device.findOne({ ip });
-
-    // if (!device) return;
-
-    // Device was DOWN -> make it UP
-    const result = await Device.updateOne(
-      {
-        ip,
-        deviceStatus: { $ne: "UP" },
-      },
+    // Update status and change timestamp only when transitioning to UP.
+    const transitionResult = await Device.updateOne(
+      { ip, deviceStatus: { $ne: "UP" } },
       {
         $set: {
           deviceStatus: "UP",
@@ -1925,28 +1988,22 @@ async function updateDeviceStatus(ip) {
       },
     );
 
-    // Already UP -> only refresh heartbeat
-    if (result.modifiedCount === 0) {
-      await Device.updateOne(
+    if (transitionResult.matchedCount === 0) {
+      // Device may already be UP, or it may not exist.
+      const heartbeatResult = await Device.updateOne(
         { ip },
-        {
-          $set: {
-            lastPacketTime: now,
-          },
-        },
+        { $set: { lastPacketTime: now } },
       );
-    }
-  } catch (err) {
-    console.error(`Failed to update device status for ${ip}:`, err);
 
-    logger.error(
-      {
-        error: err.message,
-        stack: err.stack,
-        ip,
-      },
-      "Failed to update device status",
-    );
+      if (heartbeatResult.matchedCount === 0) {
+        console.warn(`[DeviceStatus] No registered device found for IP ${ip}`);
+        return;
+      }
+    }
+
+    updateDeviceStatusCache(ip, "UP");
+  } catch (err) {
+    console.error(`[DeviceStatus] Failed to update ${ip}:`, err);
   }
 }
 
