@@ -2,7 +2,6 @@
   "name": "iot-dashboard-frontend",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:5000",
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -12,6 +11,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
+    "http-proxy-middleware": "^4.2.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
     "react": "18.2.0",
