@@ -579,13 +579,13 @@ function DashboardView() {
     if (reading.waterLogging) alarms.push("Logging ");
     if (reading.lockStatus === "OPEN") alarms.push("Lock Open ");
     if (reading.doorStatus === "OPEN") alarms.push("Door Open ");
-    if (reading.pwsFailCount === 3) alarms.push("Password Blocked ")
-    if (reading.mainStatus === 1) alarms.push("Main Alarm")
-    if (reading.rectStatus === 1) alarms.push("Rectifier Alarm")
-    if (reading.inveStatus === 1) alarms.push("Inverter Alarm")
-    if (reading.overStatus === 1) alarms.push("Overload Alarm")
-    if (reading.mptStatus === 1) alarms.push("MPT Alarm")
-    if (reading.mosfStatus === 1) alarms.push("MOSFET Alarm")
+    if (reading.pwsFailCount === 3) alarms.push("Password Blocked ");
+    if (reading.mainStatus === 0) alarms.push("Main Alarm");
+    if (reading.rectStatus === 0) alarms.push("Rectifier Alarm");
+    if (reading.inveStatus === 0) alarms.push("Inverter Alarm");
+    if (reading.overStatus === 0) alarms.push("Overload Alarm");
+    if (reading.mptStatus === 0) alarms.push("MPT Alarm");
+    if (reading.mosfStatus === 0) alarms.push("MOSFET Alarm");
 
     // threshold-based
     if (
