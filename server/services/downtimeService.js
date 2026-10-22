@@ -1,6 +1,8 @@
 const Downtime = require("../models/Downtime");
 const Device = require("../models/Device");
 
+const mongoose = require("mongoose");
+
 const maintenanceTimers = new Map();
 
 const DEFAULT_PAGE = 1;
@@ -40,11 +42,174 @@ function getDowntimeStatus(start, end) {
   return "expired";
 }
 
+function validateDowntimeDates(start, end, { rejectPastStart = false } = {}) {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  if (!start || isNaN(startDate.getTime())) {
+    throw new Error("Invalid downtime_start");
+  }
+
+  if (!end || isNaN(endDate.getTime())) {
+    throw new Error("Invalid downtime_end");
+  }
+
+  if (endDate <= startDate) {
+    throw new Error("downtime_end must be greater than downtime_start");
+  }
+
+  if (rejectPastStart && startDate.getTime() < Date.now()) {
+    throw new Error("downtime_start cannot be in the past");
+  }
+
+  return { startDate, endDate };
+}
+
 // ======================================================
 // CREATE DOWNTIME
 // ======================================================
+// async function createDowntime(data = {}) {
+//   const {
+//     device_id,
+//     downtime_start,
+//     downtime_end,
+//     reason,
+//     initiated_by,
+//     notes,
+//     created_by,
+//   } = data;
+
+//   // -----------------------------------------
+//   // Required field validation
+//   // -----------------------------------------
+
+//   if (!device_id) {
+//     throw new Error("device_id is required");
+//   }
+
+//   if (!downtime_start) {
+//     throw new Error("downtime_start is required");
+//   }
+
+//   if (!downtime_end) {
+//     throw new Error("downtime_end is required");
+//   }
+
+//   if (!reason) {
+//     throw new Error("reason is required");
+//   }
+
+//   if (!initiated_by) {
+//     throw new Error("initiated_by is required");
+//   }
+
+//   // -----------------------------------------
+//   // Validate device
+//   // -----------------------------------------
+
+//   const device = await Device.findById(device_id);
+
+//   if (!device) {
+//     throw new Error("Device not found");
+//   }
+
+//   // -----------------------------------------
+//   // Validate dates
+//   // -----------------------------------------
+
+//   const startDate = new Date(downtime_start);
+//   const endDate = new Date(downtime_end);
+
+//   if (isNaN(startDate.getTime())) {
+//     throw new Error("Invalid downtime_start");
+//   }
+
+//   if (isNaN(endDate.getTime())) {
+//     throw new Error("Invalid downtime_end");
+//   }
+
+//   if (endDate <= startDate) {
+//     throw new Error("downtime_end must be greater than downtime_start");
+//   }
+
+//   // PAST DATE & TIME CHECK
+//   const now = new Date();
+
+//   if (startDate < now) {
+//     throw new Error("downtime start date can't be of past date");
+//   }
+
+//   if (endDate < now) {
+//     throw new Error("downtime end date can't be of past date");
+//   }
+
+//   // -----------------------------------------
+//   // Create downtime record
+//   // -----------------------------------------
+
+//   const downtime = await Downtime.create({
+//     device_id,
+//     downtime_start: startDate,
+//     downtime_end: endDate,
+//     reason,
+//     initiated_by,
+//     notes: notes || "",
+//     created_by: created_by || "NMS",
+//   });
+
+//   // -----------------------------------------
+//   // Determine current downtime status
+//   // -----------------------------------------
+//   const statusCheckTime = new Date();
+
+//   let downtime_status;
+
+//   if (now < downtime.downtime_start) {
+//     downtime_status = "scheduled";
+//   } else if (
+//     statusCheckTime >= downtime.downtime_start &&
+//     statusCheckTime <= downtime.downtime_end
+//   ) {
+//     downtime_status = "active";
+//   } else {
+//     downtime_status = "expired";
+//   }
+
+//   // -----------------------------------------
+//   // Return API response object
+//   // -----------------------------------------
+
+//   return {
+//     downtime_id: String(downtime._id),
+
+//     device_id: String(downtime.device_id),
+
+//     downtime_start: downtime.downtime_start,
+
+//     downtime_end: downtime.downtime_end,
+
+//     reason: downtime.reason,
+
+//     initiated_by: downtime.initiated_by,
+
+//     downtime_status,
+
+//     created_by: downtime.created_by,
+
+//     created_at: downtime.createdAt,
+
+//     updated_at: downtime.updatedAt,
+
+//     notes: downtime.notes,
+//   };
+// }
+
+// ======================================================
+// CREATE DOWNTIME | HANDLING MULTIPLE DEVICES
+// ======================================================
 async function createDowntime(data = {}) {
   const {
+    device_ids,
     device_id,
     downtime_start,
     downtime_end,
@@ -55,11 +220,36 @@ async function createDowntime(data = {}) {
   } = data;
 
   // -----------------------------------------
+  // Normalize device IDs
+  // -----------------------------------------
+  const deviceIds = Array.isArray(device_ids)
+    ? device_ids
+    : device_id
+      ? [device_id]
+      : [];
+
+  // -----------------------------------------
   // Required field validation
   // -----------------------------------------
+  if (deviceIds.length === 0) {
+    throw new Error("device_ids is required and must be a non-empty array");
+  }
 
-  if (!device_id) {
-    throw new Error("device_id is required");
+  if (deviceIds.some((id) => typeof id !== "string" || !id.trim())) {
+    throw new Error("Every device ID must be a non-empty string");
+  }
+
+  const uniqueDeviceIds = [...new Set(deviceIds.map((id) => id.trim()))];
+
+  // Validate MongoDB ObjectId format before querying
+  const invalidFormatIds = uniqueDeviceIds.filter(
+    (id) => !/^[a-fA-F0-9]{24}$/.test(id),
+  );
+
+  if (invalidFormatIds.length > 0) {
+    throw new Error(
+      `Invalid MongoDB device ID format: ${invalidFormatIds.join(", ")}`,
+    );
   }
 
   if (!downtime_start) {
@@ -70,112 +260,120 @@ async function createDowntime(data = {}) {
     throw new Error("downtime_end is required");
   }
 
-  if (!reason) {
+  if (typeof reason !== "string" || !reason.trim()) {
     throw new Error("reason is required");
   }
 
-  if (!initiated_by) {
+  if (typeof initiated_by !== "string" || !initiated_by.trim()) {
     throw new Error("initiated_by is required");
   }
 
   // -----------------------------------------
   // Validate device
   // -----------------------------------------
+  const devices = await Device.find({
+    _id: { $in: uniqueDeviceIds },
+  }).select("_id");
 
-  const device = await Device.findById(device_id);
+  const foundIds = new Set(devices.map((device) => String(device._id)));
 
-  if (!device) {
-    throw new Error("Device not found");
+  const invalidIds = uniqueDeviceIds.filter((id) => !foundIds.has(id));
+
+  if (invalidIds.length > 0) {
+    throw new Error(`Device(s) not found: ${invalidIds.join(", ")}`);
   }
 
   // -----------------------------------------
   // Validate dates
   // -----------------------------------------
+  // const startDate = new Date(downtime_start);
+  // const endDate = new Date(downtime_end);
 
-  const startDate = new Date(downtime_start);
-  const endDate = new Date(downtime_end);
+  // if (isNaN(startDate.getTime())) {
+  //   throw new Error("Invalid downtime_start");
+  // }
 
-  if (isNaN(startDate.getTime())) {
-    throw new Error("Invalid downtime_start");
-  }
+  // if (isNaN(endDate.getTime())) {
+  //   throw new Error("Invalid downtime_end");
+  // }
 
-  if (isNaN(endDate.getTime())) {
-    throw new Error("Invalid downtime_end");
-  }
+  // if (endDate <= startDate) {
+  //   throw new Error("downtime_end must be greater than downtime_start");
+  // }
 
-  if (endDate <= startDate) {
-    throw new Error("downtime_end must be greater than downtime_start");
-  }
+  // // PAST DATE & TIME CHECK
+  // const now = new Date();
 
-  // PAST DATE & TIME CHECK
-  const now = new Date();
+  // if (startDate < now) {
+  //   throw new Error("downtime start date can't be of past date");
+  // }
 
-  if (startDate < now) {
-    throw new Error("downtime start date can't be of past date");
-  }
+  // if (endDate < now) {
+  //   throw new Error("downtime end date can't be of past date");
+  // }
 
-  if (endDate < now) {
-    throw new Error("downtime end date can't be of past date");
-  }
+  const { startDate, endDate } = validateDowntimeDates(
+    downtime_start,
+    downtime_end,
+    { rejectPastStart: true },
+  );
 
   // -----------------------------------------
-  // Create downtime record
+  // Create one downtime record per device
   // -----------------------------------------
-
-  const downtime = await Downtime.create({
-    device_id,
+  const records = uniqueDeviceIds.map((id) => ({
+    device_id: id,
     downtime_start: startDate,
     downtime_end: endDate,
     reason,
     initiated_by,
     notes: notes || "",
     created_by: created_by || "NMS",
-  });
+  }));
+
+  const createdRecords = await Downtime.insertMany(records);
 
   // -----------------------------------------
-  // Determine current downtime status
+  // Determine status and format response
   // -----------------------------------------
   const statusCheckTime = new Date();
 
-  let downtime_status;
+  const downtimeRecords = createdRecords.map((downtime) => {
+    let downtime_status;
 
-  if (now < downtime.downtime_start) {
-    downtime_status = "scheduled";
-  } else if (
-    statusCheckTime >= downtime.downtime_start &&
-    statusCheckTime <= downtime.downtime_end
-  ) {
-    downtime_status = "active";
-  } else {
-    downtime_status = "expired";
-  }
+    if (statusCheckTime < downtime.downtime_start) {
+      downtime_status = "scheduled";
+    } else if (
+      statusCheckTime >= downtime.downtime_start &&
+      statusCheckTime <= downtime.downtime_end
+    ) {
+      downtime_status = "active";
+    } else {
+      downtime_status = "expired";
+    }
+
+    return {
+      downtime_id: String(downtime._id),
+      device_id: String(downtime.device_id),
+      downtime_start: downtime.downtime_start,
+      downtime_end: downtime.downtime_end,
+      reason: downtime.reason,
+      initiated_by: downtime.initiated_by,
+      downtime_status,
+      created_by: downtime.created_by,
+      created_at: downtime.createdAt,
+      updated_at: downtime.updatedAt,
+      notes: downtime.notes,
+    };
+  });
 
   // -----------------------------------------
   // Return API response object
   // -----------------------------------------
 
   return {
-    downtime_id: String(downtime._id),
-
-    device_id: String(downtime.device_id),
-
-    downtime_start: downtime.downtime_start,
-
-    downtime_end: downtime.downtime_end,
-
-    reason: downtime.reason,
-
-    initiated_by: downtime.initiated_by,
-
-    downtime_status,
-
-    created_by: downtime.created_by,
-
-    created_at: downtime.createdAt,
-
-    updated_at: downtime.updatedAt,
-
-    notes: downtime.notes,
+    totalCreated: downtimeRecords.length,
+    downtimeRecords,
   };
 }
 
@@ -251,20 +449,22 @@ async function getDowntimes(queryParams = {}) {
 // EDIT DOWNTIME
 // ======================================================
 async function updateDowntime(id, updateData = {}) {
-  if (!id) {
-    throw new Error("downtime_id is required");
+  const downtimeIds = Array.isArray(id) ? id : [id];
+
+  if (
+    downtimeIds.length === 0 ||
+    downtimeIds.some((item) => typeof item !== "string" || !item.trim())
+  ) {
+    throw new Error(
+      "downtime_id must be provided as a string or a non-empty array of IDs",
+    );
   }
 
-  const downtime = await Downtime.findById(id);
-
-  if (!downtime) {
-    throw new Error("Downtime record not found");
-  }
+  const uniqueIds = [...new Set(downtimeIds.map((item) => item.trim()))];
 
   // -----------------------------------------
   // Fields allowed to be updated
   // -----------------------------------------
-
   const allowedFields = [
     "downtime_start",
     "downtime_end",
@@ -273,37 +473,72 @@ async function updateDowntime(id, updateData = {}) {
     "notes",
   ];
 
-  for (const field of allowedFields) {
-    if (updateData[field] !== undefined) {
-      downtime[field] = updateData[field];
+  const hasUpdates = allowedFields.some(
+    (field) => updateData[field] !== undefined,
+  );
+
+  if (!hasUpdates) {
+    throw new Error("No valid fields provided for update");
+  }
+
+  // -----------------------------------------
+  // Fetch and validate ALL downtime records
+  // -----------------------------------------
+  const records = await Downtime.find({
+    _id: { $in: uniqueIds },
+  });
+
+  const foundIds = new Set(records.map((record) => String(record._id)));
+
+  const missingIds = uniqueIds.filter((id) => !foundIds.has(id));
+
+  if (missingIds.length > 0) {
+    throw new Error(`Downtime record(s) not found: ${missingIds.join(", ")}`);
+  }
+
+  // -----------------------------------------
+  // Validate proposed dates before saving
+  // -----------------------------------------
+  for (const downtime of records) {
+    const proposedStart =
+      updateData.downtime_start !== undefined
+        ? new Date(updateData.downtime_start)
+        : new Date(downtime.downtime_start);
+
+    const proposedEnd =
+      updateData.downtime_end !== undefined
+        ? new Date(updateData.downtime_end)
+        : new Date(downtime.downtime_end);
+
+    if (isNaN(proposedStart.getTime())) {
+      throw new Error("Invalid downtime_start");
+    }
+
+    if (isNaN(proposedEnd.getTime())) {
+      throw new Error("Invalid downtime_end");
+    }
+
+    if (proposedEnd <= proposedStart) {
+      throw new Error("downtime_end must be greater than downtime_start");
     }
   }
 
   // -----------------------------------------
-  // Validate downtime dates
+  // Apply updates
   // -----------------------------------------
 
-  const startDate = new Date(downtime.downtime_start);
-
-  const endDate = new Date(downtime.downtime_end);
-
-  if (isNaN(startDate.getTime())) {
-    throw new Error("Invalid downtime_start");
+  for (const downtime of records) {
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined) {
+        downtime[field] = updateData[field];
+      }
+    }
   }
 
-  if (isNaN(endDate.getTime())) {
-    throw new Error("Invalid downtime_end");
-  }
+  // Validate and save as a group
+  await Promise.all(records.map((record) => record.validate()));
 
-  if (endDate <= startDate) {
-    throw new Error("downtime_end must be greater than downtime_start");
-  }
-
-  // -----------------------------------------
-  // Save updated downtime
-  // -----------------------------------------
-
-  await downtime.save();
+  await Promise.all(records.map((record) => record.save()));
 
   // -----------------------------------------
   // Determine current status
@@ -311,42 +546,38 @@ async function updateDowntime(id, updateData = {}) {
 
   const now = new Date();
 
-  let downtime_status;
+  const downtimeRecords = records.map((downtime) => {
+    let downtime_status;
 
-  if (now < downtime.downtime_start) {
-    downtime_status = "scheduled";
-  } else if (now >= downtime.downtime_start && now <= downtime.downtime_end) {
-    downtime_status = "active";
-  } else {
-    downtime_status = "expired";
-  }
+    if (now < downtime.downtime_start) {
+      downtime_status = "scheduled";
+    } else if (now >= downtime.downtime_start && now <= downtime.downtime_end) {
+      downtime_status = "active";
+    } else {
+      downtime_status = "expired";
+    }
+
+    return {
+      downtime_id: String(downtime._id),
+      device_id: String(downtime.device_id),
+      downtime_start: downtime.downtime_start,
+      downtime_end: downtime.downtime_end,
+      reason: downtime.reason,
+      initiated_by: downtime.initiated_by,
+      downtime_status,
+      created_by: downtime.created_by,
+      created_at: downtime.createdAt,
+      updated_at: downtime.updatedAt,
+      notes: downtime.notes,
+    };
+  });
 
   // -----------------------------------------
   // Return standardized response
   // -----------------------------------------
-
   return {
-    downtime_id: String(downtime._id),
-
-    device_id: String(downtime.device_id),
-
-    downtime_start: downtime.downtime_start,
-
-    downtime_end: downtime.downtime_end,
-
-    reason: downtime.reason,
-
-    initiated_by: downtime.initiated_by,
-
-    downtime_status,
-
-    created_by: downtime.created_by,
-
-    created_at: downtime.createdAt,
-
-    updated_at: downtime.updatedAt,
-
-    notes: downtime.notes,
+    totalUpdated: downtimeRecords.length,
+    downtimeRecords,
   };
 }
 

@@ -19,7 +19,7 @@ router.get("/alarms", getAlarms);
 
 router.post("/downtime", createDowntime);
 router.get("/downtime", getDowntimes);
-router.put("/downtime/:id", updateDowntime);
+router.put("/downtime", updateDowntime);
 router.delete("/downtime", deleteDowntime);
 router.get("/battery-backup-alarms", getBatteryBackupAlarms);
 router.get("/connectivity/ping", getPingConnectivity);

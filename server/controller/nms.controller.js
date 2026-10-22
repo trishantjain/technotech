@@ -105,8 +105,12 @@ async function getDowntimes(req, res) {
 
 async function updateDowntime(req, res) {
   try {
+    // Accept multiple IDs or a single ID from the request body
+    const downtimeIds =
+      req.body.downtime_ids ?? req.body.downtime_id ?? req.params.id;
+
     const result = await downtimeService.updateDowntime(
-      req.params.id,
+      downtimeIds,
       req.body,
     );
 
@@ -190,5 +194,5 @@ module.exports = {
   updateDowntime,
   deleteDowntime,
   getBatteryBackupAlarms,
-  getPingConnectivity
+  getPingConnectivity,
 };

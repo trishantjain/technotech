@@ -29,6 +29,8 @@ async function checkOfflineDevices() {
     const deviceIds = staleDevices.map((device) => device._id);
     const changeTimeTicks = Date.now();
 
+    let markedDownCount = 0;
+
     for (const device of staleDevices) {
       // Recheck the timeout and status atomically for each device.
       // A newly received packet prevents an incorrect DOWN transition.
