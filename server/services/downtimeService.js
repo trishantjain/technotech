@@ -381,14 +381,47 @@ async function createDowntime(data = {}) {
 // LIST DOWNTIME
 // ======================================================
 async function getDowntimes(queryParams = {}) {
-  const { device_id, page = DEFAULT_PAGE, limit = DEFAULT_LIMIT } = queryParams;
+  const {
+    device_id,
+    device_ids,
+    page = DEFAULT_PAGE,
+    limit = DEFAULT_LIMIT,
+  } = queryParams;
 
   const { pageNumber, pageLimit } = parsePagination(page, limit);
 
   const query = {};
 
-  if (device_id) {
-    query.device_id = device_id;
+  // Support both single and multiple device IDs.
+  let deviceIds = [];
+
+  if (device_ids !== undefined) {
+    // Accept either an array or comma-separated query parameter.
+    deviceIds = Array.isArray(device_ids)
+      ? device_ids
+      : String(device_ids).split(",");
+  } else if (device_id !== undefined) {
+    deviceIds = Array.isArray(device_id) ? device_id : [device_id];
+  }
+
+  if (deviceIds.length > 0) {
+    // Trim values and remove duplicates.
+    deviceIds = [
+      ...new Set(
+        deviceIds.map((id) => (typeof id === "string" ? id.trim() : "")),
+      ),
+    ];
+
+    // Reject empty or invalid MongoDB ObjectId values.
+    if (deviceIds.some((id) => !/^[a-fA-F0-9]{24}$/.test(id))) {
+      throw new Error(
+        "Every device ID must be a valid 24-character hexadecimal MongoDB ObjectId",
+      );
+    }
+
+    // One ID uses equality; multiple IDs use $in.
+    query.device_id =
+      deviceIds.length === 1 ? deviceIds[0] : { $in: deviceIds };
   }
 
   const skip = (pageNumber - 1) * pageLimit;
