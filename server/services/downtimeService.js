@@ -10,9 +10,11 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 500;
 
 function parsePagination(page, limit) {
-  const pageNumber = Number(page) || DEFAULT_PAGE;
+  const pageNumber =
+    page === undefined || page === "" ? DEFAULT_PAGE : Number(page);
 
-  const pageLimit = Number(limit) || DEFAULT_LIMIT;
+  const pageLimit =
+    limit === undefined || limit === "" ? DEFAULT_LIMIT : Number(limit);
 
   if (!Number.isInteger(pageNumber) || pageNumber < 1) {
     throw new Error("page must be a positive integer");
@@ -26,6 +28,36 @@ function parsePagination(page, limit) {
     pageNumber,
     pageLimit,
   };
+}
+
+function normalizeIdList(value, fieldName) {
+  if (value === undefined || value === null || value === "") {
+    return [];
+  }
+
+  const values = Array.isArray(value) ? value : String(value).split(",");
+
+  const ids = [
+    ...new Set(
+      values.map((value) =>
+        typeof value === "string" ? value.trim() : String(value).trim(),
+      ),
+    ),
+  ];
+
+  if (ids.length === 0 || ids.some((id) => !id)) {
+    throw new Error(`${fieldName} must be a non-empty array`);
+  }
+
+  const invalidIds = ids.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+
+  if (invalidIds.length > 0) {
+    throw new Error(
+      `${fieldName} contains invalid MongoDB ObjectId values: ${invalidIds.join(", ")}`,
+    );
+  }
+
+  return ids;
 }
 
 function getDowntimeStatus(start, end) {
@@ -333,6 +365,11 @@ async function createDowntime(data = {}) {
 
   const createdRecords = await Downtime.insertMany(records);
 
+  for (const downtime of createdRecords) {
+    await syncDeviceMaintenanceMode(downtime.device_id);
+    scheduleMaintenanceExpiry(downtime);
+  }
+
   // -----------------------------------------
   // Determine status and format response
   // -----------------------------------------
@@ -382,47 +419,79 @@ async function createDowntime(data = {}) {
 // ======================================================
 async function getDowntimes(queryParams = {}) {
   const {
+    deviceid,
     device_id,
     device_ids,
-    page = DEFAULT_PAGE,
-    limit = DEFAULT_LIMIT,
+    status = "active_scheduled",
+    page,
+    limit,
   } = queryParams;
 
   const { pageNumber, pageLimit } = parsePagination(page, limit);
 
   const query = {};
+  const now = new Date();
 
-  // Support both single and multiple device IDs.
-  let deviceIds = [];
-
-  if (device_ids !== undefined) {
-    // Accept either an array or comma-separated query parameter.
-    deviceIds = Array.isArray(device_ids)
+  const requestedDeviceIds =
+    device_ids !== undefined
       ? device_ids
-      : String(device_ids).split(",");
-  } else if (device_id !== undefined) {
-    deviceIds = Array.isArray(device_id) ? device_id : [device_id];
-  }
+      : device_id !== undefined
+        ? device_id
+        : deviceid;
 
-  if (deviceIds.length > 0) {
-    // Trim values and remove duplicates.
-    deviceIds = [
-      ...new Set(
-        deviceIds.map((id) => (typeof id === "string" ? id.trim() : "")),
-      ),
-    ];
+  if (requestedDeviceIds !== undefined) {
+    const deviceIds = normalizeIdList(requestedDeviceIds, "device_id");
 
-    // Reject empty or invalid MongoDB ObjectId values.
-    if (deviceIds.some((id) => !/^[a-fA-F0-9]{24}$/.test(id))) {
-      throw new Error(
-        "Every device ID must be a valid 24-character hexadecimal MongoDB ObjectId",
-      );
-    }
-
-    // One ID uses equality; multiple IDs use $in.
     query.device_id =
       deviceIds.length === 1 ? deviceIds[0] : { $in: deviceIds };
   }
+
+  if (!["active_scheduled", "active", "scheduled", "all"].includes(status)) {
+    throw new Error(
+      "status must be one of active_scheduled, active, scheduled, or all",
+    );
+  }
+
+  if (status === "active_scheduled") {
+    query.downtime_end = { $gte: now };
+  } else if (status === "active") {
+    query.downtime_start = { $lte: now };
+    query.downtime_end = { $gte: now };
+  } else if (status === "scheduled") {
+    query.downtime_start = { $gt: now };
+  }
+
+  // // Support both single and multiple device IDs.
+  // let deviceIds = [];
+
+  // if (device_ids !== undefined) {
+  //   // Accept either an array or comma-separated query parameter.
+  //   deviceIds = Array.isArray(device_ids)
+  //     ? device_ids
+  //     : String(device_ids).split(",");
+  // } else if (device_id !== undefined) {
+  //   deviceIds = Array.isArray(device_id) ? device_id : [device_id];
+  // }
+
+  // if (deviceIds.length > 0) {
+  //   // Trim values and remove duplicates.
+  //   deviceIds = [
+  //     ...new Set(
+  //       deviceIds.map((id) => (typeof id === "string" ? id.trim() : "")),
+  //     ),
+  //   ];
+
+  //   // Reject empty or invalid MongoDB ObjectId values.
+  //   if (deviceIds.some((id) => !/^[a-fA-F0-9]{24}$/.test(id))) {
+  //     throw new Error(
+  //       "Every device ID must be a valid 24-character hexadecimal MongoDB ObjectId",
+  //     );
+  //   }
+
+  //   // One ID uses equality; multiple IDs use $in.
+  //   query.device_id =
+  //     deviceIds.length === 1 ? deviceIds[0] : { $in: deviceIds };
+  // }
 
   const skip = (pageNumber - 1) * pageLimit;
 
@@ -468,7 +537,7 @@ async function getDowntimes(queryParams = {}) {
 
   return {
     data,
-
+    count: total,
     pagination: {
       page: pageNumber,
       limit: pageLimit,
@@ -617,30 +686,48 @@ async function updateDowntime(id, updateData = {}) {
 // ======================================================
 // DELETE DOWNTIME
 // ======================================================
-async function deleteDowntime(downtimeIds) {
+async function deleteDowntime(downtimeIds, deviceIds) {
   // -----------------------------------------
   // Validate input
   // -----------------------------------------
 
-  if (!Array.isArray(downtimeIds) || downtimeIds.length === 0) {
-    throw new Error("downtime_ids must be a non-empty array");
+  const normalizedDowntimeIds = normalizeIdList(downtimeIds, "downtime_ids");
+
+  const normalizedDeviceIds = normalizeIdList(deviceIds, "device_ids");
+
+  if (normalizedDowntimeIds.length === 0 && normalizedDeviceIds.length === 0) {
+    throw new Error("Provide downtime_ids/downtime_id or device_ids/device_id");
   }
 
-  // -----------------------------------------
-  // Remove duplicate IDs
-  // -----------------------------------------
+  const queryParts = [];
 
-  const uniqueIds = [...new Set(downtimeIds.map(String))];
+  if (normalizedDowntimeIds.length > 0) {
+    queryParts.push({
+      _id:
+        normalizedDowntimeIds.length === 1
+          ? normalizedDowntimeIds[0]
+          : { $in: normalizedDowntimeIds },
+    });
+  }
+
+  if (normalizedDeviceIds.length > 0) {
+    queryParts.push({
+      device_id:
+        normalizedDeviceIds.length === 1
+          ? normalizedDeviceIds[0]
+          : { $in: normalizedDeviceIds },
+    });
+  }
+
+  const deleteQuery =
+    queryParts.length === 1 ? queryParts[0] : { $or: queryParts };
 
   // -----------------------------------------
   // Find records first
   // -----------------------------------------
-
-  const existingDowntimes = await Downtime.find({
-    _id: {
-      $in: uniqueIds,
-    },
-  }).select("_id");
+  const existingDowntimes = await Downtime.find(deleteQuery)
+    .select("_id device_id")
+    .lean();
 
   if (existingDowntimes.length === 0) {
     throw new Error("No downtime records found");
@@ -649,25 +736,29 @@ async function deleteDowntime(downtimeIds) {
   // -----------------------------------------
   // Delete records
   // -----------------------------------------
+  const existingDowntimeIds = existingDowntimes.map((item) => String(item._id));
 
-  const existingIds = existingDowntimes.map((item) => String(item._id));
+  const affectedDeviceIds = [
+    ...new Set(existingDowntimes.map((item) => String(item.device_id))),
+  ];
 
-  await Downtime.deleteMany({
-    _id: {
-      $in: existingIds,
-    },
+  const deleteResult = await Downtime.deleteMany({
+    _id: { $in: existingDowntimeIds },
   });
+
+  for (const affectedDeviceId of affectedDeviceIds) {
+    await syncDeviceMaintenanceMode(affectedDeviceId);
+  }
 
   // -----------------------------------------
   // Return standardized result
   // -----------------------------------------
-
   return {
-    requested_count: uniqueIds.length,
-
-    deleted_count: existingIds.length,
-
-    deleted_downtime_ids: existingIds,
+    requested_downtime_count: normalizedDowntimeIds.length,
+    requested_device_count: normalizedDeviceIds.length,
+    deleted_count: deleteResult.deletedCount,
+    deleted_downtime_ids: existingDowntimeIds,
+    affected_device_ids: affectedDeviceIds,
   };
 }
 

@@ -155,6 +155,7 @@ mongoose
     );
   });
 
+// 🔌 RabbitMQ connection
 (async () => {
   await connectRabbit();
 
@@ -1592,6 +1593,16 @@ app.get("/api/historical-data", async (req, res) => {
   }
 });
 
+app.get("/api/device-availablity", async (req, res) => {
+  /* 
+    HUPS Registers to read
+    
+    1. AC Mains: 023e
+    2. Battery: 0240
+    3. Solar: 0244
+  */
+});
+
 app.post("/api/cloud-readings", async (req, res) => {
   try {
     await SensorReading.create(req.body);
@@ -2100,9 +2111,9 @@ const server = net.createServer((socket) => {
             socket.preambleHandled = true;
           }
         }
+
         // ============================================================
-        // CHECK FOR PAST ALARM / DUMP PACKET
-        // Total = 90 bytes
+        // HUPS RESPONSE
         // ============================================================
         const hupsMarker = Buffer.from("#H");
 
@@ -2122,6 +2133,10 @@ const server = net.createServer((socket) => {
           continue;
         }
 
+        // ============================================================
+        // CHECK FOR PAST ALARM / DUMP PACKET
+        // Total = 90 bytes
+        // ============================================================
         if (socket.buffer.length >= 14) {
           // ============================================================
           // CHECK FOR PAST ALARM / DUMP MESSAGE

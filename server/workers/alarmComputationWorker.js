@@ -7,19 +7,13 @@ const connectDatabase = require("../config/db.js");
 const Alarm = require("../models/Alarm");
 const crypto = require("crypto");
 
-
 (async () => {
   await connectDatabase();
   start();
 })();
 
-
 async function processAlarmLifecycle(device, alarms, timestamp) {
-  const currentAlarms = [
-    ...alarms.critical,
-    ...alarms.major,
-    ...alarms.minor
-  ];
+  const currentAlarms = [...alarms.critical, ...alarms.major, ...alarms.minor];
 
   /*
    * Get currently active alarms from DB.
@@ -28,11 +22,11 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
    */
   const activeAlarms = await Alarm.find({
     device_id: device._id,
-    resolved_at: null
+    resolved_at: null,
   }).lean();
 
   const activeAlarmMap = new Map(
-    activeAlarms.map(alarm => [alarm.service_name, alarm])
+    activeAlarms.map((alarm) => [alarm.service_name, alarm]),
   );
 
   const currentAlarmKeys = new Set();
@@ -42,7 +36,6 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
   // ======================================================
 
   for (const alarm of currentAlarms) {
-
     const serviceName = alarm.key;
 
     currentAlarmKeys.add(serviceName);
@@ -54,7 +47,6 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
     // ----------------------------------------------------
 
     if (!existingAlarm) {
-
       await Alarm.create({
         alert_id: crypto.randomUUID(),
         device_id: device._id,
@@ -64,16 +56,16 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
         created_at: timestamp,
         last_hard_state_change: timestamp,
         resolved_at: null,
-        value: alarm.title,
-        reason: alarm.title,
+        value: alarm.value,
+        reason: alarm.reason,
         acknowledgement_status: false,
-        service_name: serviceName
+        service_name: serviceName,
       });
-      
+
       console.log(
         `🚨 Alarm created: ${serviceName} for ${device.ip}`,
-        createdAlarm._id
-    );
+        createdAlarm._id,
+      );
 
       continue;
     }
@@ -90,30 +82,27 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
      */
 
     if (existingAlarm.alert_severity !== alarm.severity) {
-
       await Alarm.updateOne(
         { _id: existingAlarm._id },
         {
           $set: {
             alert_severity: alarm.severity,
-            value: alarm.title,
-            reason: alarm.title,
-            last_hard_state_change: timestamp
-          }
-        }
+            value: alarm.value,
+            reason: alarm.reason,
+            last_hard_state_change: timestamp,
+          },
+        },
       );
-
     } else {
-
       // Value/reason can change while alarm remains active.
       await Alarm.updateOne(
         { _id: existingAlarm._id },
         {
           $set: {
-            value: alarm.title,
-            reason: alarm.title
-          }
-        }
+            value: alarm.value,
+            reason: alarm.reason,
+          },
+        },
       );
     }
   }
@@ -123,7 +112,6 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
   // ======================================================
 
   for (const activeAlarm of activeAlarms) {
-
     if (currentAlarmKeys.has(activeAlarm.service_name)) {
       continue;
     }
@@ -136,7 +124,7 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
     await Alarm.updateOne(
       {
         _id: activeAlarm._id,
-        resolved_at: null
+        resolved_at: null,
       },
       {
         $set: {
@@ -149,13 +137,12 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
            */
           acknowledgement_status: true,
 
-          last_hard_state_change: timestamp
-        }
-      }
+          last_hard_state_change: timestamp,
+        },
+      },
     );
   }
 }
-
 
 async function start() {
   console.log("🚀 Alarm Processor Worker started");
@@ -181,11 +168,10 @@ async function start() {
       // overStatus,
       // mptStatus,
       // mosfStatus,
-      fanStatus
+      fanStatus,
     } = data;
 
     // const activeAlarms = [];
-
 
     const timestamp = new Date();
 
@@ -206,24 +192,20 @@ async function start() {
 
     console.log(
       `🔔 Alarm calculation for ${ip}:`,
-      JSON.stringify(alarms, null, 2)
+      JSON.stringify(alarms, null, 2),
     );
 
     // Process alarm lifecycle
-    await processAlarmLifecycle(
-      device,
-      alarms,
-      timestamp
-    );
+    await processAlarmLifecycle(device, alarms, timestamp);
 
     // Save current alarm state
     await Device.updateOne(
       { ip },
       {
         $set: {
-          currentAlarms: alarms
-        }
-      }
+          currentAlarms: alarms,
+        },
+      },
     );
 
     // Check whether any alarms exist
@@ -237,7 +219,7 @@ async function start() {
       alarms,
       fanStatus,
       type: hasAlarms ? "active" : "clear",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   });
 }

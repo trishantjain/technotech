@@ -91,14 +91,20 @@ async function getDowntimes(req, res) {
     res.json({
       success: true,
       data: result.data,
+      count: result.count,
       pagination: result.pagination,
     });
   } catch (err) {
     console.error("Downtime Listing Error:", err);
 
-    res.status(500).json({
+    const isValidationError =
+      err.name === "ValidationError" ||
+      err.name === "CastError" ||
+      /must be|required|invalid|positive|between/i.test(err.message);
+
+    res.status(isValidationError ? 400 : 500).json({
       success: false,
-      message: "Failed to fetch downtime",
+      message: isValidationError ? err.message : "Failed to fetch downtime",
     });
   }
 }
@@ -109,10 +115,7 @@ async function updateDowntime(req, res) {
     const downtimeIds =
       req.body.downtime_ids ?? req.body.downtime_id ?? req.params.id;
 
-    const result = await downtimeService.updateDowntime(
-      downtimeIds,
-      req.body,
-    );
+    const result = await downtimeService.updateDowntime(downtimeIds, req.body);
 
     res.json({
       success: true,
@@ -130,20 +133,44 @@ async function updateDowntime(req, res) {
 
 async function deleteDowntime(req, res) {
   try {
-    const ids = req.body.downtime_ids;
+    const downtimeIds =
+      req.body.downtime_ids ??
+      req.body.downtime_id ??
+      req.query.downtime_ids ??
+      req.query.downtime_id;
 
-    const result = await downtimeService.deleteDowntime(ids);
+    const deviceIds =
+      req.body.device_ids ??
+      req.body.device_id ??
+      req.query.device_ids ??
+      req.query.device_id;
 
-    res.json({
+    if (downtimeIds === undefined && deviceIds === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide downtime_ids/downtime_id or device_ids/device_id",
+      });
+    }
+
+    // const ids = req.body.downtime_ids;
+
+    const result = await downtimeService.deleteDowntime(downtimeIds, deviceIds);
+
+    res.status(200).json({
       success: true,
       data: result,
     });
   } catch (err) {
     console.error("Delete Downtime Error:", err);
 
-    res.status(400).json({
+    const isValidationError =
+      err.name === "ValidationError" ||
+      err.name === "CastError" ||
+      /must be|required|invalid|not found|non-empty/i.test(err.message);
+
+    res.status(isValidationError ? 400 : 500).json({
       success: false,
-      message: err.message,
+      message: isValidationError ? err.message : "Failed to delete downtime",
     });
   }
 }
