@@ -61,12 +61,12 @@ The EMS platform monitors remote telecom/electrical shelters equipped with IoT s
         |                                               +------+------+ +------------+
         |                                                      |
         |                                         consume      |
-        |                              +----------+------------+----------+
-        |                              |          |                       |
-        |                        +-----v----+ +--v----------+  +---------v--------+
-        |                        | Alarm    | | Snapshot    |  | Log              |
-        |                        | Worker   | | Worker      |  | Worker           |
-        |                        +----------+ +-------------+  +------------------+
+        |                              +----------+------------+----------+-----------------------+
+        |                              |          |                       |                       |
+        |                        +-----v----+ +--v----------+  +---------v--------+     +---------v--------+
+        |                        | Alarm    | | Snapshot    |  | Log              |     |Alarm Computation |
+        |                        | Worker   | | Worker      |  | Worker           |     |      Worker      |
+        |                        +----------+ +-------------+  +------------------+     +---------v--------+
         |                        writes .inc   captures RTSP    writes .inc/.out
         |                        alarm logs    / HTTP snapshots  sensor & cmd logs
 ```
