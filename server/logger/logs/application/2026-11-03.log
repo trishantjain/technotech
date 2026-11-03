@@ -1,0 +1,28 @@
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-11-03 15:23:44.448"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-11-03 15:23:44.761"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-11-03 15:23:44.777"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-11-03 15:23:44.892"}
+{"level":"info","message":"📦 Device cache loaded: 3 devices","timestamp":"2026-11-03 15:23:45.015"}
+{"level":"info","message":"Device status cache and ping-record service started","timestamp":"2026-11-03 15:23:45.114"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-11-03 15:25:55.651"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-11-03 15:25:55.772"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-11-03 15:25:55.773"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-11-03 15:25:55.918"}
+{"level":"info","message":"📦 Device cache loaded: 3 devices","timestamp":"2026-11-03 15:25:56.017"}
+{"level":"info","message":"Device status cache and ping-record service started","timestamp":"2026-11-03 15:25:56.050"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-11-03 15:25:56.727"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-11-03 15:26:28.878"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-11-03 15:26:29.011"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-11-03 15:26:29.013"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-11-03 15:26:29.127"}
+{"level":"info","message":"📦 Device cache loaded: 3 devices","timestamp":"2026-11-03 15:26:29.197"}
+{"level":"info","message":"Device status cache and ping-record service started","timestamp":"2026-11-03 15:26:29.225"}
+{"level":"info","message":"New TCP Connection from","timestamp":"2026-11-03 15:26:31.617"}
+{"level":"error","message":{"error":"ENOENT: no such file or directory, scandir 'C:\\Snaps\\0_1'","ip":"192.168.0.1","stack":"Error: ENOENT: no such file or directory, scandir 'C:\\Snaps\\0_1'\n    at Object.readdirSync (node:fs:1956:26)\n    at C:\\Users\\Lenovo\\Documents\\technotech\\server\\server_IP.js:963:10\n    at Layer.handleRequest (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\layer.js:152:17)\n    at next (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\route.js:157:13)\n    at Route.dispatch (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\route.js:117:3)\n    at handle (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:435:11)\n    at Layer.handleRequest (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\layer.js:152:17)\n    at C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:295:15\n    at processParams (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:582:12)\n    at next (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:291:5)"},"timestamp":"2026-11-03 17:30:20.118"}
+{"level":"error","message":{"error":"ENOENT: no such file or directory, scandir 'C:\\Snaps\\0_20'","ip":"192.168.0.20","stack":"Error: ENOENT: no such file or directory, scandir 'C:\\Snaps\\0_20'\n    at Object.readdirSync (node:fs:1956:26)\n    at C:\\Users\\Lenovo\\Documents\\technotech\\server\\server_IP.js:963:10\n    at Layer.handleRequest (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\layer.js:152:17)\n    at next (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\route.js:157:13)\n    at Route.dispatch (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\route.js:117:3)\n    at handle (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:435:11)\n    at Layer.handleRequest (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\lib\\layer.js:152:17)\n    at C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:295:15\n    at processParams (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:582:12)\n    at next (C:\\Users\\Lenovo\\Documents\\technotech\\server\\node_modules\\router\\index.js:291:5)"},"timestamp":"2026-11-03 17:30:41.309"}
+{"level":"info","message":"EMS Logger initialized","timestamp":"2026-11-03 18:25:53.083"}
+{"level":"info","message":"TCP server listening on port 4000","timestamp":"2026-11-03 18:25:53.229"}
+{"level":"info","message":"HTTP server running on port 5000","timestamp":"2026-11-03 18:25:53.231"}
+{"level":"info","message":"MongoDB connected","timestamp":"2026-11-03 18:25:53.311"}
+{"level":"info","message":"📦 Device cache loaded: 3 devices","timestamp":"2026-11-03 18:25:53.371"}
+{"level":"info","message":"Device status cache and ping-record service started","timestamp":"2026-11-03 18:25:53.387"}

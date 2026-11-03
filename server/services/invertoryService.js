@@ -38,6 +38,40 @@ function toUnixSeconds(value) {
   return Math.floor(numericValue);
 }
 
+/*
+  * RESPONSE FORMAT: 
+
+    "srNo": 1,
+    "deviceId": "6ae988a44a004e02ea58f73b",
+    "deviceName": "Test_20",
+    "createdAt": 1793689764,
+    "vendorName": "ITI",
+    "state": "active",
+    "modelNumber": "ITI_EMS_2",
+    "deviceSerialNumber": "sr003",
+    "deviceType": "EMS",
+    "deviceIp": "192.168.0.20",
+    "location": "sec 59",
+    "latitude": 33.5,
+    "longitude": 77.3,
+    "deviceStatus": "down",
+    "maintenanceMode": "Inactive",
+    "swVersion": "3.5.3",
+    "modifyTimeTicks": 0,
+    "modifyField": "",
+    "lastStatusChangeTimeTicks": 1793689764,
+    "upsSoftwareVersion": "v1.0.0",
+    "rectifier1Version": "v1.3.0",
+    "rectifier1SrNo": "R00001",
+    "rectifier2Version": "v1.3.1",
+    "rectifier2SrNo": "R00002",
+    "solarMpptVersion": "v1.6.3",
+    "solarMpptSrNo": "S00003",
+    "inverterSrNo": "I00003",
+    "upsBatterySrNo": "U00002"
+},
+  
+ */
 async function getInventory(query = {}) {
   const { page, limit } = query;
 
@@ -171,6 +205,23 @@ async function getInventory(query = {}) {
   };
 }
 
+async function getDeviceStatus() {
+  try {
+    const devices = await Device.find({}).select("deviceName ip deviceStatus");
+
+    console.log("Devices: ", devices);
+
+    return {
+      data: {
+        devices,
+      },
+    };
+  } catch (err) {
+    console.log("Getting error while fetching device status");
+  }
+}
+
 module.exports = {
   getInventory,
+  getDeviceStatus,
 };

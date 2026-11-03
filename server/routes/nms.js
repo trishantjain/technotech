@@ -12,6 +12,7 @@ const {
   getBatteryBackupAlarms,
   getPingConnectivity,
   getDeviceAvailability,
+  getDeviceStatus
 } = require("../controller/nms.controller.js");
 
 router.get("/inventory", getInventory);
@@ -25,5 +26,6 @@ router.delete("/downtime", deleteDowntime);
 router.get("/battery-backup-alarms", getBatteryBackupAlarms);
 router.get("/connectivity/ping", getPingConnectivity);
 router.get("/device-availability", getDeviceAvailability);
+router.get("/device-status", getDeviceStatus);
 
 module.exports = router;

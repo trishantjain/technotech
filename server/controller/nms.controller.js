@@ -25,6 +25,24 @@ async function getInventory(req, res) {
   }
 }
 
+async function getDeviceStatus(req, res) {
+  try {
+    const result = await inventoryService.getDeviceStatus(req.query);
+
+    res.json({
+      success: true,
+      data: result.data,
+    });
+  } catch (err) {
+    console.error("Inventory API Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch inventory",
+    });
+  }
+}
+
 // GET PERFORMANCE
 async function getPerformance(req, res) {
   try {
@@ -216,8 +234,7 @@ async function getPingConnectivity(req, res) {
 // GET DEVICE AVAILABILITY
 async function getDeviceAvailability(req, res) {
   try {
-    const result =
-      await availabilityService.getDeviceAvailability(req.query);
+    const result = await availabilityService.getDeviceAvailability(req.query);
 
     return res.status(200).json({
       success: true,
@@ -229,7 +246,7 @@ async function getDeviceAvailability(req, res) {
 
     const isValidationError =
       /required|invalid|earlier than|positive integer|between/i.test(
-        err.message
+        err.message,
       );
 
     return res.status(isValidationError ? 400 : 500).json({
@@ -251,5 +268,6 @@ module.exports = {
   deleteDowntime,
   getBatteryBackupAlarms,
   getPingConnectivity,
-  getDeviceAvailability
+  getDeviceAvailability,
+  getDeviceStatus,
 };
