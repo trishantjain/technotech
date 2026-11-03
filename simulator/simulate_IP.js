@@ -286,7 +286,8 @@ function sendPacketForRow(client, row, ip, index) {
 function startDevice(ip, index) {
   try {
     // const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
-    const client = net.createConnection({ host: '172.16.113.225', port: 4000 });
+    // const client = net.createConnection({ host: '172.16.113.225', port: 4000 });
+    const client = net.createConnection({ host: 'localhost', port: 4000 });
     console.log("Client connected", ip);
 
     // 🔧 NEW: Store this device in our connected devices map

@@ -214,15 +214,11 @@ function DashboardView() {
 
   // UseEffect for fetching Data
   useEffect(() => {
-    // console.log('🚨Starting data fetch interval (5s)🚨');
     const interval = setInterval(fetchData, 5000);
 
     fetchData();
 
-    // console.log('🚨Fetching Data🚨')
-    // return () => clearInterval(interval);
     return () => {
-      // console.log('🛑Clearing data fetch interval');
       clearInterval(interval);
     };
   }, []);
@@ -239,13 +235,6 @@ function DashboardView() {
       }
     }
   }, [selectedMac, deviceMeta]);
-
-  // useEffect(() => {
-  //   const iframe = document.querySelector(".camera-iframe");
-  //   if (iframe) {
-  //     iframe.style.transform = `scale(${zoom}) rotate(${rotation}deg)`;
-  //   }
-  // }, [zoom, rotation]);
 
   function shallowEqualDevices(a, b) {
     if (a === b) return true;
@@ -302,6 +291,7 @@ function DashboardView() {
       //   const readingsData = await readingsRes.value.json();
       //   setReadings(Array.isArray(readingsData) ? readingsData : []);
       // }
+      
       let readingsData = [];
 
       if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
@@ -439,6 +429,7 @@ function DashboardView() {
     }
   };
 
+  // SENDING COMMAND TO DEVICE
   const sendCommand = async (cmdToSend) => {
     if (!selectedMac || !cmdToSend) {
       setStatus("Please select a device and enter a command.");
@@ -458,6 +449,7 @@ function DashboardView() {
     }
   };
 
+  // FAN BUTTON CLICK HANDLING
   const handleFanClick = (level) => {
     // const isActive = activeFanBtns.includes(level);
     const isActive =
@@ -494,7 +486,7 @@ function DashboardView() {
     }
   };
 
-  // New code for Open Lock (using Sweetalert2)
+  // OPEN LOCK (using Sweetalert2)
   const handleOpenLock = async () => {
     const { value: password } = await swal.fire({
       title: "Enter Admin password",
@@ -524,6 +516,7 @@ function DashboardView() {
     }
   };
 
+  // RESET LOCK BUTTON
   const handleResetLock = () => {
     const pwd = window.prompt("Enter admin password to reset lock:");
     if (pwd === ADMIN_PASSWORD) {
@@ -654,49 +647,6 @@ function DashboardView() {
 
   // DEVICE STATUS COMPUTATION FOR MAP & DEVICE PANEL
   useEffect(() => {
-    // const now = Date.now();
-    // STORING CURRENT DEVICES STATUS
-    // const prevMap = deviceStatusRef.current;
-    // const nextMap = {};
-
-    // let changed = false;
-
-    // // const nextStatusMap = {};
-    // // let hasAnyChange = false;
-
-    // for (const device of deviceMeta) {
-    //   const ip = device.ip;
-    //   const reading = latestReadingsByMac[ip];
-
-    //   // COMPUTING DEVICE STATUS
-    //   const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
-    //   nextMap[ip] = newStatus;
-
-    //   // CHECKING PREVIOUS AND CURRENT DEVICE STATUS
-    //   if (prevMap[ip] !== newStatus) {
-    //     changed = true;
-    //   }
-    // }
-
-    // // if (changed) {
-    // //   const prevKeys = Object.keys(prevMap);
-    // //   const nextKeys = Object.keys(nextMap);
-    // //   if (prevKeys.length !== nextKeys.length) {
-    // //     changed = true;
-    // //   }
-    // // }
-
-    // if (changed) {
-    //   deviceStatusRef.current = nextMap;
-    //   // setDeviceStatusMap(nextMap);
-
-    //   setDeviceStatusMap(prev => {
-    //     if (JSON.stringify(prev) === JSON.stringify(nextMap)) {
-    //       return prev; // ❌ no re-render
-    //     }
-    //     return nextMap; // ✅ only update if changed
-    //   });
-    // }
 
     setDeviceStatusMap((prev) => {
       let hasChange = false;
@@ -948,7 +898,7 @@ function DashboardView() {
     return () => clearInterval(snapshotInterval); // ✅ Cleanup
   }, [selectedMac]);
 
-  // Realtime notification when a snapshot is captured (server-sent events)
+  // NOTIFICATION WHEN SNAPSHOT IS CAPTURED (server-sent events)
   useEffect(() => {
     // const baseUrl = API;
     // if (!baseUrl) return;
@@ -1059,6 +1009,7 @@ function DashboardView() {
           />
         )}
 
+        {/* PANEL 1: READINGS PANEL */}
         <div className="panel">
           <div className="rack-header">
             <h2 className="selected-heading">
@@ -1563,7 +1514,7 @@ function DashboardView() {
           )}
         </div>
 
-        {/* Panel 2: LOGS */}
+        {/* PANEL 2: LOGS */}
         <div className="panel">
           <div className="flex items-center justify-between mb-2">
             <h2>
