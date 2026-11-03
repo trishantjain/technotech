@@ -12,9 +12,11 @@ services:
       - "4000:4000"
     depends_on:
       - rabbitmq
-      - mongo
+      # - mongo
+    restart: unless-stopped
     volumes:
-      - /var/lib/ems/snap:/var/lib/ems/snap
+      - /home/techno/ems:/var/lib/ems
+
 
   alarm-worker:
     build: ./server
@@ -24,7 +26,11 @@ services:
       - ./server/.env
     depends_on:
       - rabbitmq
-      - mongo
+      # - mongo
+    restart: unless-stopped
+    volumes:
+      - /home/techno/ems:/var/lib/ems
+
 
   alarmcomputation-worker:
     build: ./server
@@ -35,6 +41,7 @@ services:
     depends_on:
       - rabbitmq
 
+
   snapshot-worker:
     build: ./server
     container_name: ems-snapshot-worker
@@ -43,6 +50,9 @@ services:
       - ./server/.env
     depends_on:
       - rabbitmq
+    restart: unless-stopped
+    volumes:
+      - /home/techno/ems:/var/lib/ems
 
   log-worker:
     build: ./server
@@ -52,6 +62,10 @@ services:
       - ./server/.env
     depends_on:
       - rabbitmq
+    restart: unless-stopped
+    volumes:
+      - /home/techno/ems:/var/lib/ems
+    
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -59,14 +73,15 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    restart: unless-stopped
 
-  mongo:
-    image: mongo:6
-    container_name: ems-mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
+  # mongo:
+  #   image: mongo:6
+  #   container_name: ems-mongo
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo-data:/data/db
 
-volumes:
-  mongo-data:
+# volumes:
+#   mongo-data:

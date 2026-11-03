@@ -1210,7 +1210,7 @@ function DashboardView() {
                   />
                   <Gauge
                     label="Battery %"
-                    value={latestReading.hupsBatVolt.toFixed(2)}
+                    value={(latestReading.hupsSOC).toFixed(2)}
                     max={120}
                     color={
                       latestReading.batteryBackup <=
@@ -1224,7 +1224,7 @@ function DashboardView() {
                   />
                   <Gauge
                     label="Battery(Hours)"
-                    value={latestReading.hupsRes.toFixed(2)}
+                    value={(latestReading.hupsBatBackup).toFixed(2)}
                     max={120}
                     color={
                       latestReading.batteryBackup <=

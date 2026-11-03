@@ -1,0 +1,9 @@
+- DONE - Device availability API is not included in the document
+- DONE - Ping Matrics is not included in the document
+- Sr. No. sticker for SBC PCB
+
+FIRMWARE CHANGES:
+
+1. Test mode - Lock relay off duration, Data from iMoni in every 5 seconds
+2. Debug Mode of all tests in TCP port so that easy to debug - Key
+3. Camera command - Take snapshot at any time from the EMS

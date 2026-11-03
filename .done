@@ -1,0 +1,10 @@
+EMS-NMS CHANGES [27-10-2026]
+
+1. Inventory API updated with dummy values
+2. Added units in Performance API
+3. alarmEngine.js: Replaced "title" with "value" & "reason"
+4. Updated Downtime to be deleted by device id and downtime id
+5. Updated Get downtime to return active and scheduled downtimes
+6. Updated pagination to return error for page "0" rather than changing it to page "1".
+
+? Does alarmEngine is updated date and tiHme stamp of the existing alarm record

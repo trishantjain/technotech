@@ -186,7 +186,11 @@ async function loadDeviceCache() {
   try {
     const devices = await Device.find({}, { ip: 1, ipCamera: 1 }).lean();
 
-    devices.forEach((d) => {
+    deviceCache.clear();
+
+    devices.forEach(d => {
+      if (!d.ip) return;
+
       deviceCache.set(d.ip, {
         cameraType: d.ipCamera?.type || null,
         cameraIP: d.ipCamera?.ip || null,
@@ -462,6 +466,7 @@ app.post("/api/register-device", authMiddleware, async (req, res) => {
     // ADDING NEW DEVICE TO PING-RECORD
     registerDeviceInStatusCache(device);
 
+    //! CHECK WHETHER CAN WE REMOVE DEVICETYPE & DEVICEIP FROM CACHE
     deviceCache.set(ip, {
       cameraType: parsedCamera?.type || null,
       cameraIP: parsedCamera?.ip || null,
@@ -2214,8 +2219,17 @@ const server = net.createServer((socket) => {
           .join(".");
 
         // Reject obvious garbage IPs
-        if (!ip.startsWith("192.168.")) {
-          console.warn("🚫 Dropping invalid IP:", ip);
+        // if (!ip.startsWith('192.168.')) {
+        //   console.warn('🚫 Dropping invalid IP:', ip);
+        //   socket.buffer = socket.buffer.slice(1);
+        //   continue;
+        // }
+
+        // Check whether extracted IP is a registered device
+        if (!deviceCache.has(ip)) {
+          console.warn(`🚫 Dropping packet: Unknown device IP ${ip}`);
+
+          // Resync buffer because this may be garbage/misaligned data
           socket.buffer = socket.buffer.slice(1);
           continue;
         }
@@ -2284,10 +2298,10 @@ const server = net.createServer((socket) => {
         const waterLogging = !!packet[31]; // "!!" -> converts true/false to 1/0
         const waterLeakage = !!packet[32];
 
-        const outputVoltage = +packet.readInt16LE(33).toFixed(2) / 100;
-        const hupsDVC = +packet.readInt16LE(35).toFixed(2) / 100;
-        const inputVoltage = +packet.readInt16LE(37).toFixed(2) / 100;
-        const hupsBatVolt = packet.readInt16LE(39);
+        const outputVoltage = +packet.readInt16LE(33).toFixed(2);
+        const hupsDVC = (+packet.readInt16LE(35).toFixed(2)) / 100;
+        const inputVoltage = +packet.readInt16LE(37).toFixed(2);
+        const hupsBatBackup = +packet.readInt16LE(39).toFixed(2); // HUPS Battery Backup
         const batteryBackup = +packet.readFloatLE(41).toFixed(2);
 
         const alarmActive = !!packet[45];
@@ -2303,8 +2317,8 @@ const server = net.createServer((socket) => {
         const fanStatusBits = packet.readUInt16LE(52);
 
         const pwsFailCount = packet[54]; // Password Failure Count
-        const hupsStat = packet[55];
-        const hupsRes = packet[56];
+        const hupsStat = packet[55]; // HUPS Alarms
+        const hupsSOC = packet[56]; // HUPS SOC
         const failMask = packet[57];
 
         const packetTimestamp = new Date();
@@ -2475,7 +2489,7 @@ const server = net.createServer((socket) => {
           outputVoltage,
           hupsDVC,
           inputVoltage,
-          hupsBatVolt,
+          hupsBatBackup,
           batteryBackup,
           alarmActive,
           fireAlarm,
@@ -2497,10 +2511,10 @@ const server = net.createServer((socket) => {
           overStatus: hupsAlarms[3],
           mptStatus: hupsAlarms[4],
           mosfStatus: hupsAlarms[5],
-          hupsRes,
+          hupsSOC,
           ...thresholdAlarms,
           // Set timestamp to IST
-          timestamp: packetTimestamp,
+          timestamp: packetTimestamp
         });
 
         console.log("Reading: ", reading.fireAlarm);

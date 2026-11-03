@@ -3,6 +3,7 @@ const performanceService = require("../services/performanceService.js");
 const alarmService = require("../services/alarmService.js");
 const downtimeService = require("../services/downtimeService.js");
 const connectivityService = require("../services/connectivityService.js");
+const availabilityService = require("../services/availabilityService.js");
 
 // GET INVENTORY
 async function getInventory(req, res) {
@@ -212,6 +213,34 @@ async function getPingConnectivity(req, res) {
   }
 }
 
+// GET DEVICE AVAILABILITY
+async function getDeviceAvailability(req, res) {
+  try {
+    const result =
+      await availabilityService.getDeviceAvailability(req.query);
+
+    return res.status(200).json({
+      success: true,
+      data: result.data,
+      pagination: result.pagination,
+    });
+  } catch (err) {
+    console.error("Device Availability API Error:", err);
+
+    const isValidationError =
+      /required|invalid|earlier than|positive integer|between/i.test(
+        err.message
+      );
+
+    return res.status(isValidationError ? 400 : 500).json({
+      success: false,
+      message: isValidationError
+        ? err.message
+        : "Failed to fetch device availability",
+    });
+  }
+}
+
 module.exports = {
   getInventory,
   getPerformance,
@@ -222,4 +251,5 @@ module.exports = {
   deleteDowntime,
   getBatteryBackupAlarms,
   getPingConnectivity,
+  getDeviceAvailability
 };
