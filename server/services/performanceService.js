@@ -27,14 +27,12 @@ function parsePagination(page, limit) {
 
 async function getPerformance(query = {}) {
   const { page, limit } = query;
-
   const { pageNumber, pageLimit } = parsePagination(page, limit);
 
   const skip = (pageNumber - 1) * pageLimit;
 
   const [totalCabinets, devices] = await Promise.all([
     Device.countDocuments(),
-
     Device.find().sort({ createdAt: -1 }).skip(skip).limit(pageLimit).lean(),
   ]);
 
@@ -50,6 +48,7 @@ async function getPerformance(query = {}) {
 
       const services = [];
 
+      // BUILDING SERVICES
       if (latestReading) {
         serviceConfig.forEach((service) => {
           services.push(
@@ -76,12 +75,12 @@ async function getPerformance(query = {}) {
         });
       }
 
+      // RESPONSE JSON
       return {
         srNo: skip + index + 1,
-
         cabinetId: String(device._id),
-
         cabinetName: device.deviceName || "",
+        deviceStatus: device.deviceStatus || "UNKNOWN",
 
         timeTicks: latestReading
           ? Math.floor(new Date(latestReading.timestamp).getTime() / 1000)

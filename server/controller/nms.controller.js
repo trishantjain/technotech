@@ -25,24 +25,6 @@ async function getInventory(req, res) {
   }
 }
 
-async function getDeviceStatus(req, res) {
-  try {
-    const result = await inventoryService.getDeviceStatus(req.query);
-
-    res.json({
-      success: true,
-      data: result.data,
-    });
-  } catch (err) {
-    console.error("Inventory API Error:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch inventory",
-    });
-  }
-}
-
 // GET PERFORMANCE
 async function getPerformance(req, res) {
   try {
@@ -82,6 +64,7 @@ async function getAlarms(req, res) {
   }
 }
 
+// CREATE DOWNTIME
 async function createDowntime(req, res) {
   try {
     const result = await downtimeService.createDowntime({
@@ -103,6 +86,7 @@ async function createDowntime(req, res) {
   }
 }
 
+// GET EXISTING DOWNTIME
 async function getDowntimes(req, res) {
   try {
     const result = await downtimeService.getDowntimes(req.query);
@@ -128,6 +112,7 @@ async function getDowntimes(req, res) {
   }
 }
 
+// UPDATE EXISTING DOWNTIME
 async function updateDowntime(req, res) {
   try {
     // Accept multiple IDs or a single ID from the request body
@@ -231,7 +216,7 @@ async function getPingConnectivity(req, res) {
   }
 }
 
-// GET DEVICE AVAILABILITY
+// GET DEVICE AVAILABILITY [Grid | Battery | Solar Usage]
 async function getDeviceAvailability(req, res) {
   try {
     const result = await availabilityService.getDeviceAvailability(req.query);
@@ -254,6 +239,25 @@ async function getDeviceAvailability(req, res) {
       message: isValidationError
         ? err.message
         : "Failed to fetch device availability",
+    });
+  }
+}
+
+// GET DEVICE STATUS [UP / DOWN]
+async function getDeviceStatus(req, res) {
+  try {
+    const result = await inventoryService.getDeviceStatus(req.query);
+
+    res.json({
+      success: true,
+      data: result.data,
+    });
+  } catch (err) {
+    console.error("Inventory API Error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch inventory",
     });
   }
 }
