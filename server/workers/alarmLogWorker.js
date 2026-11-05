@@ -46,13 +46,10 @@ const activeAlarms = new Map();
 | -------------------------------------------------------------------------- |
 |                                                                            |
 | Format:                                                                    |
-|                                                                            |
 | yy_mm_dd_hh_0001                                                           |
 |                                                                            |
 | Example:                                                                   |
-|                                                                            |
 | 26_09_03_16_0001                                                           |
-|                                                                            |
 | */
 
 let currentHourKey = "";
@@ -152,15 +149,7 @@ function writeAlarmLog(baseDir, alarmData, now) {
   );
 }
 
-/*                                                                         
-| -------------------------------------------------------------------------- |
-| Clear Expired Alarms                                                       |
-| -------------------------------------------------------------------------- |
-|                                                                            |
-| Any alarm not seen for 10 seconds is closed.                               |
-|                                                                            |
-| */
-
+// CLEAR EXPIRED ALARMS: Any alarm not seen for 10 seconds is closed.
 function clearExpiredAlarms(baseDir, now) {
   for (const [lifecycleKey, activeAlarm] of activeAlarms.entries()) {
     const timeSinceLastSeen = now.getTime() - activeAlarm.lastSeen;
@@ -176,19 +165,12 @@ function clearExpiredAlarms(baseDir, now) {
         baseDir,
         {
           alertId: activeAlarm.alertId,
-
           deviceIp: activeAlarm.deviceIp,
-
           severity: activeAlarm.severity,
-
           serviceName: activeAlarm.serviceName,
-
           alarmValue: activeAlarm.alarmValue,
-
           startTime: activeAlarm.startTime,
-
           endTime: now,
-
           status: "Cleared",
         },
         now,
@@ -290,22 +272,42 @@ async function startWorker() {
 
           const alarmList = normalizeAlarms(alarms);
 
-          /*
-                |--------------------------------------------------------------------------
-                | Process Current Active Alarms
-                |--------------------------------------------------------------------------
-                */
+          const isDeviceDown = alarmList.some(
+            (alarm) => alarm?.key === "deviceDown",
+          );
+
+          if (!isDeviceDown) {
+            const deviceDownKey = `${ip}:deviceDown`;
+            const deviceDownAlarm = activeAlarms.get(deviceDownKey);
+
+            if (deviceDownAlarm) {
+              writeAlarmLog(
+                baseDir,
+                {
+                  alertId: deviceDownAlarm.alertId,
+                  deviceIp: deviceDownAlarm.deviceIp,
+                  severity: deviceDownAlarm.severity,
+                  serviceName: deviceDownAlarm.serviceName,
+                  alarmValue: deviceDownAlarm.alarmValue,
+                  startTime: deviceDownAlarm.startTime,
+                  endTime: now,
+                  status: "Cleared",
+                },
+                now,
+              );
+
+              activeAlarms.delete(deviceDownKey);
+            }
+          }
+
+          // Process Current Active Alarms
 
           for (const alarm of alarmList) {
             if (!alarm || !alarm.key) {
               continue;
             }
 
-            /*
-                    |--------------------------------------------------------------------------
-                    | Same Device + Same Service = Same Lifecycle
-                    |--------------------------------------------------------------------------
-                    */
+            // Same Device + Same Service = Same Lifecycle
 
             const lifecycleKey = `${ip}:${alarm.key}`;
 
@@ -314,92 +316,58 @@ async function startWorker() {
             let alertId;
             let startTime;
 
-            /*
-                    |--------------------------------------------------------------------------
-                    | Existing Alarm
-                    |--------------------------------------------------------------------------
-                    */
+            // Existing Alarm
 
             if (
               existingAlarm &&
               now.getTime() - existingAlarm.lastSeen < ALARM_GAP_MS
             ) {
               alertId = existingAlarm.alertId;
-
               startTime = existingAlarm.startTime;
 
-              /*
-                        | Update latest alarm information
-                        */
-
+              /* Update latest alarm information */
               existingAlarm.lastSeen = now.getTime();
-
               existingAlarm.severity = alarm.severity;
-
-              existingAlarm.alarmValue = alarm.title;
-
+              existingAlarm.alarmValue =
+                alarm.title || alarm.value || alarm.key;
               activeAlarms.set(lifecycleKey, existingAlarm);
             } else {
-              /*
-                    |--------------------------------------------------------------------------
-                    | New Alarm Occurrence
-                    |--------------------------------------------------------------------------
-                    */
+              // New Alarm Occurrence
+
               alertId = generateAlertId(now);
 
               startTime = now;
 
               activeAlarms.set(lifecycleKey, {
                 alertId,
-
                 deviceIp: ip,
-
                 severity: alarm.severity,
-
                 serviceName: alarm.key,
-
-                alarmValue: alarm.title,
-
+                alarmValue: alarm.title || alarm.value || alarm.key,
                 startTime,
-
                 lastSeen: now.getTime(),
               });
             }
 
-            /*
-                    |--------------------------------------------------------------------------
-                    | Write ACTIVE Record
-                    |--------------------------------------------------------------------------
-                    */
+            // Write ACTIVE Record
 
             writeAlarmLog(
               baseDir,
               {
                 alertId,
-
                 deviceIp: ip,
-
                 severity: alarm.severity,
-
                 serviceName: alarm.key,
-
-                alarmValue: alarm.title,
-
+                alarmValue: alarm.title || alarm.value || alarm.key,
                 startTime,
-
                 endTime: null,
-
                 status: "Active",
               },
               now,
             );
           }
 
-          /*
-                |--------------------------------------------------------------------------
-                | Check For Alarms That Have Disappeared
-                |--------------------------------------------------------------------------
-                */
+          // Check For Alarms That Have Disappeared
 
           clearExpiredAlarms(baseDir, now);
 

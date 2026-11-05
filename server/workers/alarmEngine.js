@@ -36,6 +36,16 @@ function calculateAlarms(reading, thresholds) {
   // ======================================================
   // CRITICAL ALARMS
   // ======================================================
+  if (reading.deviceStatus === "DOWN") {
+    alarms.critical.push({
+      key: "deviceDown",
+      value: "Device Down",
+      reason: "Device is not responding",
+      severity: "critical",
+      alertType: true,
+    });
+  }
+
   if (reading.fireAlarm) {
     alarms.critical.push({
       key: "fireAlarm",

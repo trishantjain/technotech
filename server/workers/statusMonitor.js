@@ -1,8 +1,11 @@
 const Device = require("../models/Device");
 const { updateDeviceStatusCache } = require("../services/deviceStatusCache");
+const { publishAlarm } = require("../services/rabbit");
 
 const CHECK_INTERVAL = 2000; // 2 sec
 const OFFLINE_TIMEOUT = 15000; // 15 sec
+const DOWN_ALARM_RENEW_INTERVAL = 5000;
+const lastDownAlarmPublishedAt = new Map();
 
 let monitorTimer = null;
 let isChecking = false;
@@ -54,6 +57,20 @@ async function checkOfflineDevices() {
 
       if (updatedDevice) {
         updateDeviceStatusCache(updatedDevice.ip, "DOWN");
+
+        publishAlarm({
+          ip: updatedDevice.ip,
+          deviceStatus: "DOWN",
+          timestamp: new Date().toISOString(),
+        });
+
+        publishDeviceDownAlarm(updatedDevice.ip);
+
+        markedDownCount++;
+      }
+
+      if (updatedDevice) {
+        updateDeviceStatusCache(updatedDevice.ip, "DOWN");
         markedDownCount++;
       }
     }
@@ -72,6 +89,16 @@ function startStatusMonitor() {
   if (monitorTimer) return;
 
   monitorTimer = setInterval(checkOfflineDevices, CHECK_INTERVAL);
+}
+
+function publishDeviceDownAlarm(ip) {
+  publishAlarm({
+    ip,
+    deviceStatus: "DOWN",
+    timestamp: new Date().toISOString(),
+  });
+
+  lastDownAlarmPublishedAt.set(ip, Date.now());
 }
 
 function stopStatusMonitor() {

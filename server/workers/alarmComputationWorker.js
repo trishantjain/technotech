@@ -47,11 +47,13 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
     // ----------------------------------------------------
 
     if (!existingAlarm) {
-      await Alarm.create({
+      const createdAlarm = await Alarm.create({
+        // await Alarm.create({
         alert_id: crypto.randomUUID(),
         device_id: device._id,
         device_ip: device.ip,
-        alert_type: false,
+        // alert_type: false,
+        alert_type: alarm.alertType === true,
         alert_severity: alarm.severity,
         created_at: timestamp,
         last_hard_state_change: timestamp,
@@ -173,7 +175,8 @@ async function start() {
 
     // const activeAlarms = [];
 
-    const timestamp = new Date();
+    // const timestamp = new Date();
+    const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
 
     // Find device
     const device = await Device.findOne({ ip });
@@ -219,7 +222,8 @@ async function start() {
       alarms,
       fanStatus,
       type: hasAlarms ? "active" : "clear",
-      timestamp: new Date().toISOString(),
+      // timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
     });
   });
 }
