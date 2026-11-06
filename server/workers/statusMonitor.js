@@ -58,12 +58,6 @@ async function checkOfflineDevices() {
       if (updatedDevice) {
         updateDeviceStatusCache(updatedDevice.ip, "DOWN");
 
-        publishAlarm({
-          ip: updatedDevice.ip,
-          deviceStatus: "DOWN",
-          timestamp: new Date().toISOString(),
-        });
-
         publishDeviceDownAlarm(updatedDevice.ip);
 
         markedDownCount++;
