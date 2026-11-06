@@ -46,6 +46,7 @@ async function checkOfflineDevices() {
         {
           $set: {
             deviceStatus: "DOWN",
+            dashboardStatus: "disconnected",
             lastStatusChangeTimeTicks: Date.now(),
           },
         },

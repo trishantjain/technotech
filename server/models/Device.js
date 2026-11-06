@@ -1,173 +1,177 @@
-const mongoose = require('mongoose');
-const deviceSchema = new mongoose.Schema(
-  {
-    // STORING IP OF DEVICE
+const mongoose = require("mongoose");
+const deviceSchema = new mongoose.Schema({
+  // STORING IP OF DEVICE
+  ip: {
+    type: String,
+    unique: true,
+    required: true,
+  },
+
+  location: String,
+
+  deviceName: String,
+
+  address: String,
+
+  latitude: Number,
+
+  longitude: Number,
+
+  ipCamera: {
+    type: {
+      type: String,
+      required: false,
+      default: "T",
+    },
     ip: {
       type: String,
-      unique: true,
-      required: true
+      required: false,
     },
+  },
 
-    location: String,
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
 
-    deviceName: String,
+  createdBy: {
+    type: String, // username from JWT
+    required: true,
+  },
 
-    address: String,
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 
-    latitude: Number,
+  approvedBy: {
+    type: String,
+    default: null,
+  },
 
-    longitude: Number,
+  approvedAt: {
+    type: Date,
+    default: null,
+  },
 
-    ipCamera: {
-      type: {
-        type: String,
-        required: false,
-        default: "T"
-      },
-      ip: {
-        type: String,
-        required: false
-      }
-    },
+  vendorName: {
+    type: String,
+    default: "",
+  },
 
-    status: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
-    },
+  modelNumber: {
+    type: String,
+    default: "",
+  },
 
-    createdBy: {
-      type: String, // username from JWT
-      required: true,
-    },
+  deviceSerialNumber: {
+    type: String,
+    default: "",
+  },
 
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
+  deviceType: {
+    type: String,
+    default: "EMS",
+  },
 
-    approvedBy: {
-      type: String,
-      default: null,
-    },
+  deviceName: {
+    type: String,
+    default: "",
+  },
 
-    approvedAt: {
-      type: Date,
-      default: null,
-    },
+  deviceStatus: {
+    type: String,
+    enum: ["UP", "DOWN"],
+    default: "DOWN",
+  },
 
-    vendorName: {
-      type: String,
-      default: ""
-    },
+  lastPacketTime: {
+    type: Date,
+    default: null,
+  },
 
-    modelNumber: {
-      type: String,
-      default: ""
-    },
+  lastStatusChangeTimeTicks: {
+    type: Number,
+    default: () => Date.now(),
+  },
 
-    deviceSerialNumber: {
-      type: String,
-      default: ""
-    },
+  maintenanceMode: {
+    type: String,
+    default: "Inactive",
+  },
 
-    deviceType: {
-      type: String,
-      default: "EMS"
-    },
+  swVersion: {
+    type: String,
+    default: "",
+  },
 
-    deviceName: {
-      type: String,
-      default: ""
-    },
+  upsSoftwareVersion: {
+    type: String,
+    default: "",
+  },
 
-    deviceStatus: {
-      type: String,
-      enum: ["UP", "DOWN"],
-      default: "DOWN"
-    },
+  rectifier1Version: {
+    type: String,
+    default: "",
+  },
 
-    lastPacketTime: {
-      type: Date,
-      default: null
-    },
+  rectifier1SrNo: {
+    type: String,
+    default: "",
+  },
 
-    lastStatusChangeTimeTicks: {
-      type: Number,
-      default: () => Date.now()
-    },
+  rectifier2Version: {
+    type: String,
+    default: "",
+  },
 
-    maintenanceMode: {
-      type: String,
-      default: "Inactive"
-    },
+  rectifier2SrNo: {
+    type: String,
+    default: "",
+  },
 
-    swVersion: {
-      type: String,
-      default: ""
-    },
+  solarMpptVersion: {
+    type: String,
+    default: "",
+  },
 
-    upsSoftwareVersion: {
-      type: String,
-      default: ""
-    },
+  solarMpptSrNo: {
+    type: String,
+    default: "",
+  },
 
-    rectifier1Version: {
-      type: String,
-      default: ""
-    },
+  inverterSrNo: {
+    type: String,
+    default: "",
+  },
 
-    rectifier1SrNo: {
-      type: String,
-      default: ""
-    },
+  upsBatterySrNo: {
+    type: String,
+    default: "",
+  },
 
-    rectifier2Version: {
-      type: String,
-      default: ""
-    },
+  modifyTimeTicks: {
+    type: Number,
+    default: 0,
+  },
 
-    rectifier2SrNo: {
-      type: String,
-      default: ""
-    },
+  modifyField: {
+    type: String,
+    default: "",
+  },
 
-    solarMpptVersion: {
-      type: String,
-      default: ""
-    },
+  currentAlarms: {
+    critical: { type: Array, default: [] },
+    major: { type: Array, default: [] },
+    minor: { type: Array, default: [] },
+  },
 
-    solarMpptSrNo: {
-      type: String,
-      default: ""
-    },
+  dashboardStatus: {
+    type: String,
+    enum: ["connected", "status-alarm", "gauge-alarm", "disconnected"],
+    default: "disconnected",
+  },
+});
 
-    inverterSrNo: {
-      type: String,
-      default: ""
-    },
-
-    upsBatterySrNo: {
-      type: String,
-      default: ""
-    },
-
-    modifyTimeTicks: {
-      type: Number,
-      default: 0
-    },
-
-    modifyField: {
-      type: String,
-      default: ""
-    },
-
-    currentAlarms: {
-      critical: { type: Array, default: [] },
-      major: { type: Array, default: [] },
-      minor: { type: Array, default: [] }
-    },
-  }
-);
-
-module.exports = mongoose.model('Device', deviceSchema);
+module.exports = mongoose.model("Device", deviceSchema);

@@ -1,6 +1,6 @@
 const { consume, publishAlarmResult } = require("../services/rabbit");
 const thresholds = require("../thresholds");
-const { calculateAlarms } = require("./alarmEngine");
+const { calculateAlarms, getDashboardStatus } = require("./alarmEngine");
 const Device = require("../models/Device");
 const connectDatabase = require("../config/db.js");
 
@@ -207,6 +207,7 @@ async function start() {
       {
         $set: {
           currentAlarms: alarms,
+          dashboardStatus: getDashboardStatus(device.deviceStatus, alarms),
         },
       },
     );

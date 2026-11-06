@@ -207,7 +207,7 @@ async function getInventory(query = {}) {
 
 async function getDeviceStatus() {
   try {
-    const devices = await Device.find({}).select("deviceName ip deviceStatus");
+    const devices = await Device.find({}).select("deviceName ip deviceStatus dashboardStatus");
 
     console.log("Devices: ", devices);
 

@@ -1,4 +1,22 @@
-// alarm/alarmEngine.js
+//* CALCULATES ALARMS AND CLASSIFY ALARM TYPE
+
+function getDashboardStatus(deviceStatus, alarms) {
+  if (deviceStatus !== "UP") {
+    return "disconnected";
+  }
+
+  const allAlarms = [...alarms.critical, ...alarms.major, ...alarms.minor];
+
+  if (allAlarms.some((alarm) => alarm.category === "status")) {
+    return "status-alarm";
+  }
+
+  if (allAlarms.some((alarm) => alarm.category === "gauge")) {
+    return "gauge-alarm";
+  }
+
+  return "connected";
+}
 
 function calculateAlarms(reading, thresholds) {
   const alarms = {
@@ -51,6 +69,7 @@ function calculateAlarms(reading, thresholds) {
       key: "fireAlarm",
       value: `Fire Alarm`,
       reason: "Fire Detected",
+      category: "status",
       // title: "Fire Alarm",
       severity: "critical",
     });
@@ -61,6 +80,7 @@ function calculateAlarms(reading, thresholds) {
       key: "waterLeakage",
       value: `Water Leakage Alarm`,
       reason: "Water Leakage Detected",
+      category: "status",
       // title: "Water Leakage Alarm",
       severity: "critical",
     });
@@ -71,6 +91,7 @@ function calculateAlarms(reading, thresholds) {
       key: "waterLogging",
       value: `Water Logging Alarm`,
       reason: "Water Logging Detected",
+      category: "status",
       // title: "Water Logging Alarm",
       severity: "major",
     });
@@ -84,6 +105,7 @@ function calculateAlarms(reading, thresholds) {
       key: "insideTemperature",
       value: `Inside Temperature Alarm: ${reading.insideTemperature} °C`,
       reason: "Inside Temperature differ from threshold",
+      category: "gauge",
       // title: `Inside Temperature Alarm: ${reading.insideTemperature} °C`,
       severity: "major",
     });
@@ -94,6 +116,7 @@ function calculateAlarms(reading, thresholds) {
       key: "outsideTemperature",
       value: `Outside Temperature Alarm: ${reading.outsideTemperature} °C`,
       reason: "Outside Temperature differ from threshold",
+      category: "gauge",
       // title: `Outside Temperature Alarm: ${reading.outsideTemperature} °C`,
       severity: "major",
     });
@@ -104,6 +127,7 @@ function calculateAlarms(reading, thresholds) {
       key: "humidity",
       value: `Humidity Alarm : ${reading.humidity}`,
       reason: "Humidity differ from threshold",
+      category: "gauge",
       // title: `Humidity Alarm : ${reading.humidity}`,
       severity: "major",
     });
@@ -114,6 +138,7 @@ function calculateAlarms(reading, thresholds) {
       key: "inputVoltage",
       value: `Input Voltage Alarm: ${reading.inputVoltage} Volt.`,
       reason: "Input Voltage differ from threshold",
+      category: "gauge",
       // title: `Input Voltage Alarm: ${reading.inputVoltage} Volt.`,
       severity: "major",
     });
@@ -124,6 +149,7 @@ function calculateAlarms(reading, thresholds) {
       key: "outputVoltage",
       value: `Output Voltage Alarm: ${reading.outputVoltage} Volt.`,
       reason: "Output Voltage differ from threshold",
+      category: "gauge",
       severity: "major",
     });
   }
@@ -133,6 +159,7 @@ function calculateAlarms(reading, thresholds) {
       key: "batteryBackup",
       value: `Battery Backup Alarm: ${reading.batteryBackup} Volt.`,
       reason: "Low Battery Backup",
+      category: "gauge",
       severity: "major",
     });
   }
@@ -142,6 +169,7 @@ function calculateAlarms(reading, thresholds) {
       key: "rectifier",
       value: "Rectifier Alarm",
       reason: "Rectifier not working",
+      category: "status",
       // title: "Rectifier Alarm",
       severity: "major",
     });
@@ -152,6 +180,7 @@ function calculateAlarms(reading, thresholds) {
       key: "inverter",
       value: "Inverter Alarm",
       reason: "Inverter Alarm from HUPS",
+      category: "status",
       // title: "Inverter Alarm",
       severity: "major",
     });
@@ -162,6 +191,7 @@ function calculateAlarms(reading, thresholds) {
       key: "overload",
       value: "OverLoad Alarm",
       reason: "System Overload",
+      category: "status",
       // title: "OverLoad Alarm",
       severity: "major",
     });
@@ -172,6 +202,7 @@ function calculateAlarms(reading, thresholds) {
       key: "mppt",
       value: `MPPT Alarm`,
       reason: "MPPT Alarm from HUPS",
+      category: "status",
       // title: "MPPT Alarm",
       severity: "major",
     });
@@ -182,6 +213,7 @@ function calculateAlarms(reading, thresholds) {
       key: "mosfet",
       value: `MOSFET Alarm`,
       reason: "MOSFET Alarm from HUPS",
+      category: "status",
       // title: "MOSFET Alarm",
       severity: "major",
     });
@@ -192,6 +224,7 @@ function calculateAlarms(reading, thresholds) {
       key: "mainStatus",
       value: "Mains Alarm",
       reason: "Mains is down",
+      category: "status",
       // title: "Mains Alarm",
       severity: "major",
     });
@@ -205,6 +238,7 @@ function calculateAlarms(reading, thresholds) {
       key: "doorStatus",
       value: `Door Alarm`,
       reason: "Door is Open",
+      category: "status",
       // title: "Door is Open",
       severity: "minor",
     });
@@ -215,6 +249,7 @@ function calculateAlarms(reading, thresholds) {
       key: "lockStatus",
       value: `Lock Alarm`,
       reason: "Lock is Open",
+      category: "status",
       // title: "Lock is Open",
       severity: "minor",
     });
@@ -227,6 +262,7 @@ function calculateAlarms(reading, thresholds) {
       key: "wrongPassword",
       value: `Wrong Password Attempt : ${wrongPasswordAttempts}`,
       reason: "Wrong Password Entered for opening door",
+      category: "status",
       // title: `Wrong Password Attempt : ${wrongPasswordAttempts}`,
       severity: "minor",
     });
@@ -237,4 +273,5 @@ function calculateAlarms(reading, thresholds) {
 
 module.exports = {
   calculateAlarms,
+  getDashboardStatus,
 };
