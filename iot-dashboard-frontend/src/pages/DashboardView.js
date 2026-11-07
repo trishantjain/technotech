@@ -273,13 +273,21 @@ function DashboardView() {
         return res;
       };
 
-      const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled(
-        [
+      // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled(
+      //   [
+      //     timedFetch("readings", `${PAPI}/${API.readings}`),
+      //     timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
+      //     timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
+      //   ],
+      // );
+
+      const [readingsRes, devicesRes, deviceMetaRes, deviceStatusRes] =
+        await Promise.allSettled([
           timedFetch("readings", `${PAPI}/${API.readings}`),
           timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
           timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
-        ],
-      );
+          timedFetch("deviceStatus", `${PAPI}/nms/device-status`),
+        ]);
 
       // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled([
       //   fetch(`${PAPI}/${API.readings}`),
@@ -291,7 +299,7 @@ function DashboardView() {
       //   const readingsData = await readingsRes.value.json();
       //   setReadings(Array.isArray(readingsData) ? readingsData : []);
       // }
-      
+
       let readingsData = [];
 
       if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
@@ -378,6 +386,25 @@ function DashboardView() {
           }
           return next;
         });
+      }
+
+      if (deviceStatusRes.status === "fulfilled" && deviceStatusRes.value.ok) {
+        const statusPayload = await deviceStatusRes.value.json();
+        const statusDevices = statusPayload?.data?.devices;
+
+        if (Array.isArray(statusDevices)) {
+          const nextStatusMap = {};
+
+          for (const device of statusDevices) {
+            if (!device.ip) continue;
+
+            nextStatusMap[device.ip] = device.dashboardStatus || "disconnected";
+          }
+
+          setDeviceStatusMap(nextStatusMap);
+        }
+      } else {
+        console.error("Failed to fetch backend device status");
       }
 
       // setRackTimer(0);
@@ -598,46 +625,46 @@ function DashboardView() {
     };
   }
 
-  function computeColor(reading, staleThresholdMs) {
-    if (!reading?.timestamp) return "disconnected";
+  // function computeColor(reading, staleThresholdMs) {
+  //   if (!reading?.timestamp) return "disconnected";
 
-    const age = Date.now() - new Date(reading.timestamp).getTime();
+  //   const age = Date.now() - new Date(reading.timestamp).getTime();
 
-    // IF READING NOT RECEIVED FOR MORE THAN STALE SECONDS THAN 'DISCONNECTED'
-    if (age > staleThresholdMs) {
-      return "disconnected";
-    }
+  //   // IF READING NOT RECEIVED FOR MORE THAN STALE SECONDS THAN 'DISCONNECTED'
+  //   if (age > staleThresholdMs) {
+  //     return "disconnected";
+  //   }
 
-    // STATUS ALARMS
-    const hasStatusAlarm =
-      reading.fireAlarm ||
-      reading.waterLeakage ||
-      reading.waterLogging ||
-      reading.lockStatus === "OPEN" ||
-      reading.doorStatus === "OPEN" ||
-      [1, 2, 3].includes(reading.password) ||
-      reading.mainStatus === 0 ||
-      reading.rectStatus === 0 ||
-      reading.inveStatus === 0 ||
-      reading.overStatus === 0 ||
-      reading.mptStatus === 0 ||
-      reading.mosfStatus === 0;
+  //   // STATUS ALARMS
+  //   const hasStatusAlarm =
+  //     reading.fireAlarm ||
+  //     reading.waterLeakage ||
+  //     reading.waterLogging ||
+  //     reading.lockStatus === "OPEN" ||
+  //     reading.doorStatus === "OPEN" ||
+  //     [1, 2, 3].includes(reading.pwsFailCount) ||
+  //     reading.mainStatus === 0 ||
+  //     reading.rectStatus === 0 ||
+  //     reading.inveStatus === 0 ||
+  //     reading.overStatus === 0 ||
+  //     reading.mptStatus === 0 ||
+  //     reading.mosfStatus === 0;
 
-    if (hasStatusAlarm) return "status-alarm";
+  //   if (hasStatusAlarm) return "status-alarm";
 
-    // GAUGE ALARMS
-    const hasGaugeAlarm =
-      reading.insideTemperatureAlarm ||
-      reading.outsideTemperatureAlarm ||
-      reading.humidityAlarm ||
-      reading.inputVoltageAlarm ||
-      reading.outputVoltageAlarm ||
-      reading.batteryBackupAlarm;
+  //   // GAUGE ALARMS
+  //   const hasGaugeAlarm =
+  //     reading.insideTemperatureAlarm ||
+  //     reading.outsideTemperatureAlarm ||
+  //     reading.humidityAlarm ||
+  //     reading.inputVoltageAlarm ||
+  //     reading.outputVoltageAlarm ||
+  //     reading.batteryBackupAlarm;
 
-    if (hasGaugeAlarm) return "gauge-alarm";
+  //   if (hasGaugeAlarm) return "gauge-alarm";
 
-    return "connected";
-  }
+  //   return "connected";
+  // }
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -646,27 +673,26 @@ function DashboardView() {
   };
 
   // DEVICE STATUS COMPUTATION FOR MAP & DEVICE PANEL
-  useEffect(() => {
+  // useEffect(() => {
+  //   setDeviceStatusMap((prev) => {
+  //     let hasChange = false;
+  //     const updated = { ...prev };
 
-    setDeviceStatusMap((prev) => {
-      let hasChange = false;
-      const updated = { ...prev };
+  //     for (const device of deviceMeta) {
+  //       const ip = device.ip;
+  //       const reading = latestReadingsByMac[ip];
 
-      for (const device of deviceMeta) {
-        const ip = device.ip;
-        const reading = latestReadingsByMac[ip];
+  //       const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
 
-        const newStatus = computeColor(reading, STALE_THRESHOLD_MS);
+  //       if (prev[ip] !== newStatus) {
+  //         updated[ip] = newStatus;
+  //         hasChange = true;
+  //       }
+  //     }
 
-        if (prev[ip] !== newStatus) {
-          updated[ip] = newStatus;
-          hasChange = true;
-        }
-      }
-
-      return hasChange ? updated : prev;
-    });
-  }, [deviceMeta, latestReadingsByMac]);
+  //     return hasChange ? updated : prev;
+  //   });
+  // }, [deviceMeta, latestReadingsByMac]);
 
   // STORING LOGS BASED ON SELECTED MAC
   useEffect(() => {
@@ -1161,7 +1187,7 @@ function DashboardView() {
                   />
                   <Gauge
                     label="Battery %"
-                    value={(latestReading.hupsSOC).toFixed(2)}
+                    value={latestReading.hupsSOC.toFixed(2)}
                     max={120}
                     color={
                       latestReading.batteryBackup <=
@@ -1175,7 +1201,7 @@ function DashboardView() {
                   />
                   <Gauge
                     label="Battery(Hours)"
-                    value={(latestReading.hupsBatBackup).toFixed(2)}
+                    value={latestReading.hupsBatBackup.toFixed(2)}
                     max={120}
                     color={
                       latestReading.batteryBackup <=

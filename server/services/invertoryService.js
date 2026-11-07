@@ -207,7 +207,9 @@ async function getInventory(query = {}) {
 
 async function getDeviceStatus() {
   try {
-    const devices = await Device.find({}).select("deviceName ip deviceStatus dashboardStatus");
+    const devices = await Device.find({ status: "approved" })
+      .select("deviceName ip deviceStatus dashboardStatus")
+      .lean();
 
     console.log("Devices: ", devices);
 
@@ -217,7 +219,8 @@ async function getDeviceStatus() {
       },
     };
   } catch (err) {
-    console.log("Getting error while fetching device status");
+    console.error("Error fetching device status:", err);
+    throw err;
   }
 }
 

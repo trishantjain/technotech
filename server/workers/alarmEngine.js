@@ -1,20 +1,27 @@
 //* CALCULATES ALARMS AND CLASSIFY ALARM TYPE
 
 function getDashboardStatus(deviceStatus, alarms) {
-  if (deviceStatus !== "UP") {
+  // Priority 1: Device disconnected
+  if (
+    deviceStatus === "DOWN" ||
+    alarms.critical.some((alarm) => alarm.category === "disconnected")
+  ) {
     return "disconnected";
   }
 
   const allAlarms = [...alarms.critical, ...alarms.major, ...alarms.minor];
 
+  // Priority 2: Status alarm
   if (allAlarms.some((alarm) => alarm.category === "status")) {
     return "status-alarm";
   }
 
+  // Priority 3: Gauge alarm
   if (allAlarms.some((alarm) => alarm.category === "gauge")) {
     return "gauge-alarm";
   }
 
+  // Priority 4: No alarms
   return "connected";
 }
 
@@ -59,6 +66,7 @@ function calculateAlarms(reading, thresholds) {
       key: "deviceDown",
       value: "Device Down",
       reason: "Device is not responding",
+      category: "disconnected",
       severity: "critical",
       alertType: true,
     });

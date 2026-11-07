@@ -188,7 +188,7 @@ async function loadDeviceCache() {
 
     deviceCache.clear();
 
-    devices.forEach(d => {
+    devices.forEach((d) => {
       if (!d.ip) return;
 
       deviceCache.set(d.ip, {
@@ -1154,7 +1154,6 @@ app.post("/api/log-command", (req, res) => {
   }
 });
 
-
 /*
  * ALARM HISTORY API
  *
@@ -1911,7 +1910,7 @@ setInterval(async () => {
 
     const uniqueMacs = [...new Set(toSave.map((r) => r.ip))];
 
-    await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
+    // await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
   } catch (err) {
     console.error("Periodic bulk save error:", err);
 
@@ -2177,7 +2176,7 @@ const server = net.createServer((socket) => {
         const waterLeakage = !!packet[32];
 
         const outputVoltage = +packet.readInt16LE(33).toFixed(2);
-        const hupsDVC = (+packet.readInt16LE(35).toFixed(2)) / 100;
+        const hupsDVC = +packet.readInt16LE(35).toFixed(2) / 100;
         const inputVoltage = +packet.readInt16LE(37).toFixed(2);
         const hupsBatBackup = +packet.readInt16LE(39).toFixed(2); // HUPS Battery Backup
         const batteryBackup = +packet.readFloatLE(41).toFixed(2);
@@ -2228,7 +2227,7 @@ const server = net.createServer((socket) => {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
         // console.log("Padding: ", padding);
-        console.log("firealarm : ", fireAlarm);
+        console.log("hupsalarms : ", hupsAlarms);
 
         //* ===================== LOGGING EXTRACTED VALUES =====================
         if (eMS_LOGS) {
@@ -2324,6 +2323,10 @@ const server = net.createServer((socket) => {
           batteryBackupAlarm: batteryBackup < thresholds.batteryBackup.min,
         };
 
+        // UPDATING DEVICE STATUS TO UP
+        await updateDeviceStatus(ip);
+
+        // SENDING
         publishAlarm({
           ip,
           humidity,
@@ -2392,7 +2395,7 @@ const server = net.createServer((socket) => {
           hupsSOC,
           ...thresholdAlarms,
           // Set timestamp to IST
-          timestamp: packetTimestamp
+          timestamp: packetTimestamp,
         });
 
         console.log("Reading: ", reading.fireAlarm);
@@ -2425,7 +2428,7 @@ const server = net.createServer((socket) => {
             // Update deviceStatus only after successful save
             const uniqueMacs = [...new Set(toSave.map((r) => r.ip))];
 
-            await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
+            // await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
           } catch (err) {
             console.error("Immediate bulk save failed:", err);
 
