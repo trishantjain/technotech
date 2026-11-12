@@ -35,8 +35,8 @@ const simulatorState = {
   fan4: false,
   fan5: false,
   fan6: false,
-  mode: "manual",
-  // mode: "random"
+  // mode: "manual",
+  mode: "random"
 };
 
 // 🔥 PRE-INDEXING: Fast lookup structure
@@ -328,6 +328,17 @@ function startDevice(ip, index) {
         const isDisconnectedSim =
           index >= TOTAL_DEVICES - 5 && index < TOTAL_DEVICES - 2;
 
+        // DEVICE ALARM CLASSIFICATION
+        let deviceAlarmType;
+
+        if (index < TOTAL_DEVICES * 0.4) {
+          deviceAlarmType = "STATUS";
+        } else if (index < TOTAL_DEVICES * 0.8) {
+          deviceAlarmType = "GAUGE";
+        } else {
+          deviceAlarmType = "BOTH";
+        }
+
         let alarmStart = 5 + Math.floor(Math.random() * 5);
         let alarmDuration = 2 + Math.floor(Math.random() * 2);
         let inAlarmPhase = false;
@@ -373,48 +384,58 @@ function startDevice(ip, index) {
             }
           }
 
+          // Overall alarm trigger
           const triggerAlarm = !isHealthyDevice || inAlarmPhase;
+
+          // Independent alarm triggers
+          const triggerGaugeAlarm =
+            triggerAlarm &&
+            (deviceAlarmType === "GAUGE" || deviceAlarmType === "BOTH");
+
+          const triggerStatusAlarm =
+            triggerAlarm &&
+            (deviceAlarmType === "STATUS" || deviceAlarmType === "BOTH");
 
           // SENSOR DATA GENERATION
 
           // GAUGE ALARMS
           const humidity =
             simulatorState.mode === "random"
-              ? triggerAlarm
+              ? triggerGaugeAlarm
                 ? 85 + Math.random() * 10
                 : 55 + Math.random() * 5
               : simulatorState.humidity;
 
           const insideTemp =
             simulatorState.mode === "random"
-              ? triggerAlarm
+              ? triggerGaugeAlarm
                 ? 55 + Math.random() * 10
                 : 35 + Math.random() * 5
               : simulatorState.insideTemperature;
 
           const outputVoltage =
             simulatorState.mode === "random"
-              ? triggerAlarm
+              ? triggerGaugeAlarm
                 ? 5000 + Math.random() * 10
                 : 5000 + Math.random() * 10
               : simulatorState.outputVoltage;
 
           const outsideTemp =
             simulatorState.mode === "random"
-              ? triggerAlarm
+              ? triggerGaugeAlarm
                 ? 65 + Math.random() * 10
                 : 40 + Math.random() * 5
               : simulatorState.outsideTemperature;
 
-          const hupsDVC = triggerAlarm
+          const hupsDVC = triggerGaugeAlarm
             ? 2.5 + Math.random() * 10
             : 3.3 + Math.random() * 10;
 
-          const inputVoltage = triggerAlarm
+          const inputVoltage = triggerGaugeAlarm
             ? 4000 + Math.random() * 10
             : 4000 + Math.random() * 10;
 
-          const hupsBat = triggerAlarm
+          const hupsBat = triggerGaugeAlarm
             ? 2.5 + Math.random() * 10
             : 3.3 + Math.random() * 10;
 
@@ -429,7 +450,7 @@ function startDevice(ip, index) {
           // STATUS ALARMS
           const lockStatus =
             simulatorState.mode === "random"
-              ? Math.random() < 0.5
+              ? triggerStatusAlarm
                 ? 1
                 : 0
               : simulatorState.lock
@@ -438,7 +459,7 @@ function startDevice(ip, index) {
 
           const doorStatus =
             simulatorState.mode === "random"
-              ? Math.random() < 0.5
+              ? triggerStatusAlarm
                 ? 1
                 : 0
               : simulatorState.door
@@ -447,7 +468,7 @@ function startDevice(ip, index) {
 
           const waterLogging =
             simulatorState.mode === "random"
-              ? triggerAlarm && Math.random() < 0.2
+              ? triggerStatusAlarm && Math.random() < 0.2
                 ? 1
                 : 0
               : simulatorState.logging
@@ -456,7 +477,7 @@ function startDevice(ip, index) {
 
           const waterLeakage =
             simulatorState.mode === "random"
-              ? !triggerAlarm && Math.random() < 0.2
+              ? !triggerStatusAlarm && Math.random() < 0.2
                 ? 1
                 : 0
               : simulatorState.leakage
@@ -465,7 +486,7 @@ function startDevice(ip, index) {
 
           const fireAlarm =
             simulatorState.mode === "random"
-              ? Math.random() < 0.5
+              ? triggerStatusAlarm && Math.random() < 0.5
                 ? 1
                 : 0
               : simulatorState.fireAlarm
