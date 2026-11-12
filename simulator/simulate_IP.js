@@ -303,7 +303,7 @@ function startDevice(ip, index) {
   try {
     // const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
     // const client = net.createConnection({ host: '172.16.113.225', port: 4000 });
-    const client = net.createConnection({ host: "localhost", port: 4000 });
+    const client = net.createConnection({ host: "192.168.1.12", port: 4000 });
     console.log("Client connected", ip);
 
     // 🔧 NEW: Store this device in our connected devices map
@@ -320,7 +320,7 @@ function startDevice(ip, index) {
         console.log(`🔄 ${ip} starting in RANDOM mode`);
 
         // SENDING 1 PACKET / 3 SECONDS / DEVICE
-        const SEND_INTERVAL = 3000; // 3 seconds
+        const SEND_INTERVAL = 5000; // 3 seconds
         const PHASE_OFFSET_MS = (index * 1000) / TOTAL_DEVICES;
 
         let sendCount = 0;
