@@ -9,8 +9,6 @@ const deviceSchema = new mongoose.Schema({
 
   location: String,
 
-  deviceName: String,
-
   address: String,
 
   latitude: Number,

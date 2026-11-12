@@ -54,6 +54,41 @@ app.use("/api/nms", nmsRoutes);
 
 const deviceCache = new Map();
 
+const HEARTBEAT_FLUSH_INTERVAL = 30 * 1000;
+
+const heartbeatCache = new Map();
+
+let heartbeatFlushInProgress = false;
+
+async function initializeHeartbeatCache() {
+  const devices = await Device.find(
+    {},
+    {
+      ip: 1,
+      deviceStatus: 1,
+      lastPacketTime: 1,
+    },
+  ).lean();
+
+  heartbeatCache.clear();
+
+  for (const device of devices) {
+    heartbeatCache.set(device.ip, {
+      lastPacketTime: device.lastPacketTime
+        ? new Date(device.lastPacketTime).getTime()
+        : 0,
+
+      deviceStatus: device.deviceStatus || "DOWN",
+      dirty: false,
+      statusDirty: false,
+      checkingDown: false,
+      pendingUpPersistence: false,
+    });
+  }
+
+  console.log(`Heartbeat cache initialized for ${heartbeatCache.size} devices`);
+}
+
 // ===================== SSE: Snapshot Notifications =====================
 const snapshotSseClients = new Set();
 
@@ -125,8 +160,13 @@ mongoose
       // INITIALIZE IP -> MongoDB DEVICE ID + CURRENT STATUS
       await initializeDeviceStatusCache();
 
+      await initializeHeartbeatCache();
+
       // START MONITORING AND PERIODIC PING-RECORD CREATION
-      startStatusMonitor();
+      startStatusMonitor(heartbeatCache);
+
+      setInterval(flushHeartbeatUpdates, HEARTBEAT_FLUSH_INTERVAL);
+
       startPingRecordService();
 
       logger.info("Device status cache and ping-record service started");
@@ -1866,37 +1906,123 @@ async function sendToCloud(reading) {
 // }
 
 async function updateDeviceStatus(ip) {
-  try {
-    const now = new Date();
+  const now = new Date();
 
-    // Update status and change timestamp only when transitioning to UP.
-    const transitionResult = await Device.updateOne(
-      { ip, deviceStatus: { $ne: "UP" } },
+  let heartbeat = heartbeatCache.get(ip);
+
+  // Device not present in cache
+  if (!heartbeat) {
+    heartbeat = {
+      lastPacketTime: now,
+      deviceStatus: "DOWN",
+      dirty: true,
+      statusDirty: false,
+    };
+
+    heartbeatCache.set(ip, heartbeat);
+  }
+
+  // Update heartbeat immediately in memory
+  heartbeat.lastPacketTime = now;
+  heartbeat.dirty = true;
+
+  const timestampToSave = heartbeat.lastPacketTime;
+
+  // A transition to UP, or a previous failed transition, needs persistence.
+  if (heartbeat.deviceStatus !== "UP") {
+    heartbeat.deviceStatus = "UP";
+    heartbeat.statusDirty = true;
+  }
+
+  if (!heartbeat.statusDirty) {
+    return;
+  }
+
+  try {
+    await Device.updateOne(
+      {
+        ip,
+      },
       {
         $set: {
           deviceStatus: "UP",
-          lastPacketTime: now,
-          lastStatusChangeTimeTicks: Date.now(),
+          lastPacketTime: timestampToSave,
+          lastStatusChangeTimeTicks: now,
         },
       },
     );
 
-    if (transitionResult.matchedCount === 0) {
-      // Device may already be UP, or it may not exist.
-      const heartbeatResult = await Device.updateOne(
-        { ip },
-        { $set: { lastPacketTime: now } },
-      );
+    heartbeat.statusDirty = false;
 
-      if (heartbeatResult.matchedCount === 0) {
-        console.warn(`[DeviceStatus] No registered device found for IP ${ip}`);
-        return;
-      }
+    if (heartbeat.lastPacketTime === timestampToSave) {
+      heartbeat.dirty = false;
+    } else {
+      heartbeat.dirty = true;
     }
 
     updateDeviceStatusCache(ip, "UP");
-  } catch (err) {
-    console.error(`[DeviceStatus] Failed to update ${ip}:`, err);
+  } catch (error) {
+    // Retain timestamp for the next heartbeat flush
+    heartbeat.dirty = true;
+    heartbeat.deviceStatus = "UP";
+
+    console.error(`Failed to update UP status for ${ip}:`, error.message);
+  }
+}
+
+async function flushHeartbeatUpdates() {
+  if (heartbeatFlushInProgress) return;
+
+  heartbeatFlushInProgress = true;
+
+  // Snapshot the pending timestamps.
+  const pending = [];
+
+  for (const [ip, heartbeat] of heartbeatCache.entries()) {
+    if (heartbeat.dirty && !heartbeat.statusDirty) {
+      pending.push({
+        ip,
+        timestamp: heartbeat.lastPacketTime,
+      });
+    }
+  }
+
+  if (pending.length === 0) {
+    heartbeatFlushInProgress = false;
+    return;
+  }
+
+  try {
+    const operations = pending.map(({ ip, timestamp }) => ({
+      updateOne: {
+        filter: { ip },
+        update: {
+          $set: {
+            lastPacketTime: new Date(timestamp),
+          },
+        },
+      },
+    }));
+
+    await Device.bulkWrite(operations, { ordered: false });
+
+    // Clear dirty only if no newer packet arrived during the write.
+    for (const item of pending) {
+      const current = heartbeatCache.get(item.ip);
+
+      if (
+        current &&
+        current.lastPacketTime === item.timestamp &&
+        !current.statusDirty
+      ) {
+        current.dirty = false;
+      }
+    }
+  } catch (error) {
+    // Do not clear dirty flags. The next interval will retry.
+    console.error("Heartbeat bulkWrite failed:", error);
+  } finally {
+    heartbeatFlushInProgress = false;
   }
 }
 
@@ -2227,7 +2353,7 @@ const server = net.createServer((socket) => {
           fanStatus[i] = (fanStatusBits >> (i * 2)) & 0x03; // 0=off, 1=healthy, 2=faulty
         }
         // console.log("Padding: ", padding);
-        console.log("hupsalarms : ", hupsAlarms);
+        // console.log("hupsalarms : ", hupsAlarms);
 
         //* ===================== LOGGING EXTRACTED VALUES =====================
         if (eMS_LOGS) {
@@ -2398,7 +2524,7 @@ const server = net.createServer((socket) => {
           timestamp: packetTimestamp,
         });
 
-        console.log("Reading: ", reading.fireAlarm);
+        // console.log("Reading: ", reading.fireAlarm);
 
         // console.log("Fan1Status: ", reading.fan1Status)
         // console.log("Fan2Status: ", reading.fan2Status)

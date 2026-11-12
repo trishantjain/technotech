@@ -1,99 +1,161 @@
 const Device = require("../models/Device");
+
 const { updateDeviceStatusCache } = require("../services/deviceStatusCache");
+
 const { publishAlarm } = require("../services/rabbit");
 
-const CHECK_INTERVAL = 2000; // 2 sec
-const OFFLINE_TIMEOUT = 15000; // 15 sec
-const DOWN_ALARM_RENEW_INTERVAL = 5000;
-const lastDownAlarmPublishedAt = new Map();
+const CHECK_INTERVAL = 2000; // 2 seconds
+const OFFLINE_TIMEOUT = 15000; // 15 seconds
 
 let monitorTimer = null;
 let isChecking = false;
 
-async function checkOfflineDevices() {
+async function persistDeviceUp(ip, heartbeat) {
+  const timestamp = heartbeat.lastPacketTime;
+
+  try {
+    await Device.updateOne(
+      { ip },
+      {
+        $set: {
+          deviceStatus: "UP",
+          lastPacketTime: new Date(timestamp),
+          lastStatusChangeTimeTicks: Date.now(),
+        },
+      },
+    );
+
+    heartbeat.statusDirty = false;
+
+    // Do not clear a newer heartbeat update.
+    if (heartbeat.lastPacketTime === timestamp) {
+      heartbeat.dirty = false;
+    }
+
+    heartbeat.pendingUpPersistence = false;
+
+    return true;
+  } catch (error) {
+    heartbeat.pendingUpPersistence = true;
+    heartbeat.statusDirty = true;
+
+    console.error(
+      `[StatusMonitor] Failed to persist UP status for ${ip}:`,
+      error.message,
+    );
+
+    return false;
+  }
+}
+
+async function markDeviceDown(ip, heartbeat) {
+  if (heartbeat.checkingDown) return;
+
+  heartbeat.checkingDown = true;
+
+  const checkedTimestamp = heartbeat.lastPacketTime;
+
+  try {
+    const result = await Device.updateOne(
+      {
+        ip,
+        deviceStatus: "UP",
+      },
+      {
+        $set: {
+          deviceStatus: "DOWN",
+          lastPacketTime: new Date(checkedTimestamp),
+          lastStatusChangeTimeTicks: Date.now(),
+          dashboardStatus: "disconnected",
+        },
+      },
+    );
+
+    // No UP document was modified.
+    if (result.matchedCount === 0) {
+      return;
+    }
+
+    // A new packet arrived while the DOWN update was running.
+    if (heartbeat.lastPacketTime !== checkedTimestamp) {
+      heartbeat.deviceStatus = "UP";
+      heartbeat.statusDirty = true;
+      heartbeat.dirty = true;
+      heartbeat.pendingUpPersistence = true;
+
+      // Immediately restore UP in MongoDB.
+      await persistDeviceUp(ip, heartbeat);
+
+      return;
+    }
+
+    // No new packet arrived. Confirm the DOWN transition.
+    heartbeat.deviceStatus = "DOWN";
+    heartbeat.dirty = false;
+    heartbeat.statusDirty = false;
+    heartbeat.pendingUpPersistence = false;
+
+    updateDeviceStatusCache(ip, "DOWN");
+
+    publishAlarm({
+      ip,
+      deviceStatus: "DOWN",
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(`[StatusMonitor] Device ${ip} marked DOWN`);
+  } catch (error) {
+    // Leave the in-memory status UP.
+    // The next monitor cycle will retry if the device is still stale.
+    console.error(`[StatusMonitor] Failed to mark ${ip} DOWN:`, error.message);
+  } finally {
+    heartbeat.checkingDown = false;
+  }
+}
+
+async function checkOfflineDevices(heartbeatCache) {
   if (isChecking) return;
 
   isChecking = true;
 
   try {
-    const cutoff = new Date(Date.now() - OFFLINE_TIMEOUT);
+    const now = Date.now();
 
-    // FIND DEVICES THAT ARE ABOUT TO TRANSITION FROM "UP" TO "DOWN"
-    const staleDevices = await Device.find(
-      {
-        deviceStatus: "UP",
-        lastPacketTime: { $lt: cutoff },
-      },
-      { _id: 1, ip: 1 },
-    ).lean();
-
-    if (staleDevices.length === 0) return;
-
-    const deviceIds = staleDevices.map((device) => device._id);
-    const changeTimeTicks = Date.now();
-
-    let markedDownCount = 0;
-
-    for (const device of staleDevices) {
-      // Recheck the timeout and status atomically for each device.
-      // A newly received packet prevents an incorrect DOWN transition.
-      const updatedDevice = await Device.findOneAndUpdate(
-        {
-          _id: device._id,
-          deviceStatus: "UP",
-          lastPacketTime: { $lt: cutoff },
-        },
-        {
-          $set: {
-            deviceStatus: "DOWN",
-            dashboardStatus: "disconnected",
-            lastStatusChangeTimeTicks: Date.now(),
-          },
-        },
-        {
-          new: true,
-          projection: { _id: 1, ip: 1 },
-        },
-      );
-
-      if (updatedDevice) {
-        updateDeviceStatusCache(updatedDevice.ip, "DOWN");
-
-        publishDeviceDownAlarm(updatedDevice.ip);
-
-        markedDownCount++;
+    for (const [ip, heartbeat] of heartbeatCache.entries()) {
+      // Retry a failed UP transition persistence.
+      if (heartbeat.pendingUpPersistence) {
+        await persistDeviceUp(ip, heartbeat);
       }
 
-      if (updatedDevice) {
-        updateDeviceStatusCache(updatedDevice.ip, "DOWN");
-        markedDownCount++;
+      if (heartbeat.deviceStatus !== "UP" || heartbeat.checkingDown) {
+        continue;
+      }
+
+      const lastPacketTime = Number(heartbeat.lastPacketTime || 0);
+
+      if (now - lastPacketTime > OFFLINE_TIMEOUT) {
+        await markDeviceDown(ip, heartbeat);
       }
     }
-
-    if (markedDownCount > 0) {
-      console.log(`[StatusMonitor] ${markedDownCount} device(s) marked DOWN`);
-    }
-  } catch (err) {
-    console.error("[StatusMonitor] Check failed:", err);
+  } catch (error) {
+    console.error("[StatusMonitor] Offline check failed:", error);
   } finally {
     isChecking = false;
   }
 }
 
-function startStatusMonitor() {
+function startStatusMonitor(heartbeatCache) {
   if (monitorTimer) return;
 
-  monitorTimer = setInterval(checkOfflineDevices, CHECK_INTERVAL);
-}
+  if (!(heartbeatCache instanceof Map)) {
+    throw new Error("[StatusMonitor] A valid heartbeatCache Map is required");
+  }
 
-function publishDeviceDownAlarm(ip) {
-  publishAlarm({
-    ip,
-    deviceStatus: "DOWN",
-    timestamp: new Date().toISOString(),
-  });
+  console.log("[StatusMonitor] Started using in-memory heartbeat cache");
 
-  lastDownAlarmPublishedAt.set(ip, Date.now());
+  monitorTimer = setInterval(() => {
+    checkOfflineDevices(heartbeatCache);
+  }, CHECK_INTERVAL);
 }
 
 function stopStatusMonitor() {
@@ -105,4 +167,5 @@ function stopStatusMonitor() {
 
 module.exports = {
   startStatusMonitor,
+  stopStatusMonitor,
 };
