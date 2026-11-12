@@ -56,8 +56,8 @@ async function getDeviceAvailability(query = {}) {
     Device.find().sort({ createdAt: -1 }).skip(skip).limit(pageLimit).lean(),
   ]);
 
-  const gridHours = Math.floor(Math.random() * 24);
-  const gridMinutes = Math.floor(Math.random() * 60);
+  // const gridHours = Math.floor(Math.random() * 24);
+  // const gridMinutes = Math.floor(Math.random() * 60);
 
   // Dummy values for NMS integration testing only
   const availabilityData = devices.map((device) => {

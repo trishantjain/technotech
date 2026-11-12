@@ -211,7 +211,7 @@ async function getDeviceStatus() {
       .select("deviceName ip deviceStatus dashboardStatus")
       .lean();
 
-    console.log("Devices: ", devices);
+    // console.log("Devices: ", devices);
 
     return {
       data: {

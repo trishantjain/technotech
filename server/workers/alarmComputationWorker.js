@@ -64,10 +64,10 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
         service_name: serviceName,
       });
 
-      console.log(
-        `🚨 Alarm created: ${serviceName} for ${device.ip}`,
-        createdAlarm._id,
-      );
+      // console.log(
+      //   `🚨 Alarm created: ${serviceName} for ${device.ip}`,
+      //   createdAlarm._id,
+      // );
 
       continue;
     }
@@ -193,10 +193,10 @@ async function start() {
     // Calculate alarms
     const alarms = calculateAlarms(data, thresholds);
 
-    console.log(
-      `🔔 Alarm calculation for ${ip}:`,
-      JSON.stringify(alarms, null, 2),
-    );
+    // console.log(
+    //   `🔔 Alarm calculation for ${ip}:`,
+    //   JSON.stringify(alarms, null, 2),
+    // );
 
     // Process alarm lifecycle
     await processAlarmLifecycle(device, alarms, timestamp);
