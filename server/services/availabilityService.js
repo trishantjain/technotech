@@ -63,7 +63,7 @@ async function getDeviceAvailability(query = {}) {
   const availabilityData = devices.map((device) => {
     const availabilityValue = Number((70 + Math.random() * 29).toFixed(2));
 
-    const downtimeValue = Number((Math.random() * 20).toFixed(2));
+    const downtimeValue = Number((100 - availabilityValue).toFixed(2));
 
     const gridHours = Math.floor(Math.random() * 24);
     const gridMinutes = Math.floor(Math.random() * 60);
