@@ -5,7 +5,6 @@ const pingSchema = new mongoose.Schema(
     deviceId: {
       type: String,
       required: true,
-      index: true,
     },
     sendTimeTicks: {
       type: Number,
@@ -21,5 +20,10 @@ const pingSchema = new mongoose.Schema(
     versionKey: false,
   },
 );
+
+pingSchema.index({
+  deviceId: 1,
+  sendTimeTicks: 1,
+});
 
 module.exports = mongoose.models.Ping || mongoose.model("Ping", pingSchema);

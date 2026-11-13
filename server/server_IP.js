@@ -147,6 +147,9 @@ app.get("/api/events/snapshots", (req, res) => {
 
 const logStreams = {};
 
+// Enable MongoDB query logging
+mongoose.set("debug", true);
+
 // 🔌 DB connection
 mongoose
   .connect(process.env.MONGO_URI)
@@ -871,21 +874,44 @@ app.get("/api/alarms/current", async (req, res) => {
   }
 
   try {
-    const devices = await Device.find().lean();
+    const alarmPath = `currentAlarms.${severity}`;
+
+    // const devices = await Device.find().lean();
+
+    const devices = await Device.find(
+      {
+        [`${alarmPath}.0`]: { $exists: true },
+      },
+      {
+        ip: 1,
+        deviceName: 1,
+        location: 1,
+        [alarmPath]: 1,
+      },
+    ).lean();
 
     const result = [];
 
     for (const device of devices) {
       const alarms = device.currentAlarms?.[severity] || [];
 
-      alarms.forEach((alarm) => {
+      // alarms.forEach((alarm) => {
+      //   result.push({
+      //     ip: device.ip,
+      //     deviceName: device.deviceName,
+      //     location: device.location,
+      //     alarm,
+      //   });
+      // });
+
+      for (const alarm of alarms) {
         result.push({
           ip: device.ip,
-          deviceName: device.deviceName,
-          location: device.location,
+          deviceName: device.deviceName ?? null,
+          location: device.location ?? null,
           alarm,
         });
-      });
+      }
     }
 
     res.json(result);

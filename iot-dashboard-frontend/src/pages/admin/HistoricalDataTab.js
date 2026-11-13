@@ -332,9 +332,7 @@ const HistoricalDataTab = () => {
     );
   };
 
-  const displayedAlarms = selectedSeverity
-  ? severityAlarms
-  : alarmEntries;
+  const displayedAlarms = selectedSeverity ? severityAlarms : alarmEntries;
 
   return (
     <div className="min-h-screen p-6 text-gray-100 bg-[#0b0f14]">
@@ -738,7 +736,7 @@ const HistoricalDataTab = () => {
 
                     <th className="px-5 py-4 font-semibold">Severity</th>
 
-                    <th className="px-5 py-4 font-semibold min-w-[220px]">
+                    <th className="px-5 py-4 font-semibold min-w-[200px]">
                       Alarm Description
                     </th>
 

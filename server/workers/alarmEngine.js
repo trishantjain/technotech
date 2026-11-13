@@ -25,6 +25,42 @@ function getDashboardStatus(deviceStatus, alarms) {
   return "connected";
 }
 
+const getFireAlarmDetails = (fireAlarm) => {
+  const fireAlarmStates = {
+    0: null,
+
+    1: {
+      alertType: "fireAlarm",
+      value: "fire Alarm",
+      reason: "Fire detected",
+      severity: "critical",
+    },
+
+    2: {
+      alertType: "smokeAlarm",
+      value: "Smoke Alarm",
+      reason: "Smoke detected",
+      severity: "critical",
+    },
+
+    80: {
+      alertType: "smokeWait",
+      value: "Smoke wait Alarm",
+      reason: "Smoke wait condition detected",
+      severity: "minor",
+    },
+
+    81: {
+      alertType: "smokeFireAlarm",
+      value: "Smoke and fire Alarm",
+      reason: "Smoke and fire detected",
+      severity: "critical",
+    },
+  };
+
+  return fireAlarmStates[Number(fireAlarm)] ?? null;
+};
+
 function calculateAlarms(reading, thresholds) {
   const alarms = {
     critical: [],
@@ -72,14 +108,15 @@ function calculateAlarms(reading, thresholds) {
     });
   }
 
-  if (reading.fireAlarm) {
-    alarms.critical.push({
-      key: "fireAlarm",
-      value: `Fire Alarm`,
-      reason: "Fire Detected",
+  const fireAlarmDetails = getFireAlarmDetails(reading.fireAlarm);
+
+  if (fireAlarmDetails) {
+    alarms[fireAlarmDetails.severity].push({
+      key: fireAlarmDetails.alertType,
+      value: fireAlarmDetails.value,
+      reason: fireAlarmDetails.reason,
       category: "status",
-      // title: "Fire Alarm",
-      severity: "critical",
+      severity: fireAlarmDetails.severity,
     });
   }
 
