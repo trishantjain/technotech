@@ -7,6 +7,13 @@ const connectDatabase = require("../config/db.js");
 const Alarm = require("../models/Alarm");
 const crypto = require("crypto");
 
+const { connectRedis } = require("../services/redisClient");
+
+const {
+  getDeviceStateRedis,
+  updateDeviceStateRedis,
+} = require("../services/deviceStatusRedis");
+
 // ======================================================
 // IN-MEMORY ALARM STATE
 // ======================================================
@@ -323,7 +330,8 @@ function enqueueDeviceProcessing(ip, task) {
 async function start() {
   console.log("🚀 Alarm Processor Worker started");
 
-  // Load existing active alarms before consuming messages.
+  await connectRedis();
+
   await loadActiveAlarmCache();
 
   // Flush pending alarm changes every 5 seconds.
@@ -353,28 +361,85 @@ async function start() {
       }
 
       // Calculate alarms
-      const alarms = calculateAlarms(data, thresholds);
+      // const alarms = calculateAlarms(data, thresholds);
 
-      // console.log(
-      //   `🔔 Alarm calculation for ${ip}:`,
-      //   JSON.stringify(alarms, null, 2),
+      // // console.log(
+      // //   `🔔 Alarm calculation for ${ip}:`,
+      // //   JSON.stringify(alarms, null, 2),
+      // // );
+
+      // // Process alarm lifecycle
+      // await processAlarmLifecycle(device, alarms, timestamp);
+
+      // // Save current alarm state
+      // await Device.updateOne(
+      //   { ip },
+      //   {
+      //     $set: {
+      //       currentAlarms: alarms,
+      //       dashboardStatus: getDashboardStatus(device.deviceStatus, alarms),
+      //     },
+      //   },
       // );
 
-      // Process alarm lifecycle
+      // Check whether any alarms exist
+      // const hasAlarms =
+      //   alarms.critical.length > 0 ||
+      //   alarms.major.length > 0 ||
+      //   alarms.minor.length > 0;
+
+      // publishAlarmResult({
+      //   ip,
+      //   alarms,
+      //   fanStatus,
+      //   type: hasAlarms ? "active" : "clear",
+      //   // timestamp: new Date().toISOString(),
+      //   timestamp: timestamp.toISOString(),
+      // });
+
+      // ================================================
+      // PUBLISH LATEST ALARM STATE TO EXPRESS PROCESS
+      // ================================================
+
+      // ================================================
+      // GET LATEST DEVICE STATUS FROM REDIS
+      // ================================================
+
+      const redisState = await getDeviceStateRedis(ip);
+
+      // Fallback to MongoDB during initial Redis setup.
+      const deviceStatus =
+        redisState?.deviceStatus || device.deviceStatus || "DOWN";
+
+      // ================================================
+      // CALCULATE ALARMS
+      // ================================================
+
+      const alarmInput = {
+        ...data,
+        deviceStatus,
+      };
+
+      const alarms = calculateAlarms(alarmInput, thresholds);
+
+      // ================================================
+      // PROCESS ALARM LIFECYCLE
+      // MongoDB Alarm collection remains unchanged.
+      // ================================================
+
       await processAlarmLifecycle(device, alarms, timestamp);
 
-      // Save current alarm state
-      await Device.updateOne(
-        { ip },
-        {
-          $set: {
-            currentAlarms: alarms,
-            dashboardStatus: getDashboardStatus(device.deviceStatus, alarms),
-          },
-        },
-      );
+      // ================================================
+      // COMPUTE DASHBOARD STATUS
+      // ================================================
 
-      // Check whether any alarms exist
+      const dashboardStatus = getDashboardStatus(deviceStatus, alarms);
+
+      // Store dashboard classification in Redis.
+      await updateDeviceStateRedis(ip, {
+        dashboardStatus,
+      });
+
       const hasAlarms =
         alarms.critical.length > 0 ||
         alarms.major.length > 0 ||
@@ -383,9 +448,10 @@ async function start() {
       publishAlarmResult({
         ip,
         alarms,
+        deviceStatus,
+        dashboardStatus,
         fanStatus,
         type: hasAlarms ? "active" : "clear",
-        // timestamp: new Date().toISOString(),
         timestamp: timestamp.toISOString(),
       });
     });

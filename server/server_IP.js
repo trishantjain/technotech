@@ -42,6 +42,25 @@ const logger = require("./logger/logger.js");
 
 const nmsRoutes = require("./routes/nms");
 
+const { connectRedis } = require("./services/redisClient");
+
+const {
+  initializeDeviceStatusRedis,
+  updateDeviceStateRedis,
+  getDeviceStateRedis,
+} = require("./services/deviceStatusRedis");
+
+const {
+  initializeCurrentAlarmCache,
+  setCurrentAlarms,
+  getCurrentAlarms,
+  getAllCurrentAlarms,
+} = require("./services/currentAlarmMemoryCache");
+
+const {
+  startDeviceStatePersistence,
+} = require("./services/deviceStatePersistence");
+
 const app = express();
 const connectedDevices = new Map();
 app.use(bodyParser.json());
@@ -67,6 +86,7 @@ async function initializeHeartbeatCache() {
       ip: 1,
       deviceStatus: 1,
       lastPacketTime: 1,
+      lastStatusChangeTimeTicks: 1,
     },
   ).lean();
 
@@ -157,6 +177,14 @@ mongoose
     logger.info("MongoDB connected");
 
     try {
+      await connectRedis();
+
+      // 2. Initialize device status in Redis.
+      await initializeDeviceStatusRedis();
+
+      // 3. Initialize current alarms in Node.js memory.
+      await initializeCurrentAlarmCache();
+
       // LOAD THE EXISTING CAMERA/DEVICE METADATA CACHE.
       await loadDeviceCache();
 
@@ -824,43 +852,140 @@ app.put("/api/device/reject/:ip", authMiddleware, async (req, res) => {
 });
 
 // ✅ ALARMS SUMMARY
-app.get("/api/alarms/current/summary", async (req, res) => {
-  try {
-    const devices = await Device.find(
-      {},
-      {
-        currentAlarms: 1,
-      },
-    ).lean();
+// app.get("/api/alarms/current/summary", async (req, res) => {
+//   try {
+//     const devices = await Device.find(
+//       {},
+//       {
+//         currentAlarms: 1,
+//       },
+//     ).lean();
 
+//     let critical = 0;
+//     let major = 0;
+//     let minor = 0;
+
+//     for (const device of devices) {
+//       critical += device.currentAlarms?.critical?.length || 0;
+//       major += device.currentAlarms?.major?.length || 0;
+//       minor += device.currentAlarms?.minor?.length || 0;
+//     }
+
+//     res.json({
+//       critical,
+//       major,
+//       minor,
+//     });
+//   } catch (err) {
+//     logger.error(
+//       {
+//         error: err.message,
+//         stack: err.stack,
+//       },
+//       "Failed to fetch alarm summary",
+//     );
+//     res.status(500).json({
+//       error: "Failed to fetch alarm summary",
+//     });
+//   }
+// });
+
+app.get("/api/alarms/current/summary", (req, res) => {
+  try {
     let critical = 0;
     let major = 0;
     let minor = 0;
 
-    for (const device of devices) {
-      critical += device.currentAlarms?.critical?.length || 0;
-      major += device.currentAlarms?.major?.length || 0;
-      minor += device.currentAlarms?.minor?.length || 0;
+    for (const [, alarms] of getAllCurrentAlarms()) {
+      critical += alarms.critical?.length || 0;
+      major += alarms.major?.length || 0;
+      minor += alarms.minor?.length || 0;
     }
 
-    res.json({
+    return res.json({
       critical,
       major,
       minor,
     });
   } catch (err) {
-    logger.error(
-      {
-        error: err.message,
-        stack: err.stack,
-      },
-      "Failed to fetch alarm summary",
-    );
-    res.status(500).json({
+    console.error("Failed to fetch alarm summary:", err);
+
+    return res.status(500).json({
       error: "Failed to fetch alarm summary",
     });
   }
 });
+
+// app.get("/api/alarms/current", async (req, res) => {
+//   const severity = req.query.severity;
+
+//   const allowedSeverities = ["critical", "major", "minor"];
+
+//   if (!allowedSeverities.includes(severity)) {
+//     return res.status(400).json({
+//       error: "Invalid severity. Use critical, major or minor",
+//     });
+//   }
+
+//   try {
+//     const alarmPath = `currentAlarms.${severity}`;
+
+//     // const devices = await Device.find().lean();
+
+//     const devices = await Device.find(
+//       {
+//         [`${alarmPath}.0`]: { $exists: true },
+//       },
+//       {
+//         ip: 1,
+//         deviceName: 1,
+//         location: 1,
+//         [alarmPath]: 1,
+//       },
+//     ).lean();
+
+//     const result = [];
+
+//     for (const device of devices) {
+//       const alarms = device.currentAlarms?.[severity] || [];
+
+//       // alarms.forEach((alarm) => {
+//       //   result.push({
+//       //     ip: device.ip,
+//       //     deviceName: device.deviceName,
+//       //     location: device.location,
+//       //     alarm,
+//       //   });
+//       // });
+
+//       for (const alarm of alarms) {
+//         result.push({
+//           ip: device.ip,
+//           deviceName: device.deviceName ?? null,
+//           location: device.location ?? null,
+//           alarm,
+//         });
+//       }
+//     }
+
+//     res.json(result);
+//   } catch (err) {
+//     console.error("Failed to fetch current alarms:", err);
+
+//     logger.error(
+//       {
+//         error: err.message,
+//         stack: err.stack,
+//         severity,
+//       },
+//       "Failed to fetch current alarms",
+//     );
+
+//     res.status(500).json({
+//       error: "Failed",
+//     });
+//   }
+// });
 
 app.get("/api/alarms/current", async (req, res) => {
   const severity = req.query.severity;
@@ -874,39 +999,41 @@ app.get("/api/alarms/current", async (req, res) => {
   }
 
   try {
-    const alarmPath = `currentAlarms.${severity}`;
+    const cachedEntries = getAllCurrentAlarms();
 
-    // const devices = await Device.find().lean();
+    const activeEntries = cachedEntries.filter(
+      ([, alarms]) => alarms[severity]?.length > 0,
+    );
+
+    const ips = activeEntries.map(([ip]) => ip);
+
+    if (ips.length === 0) {
+      return res.json([]);
+    }
 
     const devices = await Device.find(
       {
-        [`${alarmPath}.0`]: { $exists: true },
+        ip: { $in: ips },
       },
       {
         ip: 1,
         deviceName: 1,
         location: 1,
-        [alarmPath]: 1,
       },
     ).lean();
 
+    const deviceMap = new Map(devices.map((device) => [device.ip, device]));
+
     const result = [];
 
-    for (const device of devices) {
-      const alarms = device.currentAlarms?.[severity] || [];
+    for (const [ip, alarms] of activeEntries) {
+      const device = deviceMap.get(ip);
 
-      // alarms.forEach((alarm) => {
-      //   result.push({
-      //     ip: device.ip,
-      //     deviceName: device.deviceName,
-      //     location: device.location,
-      //     alarm,
-      //   });
-      // });
+      if (!device) continue;
 
-      for (const alarm of alarms) {
+      for (const alarm of alarms[severity]) {
         result.push({
-          ip: device.ip,
+          ip,
           deviceName: device.deviceName ?? null,
           location: device.location ?? null,
           alarm,
@@ -914,42 +1041,56 @@ app.get("/api/alarms/current", async (req, res) => {
       }
     }
 
-    res.json(result);
+    return res.json(result);
   } catch (err) {
     console.error("Failed to fetch current alarms:", err);
 
-    logger.error(
-      {
-        error: err.message,
-        stack: err.stack,
-        severity,
-      },
-      "Failed to fetch current alarms",
-    );
-
-    res.status(500).json({
-      error: "Failed",
+    return res.status(500).json({
+      error: "Failed to fetch current alarms",
     });
   }
 });
 
-app.get("/api/device/:ip/alarms", async (req, res) => {
-  const ip = req.params.ip;
+// app.get("/api/device/:ip/alarms", async (req, res) => {
+//   const ip = req.params.ip;
 
-  const device = await Device.findOne(
-    { ip },
-    {
-      currentAlarms: 1,
-    },
-  );
+//   const device = await Device.findOne(
+//     { ip },
+//     {
+//       currentAlarms: 1,
+//     },
+//   );
 
-  if (!device)
-    return res.status(404).json({
-      error: "Device not found",
+//   if (!device)
+//     return res.status(404).json({
+//       error: "Device not found",
+//     });
+
+//   res.json(device.currentAlarms);
+// });
+
+app.get("/api/device/:ip/alarms", (req, res) => {
+  try {
+    const ip = req.params.ip;
+
+    const alarms = getCurrentAlarms(ip);
+
+    if (alarms === null) {
+      return res.status(404).json({
+        error: "Device not found",
+      });
+    }
+
+    return res.json(alarms);
+  } catch (error) {
+    console.error("Failed to fetch device alarms:", error);
+
+    return res.status(500).json({
+      error: "Failed to retrieve device alarms",
     });
-
-  res.json(device.currentAlarms);
+  }
 });
+
 // *====================  DEVICE API  ======================
 
 // *==================== SNAPSHOTS API =====================
@@ -1936,28 +2077,29 @@ async function updateDeviceStatus(ip) {
 
   let heartbeat = heartbeatCache.get(ip);
 
-  // Device not present in cache
   if (!heartbeat) {
     heartbeat = {
       lastPacketTime: now,
       deviceStatus: "DOWN",
       dirty: true,
       statusDirty: false,
+      lastStatusChangeTimeTicks: 0,
     };
 
     heartbeatCache.set(ip, heartbeat);
   }
 
-  // Update heartbeat immediately in memory
+  // Update heartbeat in memory.
   heartbeat.lastPacketTime = now;
   heartbeat.dirty = true;
 
   const timestampToSave = heartbeat.lastPacketTime;
 
-  // A transition to UP, or a previous failed transition, needs persistence.
+  // Only update Redis when the device transitions to UP.
   if (heartbeat.deviceStatus !== "UP") {
     heartbeat.deviceStatus = "UP";
     heartbeat.statusDirty = true;
+    heartbeat.lastStatusChangeTimeTicks = now.getTime();
   }
 
   if (!heartbeat.statusDirty) {
@@ -1965,18 +2107,10 @@ async function updateDeviceStatus(ip) {
   }
 
   try {
-    await Device.updateOne(
-      {
-        ip,
-      },
-      {
-        $set: {
-          deviceStatus: "UP",
-          lastPacketTime: timestampToSave,
-          lastStatusChangeTimeTicks: now,
-        },
-      },
-    );
+    await updateDeviceStateRedis(ip, {
+      deviceStatus: "UP",
+      lastStatusChangeTimeTicks: heartbeat.lastStatusChangeTimeTicks,
+    });
 
     heartbeat.statusDirty = false;
 
@@ -1988,11 +2122,13 @@ async function updateDeviceStatus(ip) {
 
     updateDeviceStatusCache(ip, "UP");
   } catch (error) {
-    // Retain timestamp for the next heartbeat flush
     heartbeat.dirty = true;
-    heartbeat.deviceStatus = "UP";
+    heartbeat.statusDirty = true;
 
-    console.error(`Failed to update UP status for ${ip}:`, error.message);
+    console.error(
+      `[DeviceStatus] Redis update failed for ${ip}:`,
+      error.message,
+    );
   }
 }
 

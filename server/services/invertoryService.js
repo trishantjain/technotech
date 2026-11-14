@@ -124,31 +124,19 @@ async function getInventory(query = {}) {
 
     return {
       srNo: skip + index + 1,
-
       deviceId: String(device._id),
-
       deviceName: device.deviceName || "",
-
       createdAt: device.createdAt
         ? Math.floor(new Date(device.createdAt).getTime() / 1000)
         : 0,
-
       vendorName: device.vendorName || "ITI",
-
       state: device.status === "approved" ? "active" : "inactive",
-
       modelNumber: device.modelNumber || "ITI_EMS_2",
-
       deviceSerialNumber: device.deviceSerialNumber || "sr003",
-
       deviceType: device.deviceType || "EMS",
-
       deviceIp: device.ip || "",
-
       location: device.address || "",
-
       latitude: device.latitude ?? 0,
-
       longitude: device.longitude ?? 0,
 
       /*
@@ -157,35 +145,21 @@ async function getInventory(query = {}) {
        * in_downtime
        */
       deviceStatus,
-
       maintenanceMode: isInDowntime ? "Active" : "Inactive",
-
       swVersion: device.swVersion || "3.5.3",
-
       modifyTimeTicks: toUnixSeconds(device.modifyTimeTicks),
-
       modifyField: device.modifyField || "",
-
       lastStatusChangeTimeTicks: toUnixSeconds(
         device.lastStatusChangeTimeTicks,
       ),
-
       upsSoftwareVersion: device.upsSoftwareVersion || "v1.0.0",
-
       rectifier1Version: device.rectifier1Version || "v1.3.0",
-
       rectifier1SrNo: device.rectifier1SrNo || "R00001",
-
       rectifier2Version: device.rectifier2Version || "v1.3.1",
-
       rectifier2SrNo: device.rectifier2SrNo || "R00002",
-
       solarMpptVersion: device.solarMpptVersion || "v1.6.3",
-
       solarMpptSrNo: device.solarMpptSrNo || "S00003",
-
       inverterSrNo: device.inverterSrNo || "I00003",
-
       upsBatterySrNo: device.upsBatterySrNo || "U00002",
     };
   });
@@ -207,15 +181,29 @@ async function getInventory(query = {}) {
 
 async function getDeviceStatus() {
   try {
-    const devices = await Device.find({ status: "approved" })
-      .select("deviceName ip deviceStatus dashboardStatus")
+    // Fetch approved device metadata from MongoDB.
+    const devices = await Device.find({
+      status: "approved",
+    })
+      .select("deviceName ip")
       .lean();
 
-    // console.log("Devices: ", devices);
+    // Fetch latest device status from Redis.
+    const devicesWithStatus = await Promise.all(
+      devices.map(async (device) => {
+        const redisState = await getDeviceStateRedis(device.ip);
+
+        return {
+          ...device,
+          deviceStatus: redisState?.deviceStatus || "DOWN",
+          dashboardStatus: redisState?.dashboardStatus || "connected",
+        };
+      }),
+    );
 
     return {
       data: {
-        devices,
+        devices: devicesWithStatus,
       },
     };
   } catch (err) {
