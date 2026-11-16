@@ -9,7 +9,7 @@ async function initializeDeviceStatusCache() {
       _id: 1,
       ip: 1,
       deviceStatus: 1,
-    }
+    },
   ).lean();
 
   deviceStatusCache.clear();
@@ -24,7 +24,12 @@ async function initializeDeviceStatusCache() {
   }
 
   console.log(
-    `[PingRecord] Initialized status cache for ${deviceStatusCache.size} devices`
+    `[PingRecord] Initialized status cache for ${deviceStatusCache.size} devices`,
+  );
+
+  console.log(
+    "[TEST] Initialized cache:",
+    Array.from(deviceStatusCache.entries()),
   );
 }
 
@@ -35,9 +40,7 @@ function updateDeviceStatusCache(ip, status) {
 
   // Do not create an entry without a known MongoDB device ID.
   if (!existing) {
-    console.warn(
-      `[PingRecord] Device ${ip} is missing from the status cache`
-    );
+    console.warn(`[PingRecord] Device ${ip} is missing from the status cache`);
     return;
   }
 
@@ -45,6 +48,8 @@ function updateDeviceStatusCache(ip, status) {
     ...existing,
     response: status === "UP",
   });
+
+  console.log("[TEST] Updated cache:", ip, deviceStatusCache.get(ip));
 }
 
 function registerDeviceInStatusCache(device) {

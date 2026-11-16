@@ -1,12 +1,15 @@
 - DONE - Ping Matrics is not included in the document
 - PARTIALLY - Device availability API added but run hours to be fetched from the HUPS
-- Alarm and Device Status computation (yellow, red, orange) to be removed from frontend & existing backend API for NMS to be used. 
-DOWN - NMS Device Status alarm issue: After device goes down device status alarm should be active
+- Alarm and Device Status computation (yellow, red, orange) to be removed from frontend & existing backend API for NMS to be used.
+  DOWN - NMS Device Status alarm issue: After device goes down device status alarm should be active
 - Can change alarms according to threshold (diff. alarm if threshold is less than min and diff. alarm if threshold in greater than max)
 - Have to add HUPS values to the alarm service (Output voltage, UPS Output Volt, Inverter alarms to be added)
 - MongoDB EMS data backup
+- Redis and In-memory Cache - Device status, Current Alarms, Ping Records
+- Current alarms are not saving in the DB
 
 FIRMWARE CHANGES:
+
 1. Test mode - Lock relay off duration, Data from iMoni in every 5 seconds
 2. Debug Mode of all tests in TCP port so that easy to debug - Key
 3. Camera command - Take snapshot at any time from the EMS

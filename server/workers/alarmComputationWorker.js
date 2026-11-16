@@ -14,6 +14,11 @@ const {
   updateDeviceStateRedis,
 } = require("../services/deviceStatusRedis");
 
+const {
+  initializeCurrentAlarmRedis,
+  updateCurrentAlarmsRedis,
+} = require("../redis/currentAlarmRedis");
+
 // ======================================================
 // IN-MEMORY ALARM STATE
 // ======================================================
@@ -252,7 +257,6 @@ async function processAlarmLifecycle(device, alarms, timestamp) {
 
     /*
      * Alarm is still active.
-     *
      * Do NOT update created_at or last_hard_state_change on every packet.
      */
 
@@ -331,7 +335,7 @@ async function start() {
   console.log("🚀 Alarm Processor Worker started");
 
   await connectRedis();
-
+  await initializeCurrentAlarmRedis();
   await loadActiveAlarmCache();
 
   // Flush pending alarm changes every 5 seconds.
@@ -341,8 +345,6 @@ async function start() {
 
   await consume("alarm.queue", async (data) => {
     const { ip, fanStatus } = data;
-
-    // const activeAlarms = [];
 
     // const timestamp = new Date();
     const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
@@ -404,7 +406,6 @@ async function start() {
       // ================================================
       // GET LATEST DEVICE STATUS FROM REDIS
       // ================================================
-
       const redisState = await getDeviceStateRedis(ip);
 
       // Fallback to MongoDB during initial Redis setup.
@@ -414,7 +415,6 @@ async function start() {
       // ================================================
       // CALCULATE ALARMS
       // ================================================
-
       const alarmInput = {
         ...data,
         deviceStatus,
@@ -422,17 +422,29 @@ async function start() {
 
       const alarms = calculateAlarms(alarmInput, thresholds);
 
+      // Store latest computed alarms in Redis.
+      // MongoDB persistence will be handled separately.
+      const alarmChanged = await updateCurrentAlarmsRedis(ip, alarms);
+
+      console.log(
+        `[LIVE-ALARM] IP: ${ip} | Changed: ${alarmChanged} | Time: ${new Date().toISOString()}`,
+      );
+
+      if (alarmChanged) {
+        console.log(
+          `[AlarmRedis] Updated alarms for ${ip}:`,
+          JSON.stringify(alarms, null, 2),
+        );
+      }
+
       // ================================================
-      // PROCESS ALARM LIFECYCLE
       // MongoDB Alarm collection remains unchanged.
       // ================================================
-
       await processAlarmLifecycle(device, alarms, timestamp);
 
       // ================================================
       // COMPUTE DASHBOARD STATUS
       // ================================================
-
       const dashboardStatus = getDashboardStatus(deviceStatus, alarms);
 
       // Store dashboard classification in Redis.

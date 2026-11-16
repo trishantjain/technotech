@@ -1,5 +1,4 @@
-//* CALCULATES ALARMS AND CLASSIFY ALARM TYPE
-
+// RETURNS DEVICE HAVE "STATUS", "GAUGE" ALARM OR "DISCONNECTED"
 function getDashboardStatus(deviceStatus, alarms) {
   // Priority 1: Device disconnected
   if (
@@ -61,6 +60,7 @@ const getFireAlarmDetails = (fireAlarm) => {
   return fireAlarmStates[Number(fireAlarm)] ?? null;
 };
 
+// CATEGORISE THE ALARM ON THE BASIS OF "CRITICAL", "MANOR" & "MINOR"
 function calculateAlarms(reading, thresholds) {
   const alarms = {
     critical: [],

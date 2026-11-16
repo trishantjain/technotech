@@ -1,5 +1,6 @@
 const Device = require("../models/Device");
 const Downtime = require("../models/Downtime");
+const { getDeviceStateRedis } = require("./deviceStatusRedis");
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 50;

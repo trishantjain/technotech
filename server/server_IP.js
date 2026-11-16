@@ -168,7 +168,7 @@ app.get("/api/events/snapshots", (req, res) => {
 const logStreams = {};
 
 // Enable MongoDB query logging
-mongoose.set("debug", true);
+// mongoose.set("debug", true);
 
 // 🔌 DB connection
 mongoose

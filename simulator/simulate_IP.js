@@ -17,16 +17,19 @@ let currentSecond = 0;
 let isCSVMode = false;
 
 const simulatorState = {
-  insideTemperature: 26,
+  insideTemperature: 99,
   outsideTemperature: 26,
   outputVoltage: 35,
   inputVoltage: 33,
   humidity: 60,
+  hupsDVC: 20,
+  hupsBat: 33,
+  batteryBackup: 4,
   fireAlarm: false,
   leakage: false,
   logging: false,
-  door: false,
-  lock: true,
+  door: true,
+  lock: false,
   password: false,
   // Fan overrides from UI: when true, force that fan to status 2 (FAIL) in outgoing packets
   fan1: false,
@@ -35,8 +38,8 @@ const simulatorState = {
   fan4: false,
   fan5: false,
   fan6: false,
-  // mode: "manual",
-  mode: "random"
+  mode: "manual",
+  // mode: "random"
 };
 
 // 🔥 PRE-INDEXING: Fast lookup structure
@@ -303,7 +306,7 @@ function startDevice(ip, index) {
   try {
     // const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
     // const client = net.createConnection({ host: '172.16.113.225', port: 4000 });
-    const client = net.createConnection({ host: "192.168.1.12", port: 4000 });
+    const client = net.createConnection({ host: "localhost", port: 4000 });
     console.log("Client connected", ip);
 
     // 🔧 NEW: Store this device in our connected devices map
@@ -413,13 +416,6 @@ function startDevice(ip, index) {
                 : 35 + Math.random() * 5
               : simulatorState.insideTemperature;
 
-          const outputVoltage =
-            simulatorState.mode === "random"
-              ? triggerGaugeAlarm
-                ? 5000 + Math.random() * 10
-                : 5000 + Math.random() * 10
-              : simulatorState.outputVoltage;
-
           const outsideTemp =
             simulatorState.mode === "random"
               ? triggerGaugeAlarm
@@ -427,13 +423,20 @@ function startDevice(ip, index) {
                 : 40 + Math.random() * 5
               : simulatorState.outsideTemperature;
 
-          const hupsDVC = triggerGaugeAlarm
-            ? 2.5 + Math.random() * 10
-            : 3.3 + Math.random() * 10;
-
           const inputVoltage = triggerGaugeAlarm
             ? 4000 + Math.random() * 10
             : 4000 + Math.random() * 10;
+
+          const outputVoltage =
+            simulatorState.mode === "random"
+              ? triggerGaugeAlarm
+                ? 5000 + Math.random() * 10
+                : 5000 + Math.random() * 10
+              : simulatorState.outputVoltage;
+
+          const hupsDVC = triggerGaugeAlarm
+            ? 2.5 + Math.random() * 10
+            : 3.3 + Math.random() * 10;
 
           const hupsBat = triggerGaugeAlarm
             ? 2.5 + Math.random() * 10
