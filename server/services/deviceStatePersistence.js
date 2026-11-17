@@ -13,6 +13,7 @@ const {
   clearAlarmDirtyIfUnchanged,
   getCurrentAlarms,
 } = require("./currentAlarmMemoryCache");
+const { getDirtyCurrentAlarmDevices, getCurrentAlarmPersistenceState, markCurrentAlarmsPersisted } = require("../redis/currentAlarmRedis");
 
 const PERSIST_INTERVAL = 120000;
 
@@ -25,11 +26,16 @@ async function persistDeviceStates() {
   isPersisting = true;
 
   const statusSnapshot = getDirtyStatusSnapshot();
+  const alarmVersions = new Map();
   const alarmSnapshot = getDirtyAlarmSnapshot();
 
   try {
+    // Get devices with pending alarm changes from Redis.
+    const dirtyAlarmIps = await getDirtyCurrentAlarmDevices();
+
     const dirtyIps = new Set([
       ...statusSnapshot.keys(),
+      ...dirtyAlarmIps,
       ...alarmSnapshot.keys(),
     ]);
 
@@ -54,13 +60,24 @@ async function persistDeviceStates() {
           }
         }
 
-        if (alarmSnapshot.has(ip)) {
-          const alarms = getCurrentAlarms(ip);
+        if (dirtyAlarmIps.includes(ip)) {
+          const alarmState = await getCurrentAlarmPersistenceState(ip);
 
-          if (alarms) {
-            update.currentAlarms = alarms;
+          if (alarmState) {
+            update.currentAlarms = alarmState.alarms;
+
+            // Remember exactly which Redis version is being persisted.
+            alarmVersions.set(ip, alarmState.version);
           }
         }
+
+        // if (alarmSnapshot.has(ip)) {
+        //   const alarms = getCurrentAlarms(ip);
+
+        //   if (alarms) {
+        //     update.currentAlarms = alarms;
+        //   }
+        // }
 
         return { ip, update };
       }),
@@ -87,12 +104,23 @@ async function persistDeviceStates() {
       ordered: false,
     });
 
-    // Clear only the versions that were successfully persisted.
+    // Clear status changes only if their versions are unchanged.
     clearStatusDirtyIfUnchanged(statusSnapshot);
     clearAlarmDirtyIfUnchanged(alarmSnapshot);
 
+    // Acknowledge only the exact Redis alarm versions written.
+    for (const [ip, version] of alarmVersions) {
+      const persisted = await markCurrentAlarmsPersisted(ip, version);
+
+      if (!persisted) {
+        console.log(
+          `[DevicePersistence] Newer alarm update exists for ${ip}. Keeping it dirty.`,
+        );
+      }
+    }
+
     console.log(
-      `[DevicePersistence] Completed. Operations: ${operations.length}, matched: ${result.matchedCount}, modified: ${result.modifiedCount}`,
+      `[DevicePersistence] Completed. Operations: ${operations.length}, matched: ${result.matchedCount}, modified: ${result.modifiedCount}, alarms persisted: ${alarmVersions.size}`,
     );
   } catch (error) {
     // Dirty versions are retained and retried on the next cycle.
@@ -111,6 +139,9 @@ function startDeviceStatePersistence() {
   console.log(
     `[DevicePersistence] Started. Interval: ${PERSIST_INTERVAL / 1000}s`,
   );
+
+  // Persist pending changes immediately on startup.
+  persistDeviceStates();
 
   persistenceTimer = setInterval(persistDeviceStates, PERSIST_INTERVAL);
 

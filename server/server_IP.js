@@ -23,6 +23,7 @@ const {
   consume,
   publishLog,
   publishAlarmResult,
+  publishReading,
 } = require("./services/rabbit");
 const parseQueryDate = require("./alarm/dateParser.js");
 const parseIstLogTimestamp = require("./alarm/timestampParser.js");
@@ -195,6 +196,7 @@ mongoose
 
       // START MONITORING AND PERIODIC PING-RECORD CREATION
       startStatusMonitor(heartbeatCache);
+      startDeviceStatePersistence();
 
       setInterval(flushHeartbeatUpdates, HEARTBEAT_FLUSH_INTERVAL);
 
@@ -2188,30 +2190,31 @@ async function flushHeartbeatUpdates() {
   }
 }
 
-setInterval(async () => {
-  if (readingBuffer.length === 0) return;
+// TIME BASED READING FLUSH
+// setInterval(async () => {
+//   if (readingBuffer.length === 0) return;
 
-  const toSave = readingBuffer.splice(0, BULK_SAVE_LIMIT);
+//   const toSave = readingBuffer.splice(0, BULK_SAVE_LIMIT);
 
-  try {
-    await SensorReading.insertMany(toSave, { ordered: false });
+//   try {
+//     await SensorReading.insertMany(toSave, { ordered: false });
 
-    const uniqueMacs = [...new Set(toSave.map((r) => r.ip))];
+//     const uniqueMacs = [...new Set(toSave.map((r) => r.ip))];
 
-    // await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
-  } catch (err) {
-    console.error("Periodic bulk save error:", err);
+//     // await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
+//   } catch (err) {
+//     console.error("Periodic bulk save error:", err);
 
-    logger.error(
-      {
-        error: err.message,
-        stack: err.stack,
-        operation: "periodic bulk save",
-      },
-      "Periodic bulk save error",
-    );
-  }
-}, 2000);
+//     logger.error(
+//       {
+//         error: err.message,
+//         stack: err.stack,
+//         operation: "periodic bulk save",
+//       },
+//       "Periodic bulk save error",
+//     );
+//   }
+// }, 2000);
 
 const server = net.createServer((socket) => {
   // let buffer = Buffer.alloc(0);
@@ -2702,35 +2705,65 @@ const server = net.createServer((socket) => {
 
         // readingBuffer = readingBuffer.filter(r => r.ip !== ip);
         // sendToCloud(reading);
-        readingBuffer.push(reading);
+
+        // readingBuffer.push(reading);
+
+        // Publish reading to RabbitMQ.
+        // MongoDB persistence is handled by readingWorker.js.
+        try {
+          await publishReading(
+            reading.toObject({
+              depopulate: true,
+            }),
+          );
+        } catch (err) {
+          console.error(
+            `[READING QUEUE] Failed to publish reading for ${ip}:`,
+            err.message,
+          );
+
+          logger.error(
+            {
+              ip,
+              error: err.message,
+              stack: err.stack,
+              operation: "publish sensor reading",
+            },
+            "Failed to publish sensor reading to RabbitMQ",
+          );
+        }
+
         // console.log(`[BUFFER] pushed reading; readingBuffer.length=${readingBuffer.length}`);
         // console.log(`[eMS_LOGS] Finished parsing packet for MAC: ${ip}`);
 
-        if (readingBuffer.length >= BULK_SAVE_LIMIT) {
-          const toSave = [...readingBuffer];
-          readingBuffer = [];
+        // SIZE BASED READING FLUSH
+        // if (readingBuffer.length >= BULK_SAVE_LIMIT) {
+        //   const toSave = [...readingBuffer];
+        //   readingBuffer = [];
 
-          try {
-            await SensorReading.insertMany(toSave);
+        //   try {
+        //     await SensorReading.insertMany(toSave);
 
-            // Update deviceStatus only after successful save
-            const uniqueMacs = [...new Set(toSave.map((r) => r.ip))];
+        //     // Update deviceStatus only after successful save
+        //     const uniqueMacs = [...new Set(toSave.map((r) => r.ip))];
 
-            // await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
-          } catch (err) {
-            console.error("Immediate bulk save failed:", err);
+        //     // await Promise.all(uniqueMacs.map((ip) => updateDeviceStatus(ip)));
+        //   } catch (err) {
+        //     console.error("Immediate bulk save failed:", err);
 
-            logger.error(
-              {
-                error: err.message,
-                stack: err.stack,
-                operation: "immediate bulk save",
-                records: toSave.length,
-              },
-              "Immediate bulk save failed",
-            );
-          }
-        }
+        //     logger.error(
+        //       {
+        //         error: err.message,
+        //         stack: err.stack,
+        //         operation: "immediate bulk save",
+        //         records: toSave.length,
+        //       },
+        //       "Immediate bulk save failed",
+        //     );
+        //   }
+        // }
+
+        
         // setImmediate(async () => {
         //   if (readingBuffer.length >= BULK_SAVE_LIMIT) {
         //     const batch = readingBuffer.splice(0);

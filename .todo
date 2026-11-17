@@ -1,12 +1,23 @@
 - DONE - Ping Matrics is not included in the document
 - PARTIALLY - Device availability API added but run hours to be fetched from the HUPS
 - Alarm and Device Status computation (yellow, red, orange) to be removed from frontend & existing backend API for NMS to be used.
-  DOWN - NMS Device Status alarm issue: After device goes down device status alarm should be active
+- DONE - NMS Device Status alarm issue: After device goes down device status alarm should be active
 - Can change alarms according to threshold (diff. alarm if threshold is less than min and diff. alarm if threshold in greater than max)
 - Have to add HUPS values to the alarm service (Output voltage, UPS Output Volt, Inverter alarms to be added)
 - MongoDB EMS data backup
-- Redis and In-memory Cache - Device status, Current Alarms, Ping Records
-- Current alarms are not saving in the DB
+- DONE - Redis and In-memory Cache - Device status, Current Alarms, Ping Records
+- DONE - Current alarms are not saving in the DB
+- DONE – RabbitMQ connection optimization using a shared connection promise.
+- DONE – Independent RabbitMQ channels for each consumer.
+- DONE – Sensor readings publishing to sensor_readings_queue from server_IP.js.
+- DONE – MongoDB reading persistence moved from the TCP server to a separate readingWorker.js.
+- DONE – Batch processing of sensor readings (1,000 readings per batch or 10-second flush interval).
+- DONE – MongoDB bulkWrite() implementation with duplicate prevention using reading \_id.
+- DONE – RabbitMQ publisher confirmation added for sensor readings.
+- DONE – Batch consumer acknowledgement updated to handle channel reconnections safely.
+- PENDING – Delayed retry mechanism and dead-letter queue for failed reading batches.
+- PENDING – TCP packet processing serialization to prevent overlapping asynchronous data handlers.
+- PENDING – Durable local outbox to protect sensor readings during RabbitMQ outages.
 
 FIRMWARE CHANGES:
 

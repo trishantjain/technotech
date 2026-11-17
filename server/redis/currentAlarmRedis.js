@@ -47,7 +47,6 @@ function serializeAlarms(alarms) {
 
 // Initialize Redis from existing MongoDB alarm data.
 // Initialization must not mark devices dirty.
-
 async function initializeCurrentAlarmRedis() {
   console.log("[AlarmRedis] Initializing current alarms...");
 
@@ -92,25 +91,56 @@ async function updateCurrentAlarmsRedis(ip, alarms) {
   const key = getAlarmKey(ip);
   const newData = serializeAlarms(alarms);
 
-  const existingData = await redisClient.hGet(key, "data");
+  const script = `
+    local existingData = redis.call("HGET", KEYS[1], "data")
 
-  if (existingData === newData) {
-    return false;
-  }
+    if existingData == ARGV[1] then
+      return 0
+    end
 
-  const currentVersion = Number(await redisClient.hGet(key, "version")) || 0;
+    local currentVersion =
+      tonumber(redis.call("HGET", KEYS[1], "version")) or 0
 
-  const nextVersion = currentVersion + 1;
+    local nextVersion = currentVersion + 1
 
-  await redisClient.hSet(key, {
-    data: newData,
-    version: String(nextVersion),
+    redis.call(
+      "HSET",
+      KEYS[1],
+      "data", ARGV[1],
+      "version", tostring(nextVersion)
+    )
+
+    redis.call("SADD", KEYS[2], ARGV[2])
+
+    return 1
+  `;
+
+  const result = await redisClient.eval(script, {
+    keys: [key, DIRTY_SET],
+    arguments: [newData, ip],
   });
 
-  // Mark device for MongoDB persistence.
-  await redisClient.sAdd(DIRTY_SET, ip);
+  return Number(result) === 1;
 
-  return true;
+  // const existingData = await redisClient.hGet(key, "data");
+
+  // if (existingData === newData) {
+  //   return false;
+  // }
+
+  // const currentVersion = Number(await redisClient.hGet(key, "version")) || 0;
+
+  // const nextVersion = currentVersion + 1;
+
+  // await redisClient.hSet(key, {
+  //   data: newData,
+  //   version: String(nextVersion),
+  // });
+
+  // // Mark device for MongoDB persistence.
+  // await redisClient.sAdd(DIRTY_SET, ip);
+
+  // return true;
 }
 
 // Read current alarms from Redis.
@@ -147,19 +177,50 @@ async function getDirtyCurrentAlarmDevices() {
 async function markCurrentAlarmsPersisted(ip, persistedVersion) {
   const key = getAlarmKey(ip);
 
-  const currentVersion = Number(await redisClient.hGet(key, "version"));
+  const script = `
+    local currentVersion =
+      tonumber(redis.call("HGET", KEYS[1], "version"))
 
-  if (currentVersion !== persistedVersion) {
-    return false;
-  }
+    if not currentVersion then
+      return 0
+    end
 
-  await redisClient.hSet(key, {
-    persistedVersion: String(persistedVersion),
+    if currentVersion ~= tonumber(ARGV[1]) then
+      return 0
+    end
+
+    redis.call(
+      "HSET",
+      KEYS[1],
+      "persistedVersion",
+      ARGV[1]
+    )
+
+    redis.call("SREM", KEYS[2], ARGV[2])
+
+    return 1
+  `;
+
+  const result = await redisClient.eval(script, {
+    keys: [key, DIRTY_SET],
+    arguments: [String(persistedVersion), ip],
   });
 
-  await redisClient.sRem(DIRTY_SET, ip);
+  return Number(result) === 1;
 
-  return true;
+  // const currentVersion = Number(await redisClient.hGet(key, "version"));
+
+  // if (currentVersion !== persistedVersion) {
+  //   return false;
+  // }
+
+  // await redisClient.hSet(key, {
+  //   persistedVersion: String(persistedVersion),
+  // });
+
+  // await redisClient.sRem(DIRTY_SET, ip);
+
+  // return true;
 }
 
 module.exports = {

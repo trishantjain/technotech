@@ -17,18 +17,18 @@ let currentSecond = 0;
 let isCSVMode = false;
 
 const simulatorState = {
-  insideTemperature: 99,
+  insideTemperature: 55,
   outsideTemperature: 26,
-  outputVoltage: 35,
+  outputVoltage: 222,
   inputVoltage: 33,
   humidity: 60,
   hupsDVC: 20,
   hupsBat: 33,
   batteryBackup: 4,
   fireAlarm: false,
-  leakage: false,
-  logging: false,
-  door: true,
+  leakage: true,
+  logging: true,
+  door: false,
   lock: false,
   password: false,
   // Fan overrides from UI: when true, force that fan to status 2 (FAIL) in outgoing packets
