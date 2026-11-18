@@ -38,8 +38,8 @@ const simulatorState = {
   fan4: false,
   fan5: false,
   fan6: false,
-  mode: "manual",
-  // mode: "random"
+  // mode: "manual",
+  mode: "random"
 };
 
 // 🔥 PRE-INDEXING: Fast lookup structure

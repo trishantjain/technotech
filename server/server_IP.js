@@ -110,6 +110,65 @@ async function initializeHeartbeatCache() {
   console.log(`Heartbeat cache initialized for ${heartbeatCache.size} devices`);
 }
 
+const v8 = require("v8");
+
+app.get("/debug/heap-snapshot", (req, res) => {
+  try {
+    const fileName = v8.writeHeapSnapshot();
+
+    console.log("[HEAP SNAPSHOT CREATED]", fileName);
+
+    res.json({
+      success: true,
+      fileName,
+    });
+  } catch (error) {
+    console.error("Heap snapshot failed:", error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+const memoryMonitor = setInterval(() => {
+  const mem = process.memoryUsage();
+
+  let totalSocketBufferBytes = 0;
+  let maxSocketBufferBytes = 0;
+
+  for (const socket of connectedDevices.values()) {
+    const bufferSize = socket.buffer?.length || 0;
+
+    totalSocketBufferBytes += bufferSize;
+
+    maxSocketBufferBytes = Math.max(maxSocketBufferBytes, bufferSize);
+  }
+
+  console.log("[EMS MEMORY]", {
+    time: new Date().toLocaleTimeString(),
+
+    heapUsedMB: (mem.heapUsed / 1024 / 1024).toFixed(2),
+    heapTotalMB: (mem.heapTotal / 1024 / 1024).toFixed(2),
+
+    externalMB: (mem.external / 1024 / 1024).toFixed(2),
+    arrayBuffersMB: (mem.arrayBuffers / 1024 / 1024).toFixed(2),
+
+    rssMB: (mem.rss / 1024 / 1024).toFixed(2),
+
+    totalSocketBufferMB: (totalSocketBufferBytes / 1024 / 1024).toFixed(2),
+
+    maxSocketBufferKB: (maxSocketBufferBytes / 1024).toFixed(2),
+
+    activeDataHandlers,
+    maxActiveDataHandlers,
+    waitingForRedis,
+    waitingForAlarmPublish,
+    waitingForReadingPublish,
+  });
+}, 10000);
+
 // ===================== SSE: Snapshot Notifications =====================
 const snapshotSseClients = new Set();
 
@@ -2216,6 +2275,13 @@ async function flushHeartbeatUpdates() {
 //   }
 // }, 2000);
 
+let activeDataHandlers = 0;
+let maxActiveDataHandlers = 0;
+
+let waitingForRedis = 0;
+let waitingForReadingPublish = 0;
+let waitingForAlarmPublish = 0;
+
 const server = net.createServer((socket) => {
   // let buffer = Buffer.alloc(0);
   socket.buffer = Buffer.alloc(0);
@@ -2242,7 +2308,7 @@ const server = net.createServer((socket) => {
       console.log("========================================");
       console.log("RAW TCP CHUNK");
       console.log("Length:", data.length);
-      console.log("ASCII:", JSON.stringify(data.toString("ascii")));
+      // console.log("ASCII:", JSON.stringify(data.toString("ascii")));
       console.log(
         "EVENT COUNT:",
         (data.toString("ascii").match(/#EVENT/g) || []).length,
@@ -2251,6 +2317,10 @@ const server = net.createServer((socket) => {
     }
 
     const PACKET_LEN = 58;
+
+    activeDataHandlers++;
+
+    maxActiveDataHandlers = Math.max(maxActiveDataHandlers, activeDataHandlers);
 
     try {
       // debug.bufferStats.discardedBytes.totalBytes += data.length;
@@ -2615,10 +2685,19 @@ const server = net.createServer((socket) => {
         };
 
         // UPDATING DEVICE STATUS TO UP
-        await updateDeviceStatus(ip);
+        waitingForRedis++;
 
-        // SENDING
-        publishAlarm({
+        try {
+          await updateDeviceStatus(ip);
+        } finally {
+          waitingForRedis--;
+        }
+
+        // ========================== RABBIT MQ ALARM WORKER ==========================
+
+        waitingForAlarmPublish++;
+
+        const alarmPayload = {
           ip,
           humidity,
           insideTemperature,
@@ -2639,10 +2718,25 @@ const server = net.createServer((socket) => {
           overStatus: hupsAlarms[3],
           mptStatus: hupsAlarms[4],
           mosfStatus: hupsAlarms[5],
-          timestamp: new Date(),
-        });
+          timestamp: packetTimestamp,
+        };
+
+        publishAlarm(alarmPayload).then(
+          () => {
+            waitingForAlarmPublish--;
+          },
+          (err) => {
+            waitingForAlarmPublish--;
+
+            console.error(
+              `[ALARM QUEUE] Failed to publish alarm for ${ip}:`,
+              err.message,
+            );
+          },
+        );
 
         // ========================== RABBIT MQ ALARM WORKER ==========================
+
         // }
 
         socket.deviceId = ip;
@@ -2710,6 +2804,8 @@ const server = net.createServer((socket) => {
 
         // Publish reading to RabbitMQ.
         // MongoDB persistence is handled by readingWorker.js.
+        waitingForReadingPublish++;
+
         try {
           await publishReading(
             reading.toObject({
@@ -2731,6 +2827,8 @@ const server = net.createServer((socket) => {
             },
             "Failed to publish sensor reading to RabbitMQ",
           );
+        } finally {
+          waitingForReadingPublish--;
         }
 
         // console.log(`[BUFFER] pushed reading; readingBuffer.length=${readingBuffer.length}`);
@@ -2763,7 +2861,6 @@ const server = net.createServer((socket) => {
         //   }
         // }
 
-        
         // setImmediate(async () => {
         //   if (readingBuffer.length >= BULK_SAVE_LIMIT) {
         //     const batch = readingBuffer.splice(0);
@@ -2791,6 +2888,8 @@ const server = net.createServer((socket) => {
       );
 
       socket.destroy();
+    } finally {
+      activeDataHandlers--;
     }
   });
 

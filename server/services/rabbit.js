@@ -8,6 +8,10 @@ let connectionPromise = null;
 let publisherChannel;
 let reconnectTimer = null;
 
+let publishInFlight = 0;
+let maxPublishInFlight = 0;
+let publisherBackpressureCount = 0;
+
 const consumers = [];
 
 const READING_QUEUE = "sensor_readings_queue";
@@ -210,16 +214,33 @@ async function getPublisherChannel() {
  * Publish persistent messages and wait for broker confirmation.
  */
 async function publish(queue, data) {
-  const ch = await getPublisherChannel();
+  publishInFlight++;
 
-  const payload = Buffer.from(JSON.stringify(data));
+  maxPublishInFlight = Math.max(maxPublishInFlight, publishInFlight);
 
-  ch.sendToQueue(queue, payload, {
-    persistent: true,
-    contentType: "application/json",
-  });
+  try {
+    const ch = await getPublisherChannel();
 
-  await ch.waitForConfirms();
+    const payload = Buffer.from(JSON.stringify(data));
+
+    const writable = ch.sendToQueue(queue, payload, {
+      persistent: true,
+      contentType: "application/json",
+    });
+
+    if (!writable) {
+      publisherBackpressureCount++;
+
+      console.warn("[RABBIT] Publisher backpressure detected", {
+        queue,
+        publisherBackpressureCount,
+      });
+    }
+
+    await ch.waitForConfirms();
+  } finally {
+    publishInFlight--;
+  }
 }
 
 async function publishConfirmed(queue, data, options = {}) {
@@ -434,6 +455,7 @@ async function startConsumer(consumer) {
  * - Flushes partial batches after flushInterval.
  * - Acknowledges messages only after handler succeeds.
  */
+
 async function flushBatch(consumer) {
   if (consumer.flushing || consumer.pending.length === 0) {
     return;
@@ -441,9 +463,7 @@ async function flushBatch(consumer) {
 
   const batchChannel = consumer.channel;
 
-  if (!batchChannel) {
-    return;
-  }
+  if (!batchChannel) return;
 
   consumer.flushing = true;
 
@@ -452,32 +472,33 @@ async function flushBatch(consumer) {
   try {
     const readings = batch.map((item) => item.data);
 
-    // Save the complete batch to MongoDB.
+    // Attempt MongoDB persistence.
     await consumer.handler(readings);
 
-    // Acknowledge only on the original channel.
+    // Acknowledge only using the original channel.
     if (consumer.channel === batchChannel) {
       for (const item of batch) {
         batchChannel.ack(item.msg);
       }
     }
   } catch (err) {
-    console.error(
-      `[BATCH] MongoDB save failed (${consumer.queue}):`,
-      err.message,
-    );
+    console.error(`[READING WORKER] Batch save failed: ${err.message}`);
 
     if (consumer.channel === batchChannel) {
       try {
         for (const item of batch) {
-          const previousRetries = Number(
-            item.msg.properties.headers?.["x-reading-retry-count"] || 0,
-          );
+          if (consumer.channel !== batchChannel) {
+            break;
+          }
+
+          const headers = item.msg.properties.headers || {};
+
+          const previousRetries = Number(headers["x-reading-retry-count"] || 0);
 
           const nextRetries = previousRetries + 1;
 
-          if (nextRetries > MAX_READING_RETRIES) {
-            // Maximum retries exceeded: move to dead-letter queue.
+          if (previousRetries >= MAX_READING_RETRIES) {
+            // Maximum retries reached: move reading to dead queue.
             await publishConfirmed(READING_DEAD_QUEUE, item.data, {
               headers: {
                 "x-reading-retry-count": previousRetries,
@@ -486,10 +507,10 @@ async function flushBatch(consumer) {
             });
 
             console.error(
-              `[READING DEAD] Reading moved to dead queue after ${previousRetries} retries`,
+              `[READING DEAD] Reading moved to dead queue: ${item.data._id}`,
             );
           } else {
-            // Retry after the configured delay.
+            // Publish reading to retry queue with 5-second TTL.
             await publishConfirmed(READING_RETRY_QUEUE, item.data, {
               expiration: String(READING_RETRY_DELAY),
               headers: {
@@ -498,37 +519,36 @@ async function flushBatch(consumer) {
             });
 
             console.warn(
-              `[READING RETRY] Attempt ${nextRetries}/${MAX_READING_RETRIES}`,
+              `[READING RETRY] ${item.data._id} - Attempt ${nextRetries}/${MAX_READING_RETRIES}`,
             );
           }
 
-          // Acknowledge original only after replacement message is confirmed.
+          // Acknowledge original only after replacement is confirmed.
           if (consumer.channel !== batchChannel) {
-            throw new Error("Consumer channel changed during retry");
+            break;
           }
 
           batchChannel.ack(item.msg);
         }
       } catch (retryError) {
         console.error(
-          "[READING RETRY] Failed to publish retry:",
+          "[READING RETRY] Failed to publish replacement:",
           retryError.message,
         );
 
-        // Do not acknowledge messages whose replacement was not confirmed.
-        // Closing the channel causes unacknowledged deliveries to be requeued.
+        // Leave remaining messages unacknowledged.
+        // Closing the channel makes RabbitMQ requeue them.
         try {
           await batchChannel.close();
         } catch (closeError) {
           console.error(
-            "[READING RETRY] Channel close failed:",
+            "[READING RETRY] Channel close error:",
             closeError.message,
           );
         }
       }
     }
   } finally {
-    // Do not let an old batch overwrite the state of a replacement channel.
     if (consumer.channel === batchChannel) {
       consumer.flushing = false;
 

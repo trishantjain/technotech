@@ -16,7 +16,6 @@
 - DONE – RabbitMQ publisher confirmation added for sensor readings.
 - DONE – Batch consumer acknowledgement updated to handle channel reconnections safely.
 - PENDING – Delayed retry mechanism and dead-letter queue for failed reading batches.
-- PENDING – TCP packet processing serialization to prevent overlapping asynchronous data handlers.
 - PENDING – Durable local outbox to protect sensor readings during RabbitMQ outages.
 
 FIRMWARE CHANGES:
