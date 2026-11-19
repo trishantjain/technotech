@@ -52,6 +52,14 @@ async function connectRabbit() {
           console.error("RabbitMQ connection error:", err.message);
         });
 
+        conn.on("blocked", (reason) => {
+          console.error("[RABBIT CONNECTION BLOCKED]", reason);
+        });
+
+        conn.on("unblocked", () => {
+          console.log("[RABBIT CONNECTION UNBLOCKED]");
+        });
+
         conn.on("close", () => {
           console.error("❌ RabbitMQ connection closed. Reconnecting...");
           // channel = undefined;
@@ -213,31 +221,53 @@ async function getPublisherChannel() {
 /**
  * Publish persistent messages and wait for broker confirmation.
  */
+
 async function publish(queue, data) {
+  const startedAt = Date.now();
+
   publishInFlight++;
 
   maxPublishInFlight = Math.max(maxPublishInFlight, publishInFlight);
+
+  let writable;
+  let sendTimeMs = 0;
+  let confirmTimeMs = 0;
 
   try {
     const ch = await getPublisherChannel();
 
     const payload = Buffer.from(JSON.stringify(data));
 
-    const writable = ch.sendToQueue(queue, payload, {
+    const sendStartedAt = Date.now();
+
+    writable = ch.sendToQueue(queue, payload, {
       persistent: true,
       contentType: "application/json",
     });
 
-    if (!writable) {
-      publisherBackpressureCount++;
+    sendTimeMs = Date.now() - sendStartedAt;
 
-      console.warn("[RABBIT] Publisher backpressure detected", {
+    const confirmStartedAt = Date.now();
+
+    await ch.waitForConfirms();
+
+    confirmTimeMs = Date.now() - confirmStartedAt;
+
+    const totalTimeMs = Date.now() - startedAt;
+
+    if (totalTimeMs > 500 || !writable) {
+      console.warn("[RABBIT PUBLISH DIAGNOSTICS]", {
         queue,
+        writable,
+        payloadBytes: payload.length,
+        sendTimeMs,
+        confirmTimeMs,
+        totalTimeMs,
+        publishInFlight,
+        maxPublishInFlight,
         publisherBackpressureCount,
       });
     }
-
-    await ch.waitForConfirms();
   } finally {
     publishInFlight--;
   }
