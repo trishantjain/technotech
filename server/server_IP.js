@@ -164,8 +164,8 @@ const memoryMonitor = setInterval(() => {
     activeDataHandlers,
     maxActiveDataHandlers,
     waitingForRedis,
-    waitingForAlarmPublish,
-    waitingForReadingPublish,
+    waitingForAlarmQueueAdmission,
+    waitingForReadingQueueAdmission,
   });
 }, 10000);
 
@@ -2279,8 +2279,8 @@ let activeDataHandlers = 0;
 let maxActiveDataHandlers = 0;
 
 let waitingForRedis = 0;
-let waitingForReadingPublish = 0;
-let waitingForAlarmPublish = 0;
+let waitingForReadingQueueAdmission = 0;
+let waitingForAlarmQueueAdmission = 0;
 
 const server = net.createServer((socket) => {
   // let buffer = Buffer.alloc(0);
@@ -2695,7 +2695,7 @@ const server = net.createServer((socket) => {
 
         // ========================== RABBIT MQ ALARM WORKER ==========================
 
-        waitingForAlarmPublish++;
+        waitingForAlarmQueueAdmission++;
 
         const alarmPayload = {
           ip,
@@ -2723,13 +2723,13 @@ const server = net.createServer((socket) => {
 
         publishAlarm(alarmPayload).then(
           () => {
-            waitingForAlarmPublish--;
+            waitingForAlarmQueueAdmission--;
           },
           (err) => {
-            waitingForAlarmPublish--;
+            waitingForAlarmQueueAdmission--;
 
             console.error(
-              `[ALARM QUEUE] Failed to publish alarm for ${ip}:`,
+              `[ALARM QUEUE] Failed to admit alarm into publisher queue for ${ip}:`,
               err.message,
             );
           },
@@ -2804,9 +2804,12 @@ const server = net.createServer((socket) => {
 
         // Publish reading to RabbitMQ.
         // MongoDB persistence is handled by readingWorker.js.
-        waitingForReadingPublish++;
+        waitingForReadingQueueAdmission++;
 
         try {
+          // Wait only until the local bounded publisher queue
+          // accepts the reading. RabbitMQ confirmation and MongoDB
+          // persistence happen independently in the background.
           await publishReading(
             reading.toObject({
               depopulate: true,
@@ -2814,7 +2817,7 @@ const server = net.createServer((socket) => {
           );
         } catch (err) {
           console.error(
-            `[READING QUEUE] Failed to publish reading for ${ip}:`,
+            `[READING QUEUE] Failed to admit reading for ${ip}:`,
             err.message,
           );
 
@@ -2828,7 +2831,7 @@ const server = net.createServer((socket) => {
             "Failed to publish sensor reading to RabbitMQ",
           );
         } finally {
-          waitingForReadingPublish--;
+          waitingForReadingQueueAdmission--;
         }
 
         // console.log(`[BUFFER] pushed reading; readingBuffer.length=${readingBuffer.length}`);

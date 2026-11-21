@@ -8,9 +8,34 @@ let connectionPromise = null;
 let publisherChannel;
 let reconnectTimer = null;
 
-let publishInFlight = 0;
+// ===================== BACKGROUND PUBLISHER =====================
+
+// Maximum messages waiting to be published or confirmed.
+const MAX_PUBLISHER_PENDING_MESSAGES = 10000;
+
+// Maximum memory occupied by queued + unconfirmed messages.
+const MAX_PUBLISHER_PENDING_BYTES = 64 * 1024 * 1024;
+
+// Maximum messages sent to RabbitMQ without confirmation.
+const MAX_PUBLISHER_IN_FLIGHT = 500;
+
+// Retry delay when RabbitMQ rejects a message or publishing fails.
+const PUBLISHER_RETRY_DELAY = 1000;
+
+let publisherQueue = [];
+let publisherInFlight = new Set();
+
+let publisherPendingMessages = 0;
+let publisherPendingBytes = 0;
+
+let publisherBlocked = false;
+let publisherPumpRunning = false;
+let publisherRetryTimer = null;
+
 let maxPublishInFlight = 0;
 let publisherBackpressureCount = 0;
+
+// ===================== BACKGROUND PUBLISHER =====================
 
 const consumers = [];
 
@@ -107,6 +132,9 @@ async function connectRabbit() {
         pubChannel.on("close", () => {
           console.error("RabbitMQ publisher channel closed");
 
+          // Requeue messages that were sent but not confirmed.
+          recoverPublisherMessages(pubChannel);
+
           if (connection === conn) {
             publisherChannel = undefined;
             scheduleReconnect();
@@ -125,6 +153,9 @@ async function connectRabbit() {
 
         // Restart all registered consumers on the new connection.
         await restartConsumers();
+
+        // Start publishing any messages waiting in the local queue.
+        pumpPublisher();
 
         return publisherChannel;
       } catch (err) {
@@ -219,70 +250,256 @@ async function getPublisherChannel() {
 }
 
 /**
- * Publish persistent messages and wait for broker confirmation.
+ * Remove a message from publisher accounting after final confirmation.
  */
+function completePublisherMessage(item, error = null) {
+  if (item.completed) return;
 
-async function publish(queue, data) {
-  const startedAt = Date.now();
+  item.completed = true;
 
-  publishInFlight++;
+  publisherPendingMessages--;
+  publisherPendingBytes -= item.payload.length;
 
-  maxPublishInFlight = Math.max(maxPublishInFlight, publishInFlight);
+  if (publisherPendingMessages < 0) {
+    publisherPendingMessages = 0;
+  }
 
-  let writable;
-  let sendTimeMs = 0;
-  let confirmTimeMs = 0;
+  if (publisherPendingBytes < 0) {
+    publisherPendingBytes = 0;
+  }
 
-  try {
-    const ch = await getPublisherChannel();
-
-    const payload = Buffer.from(JSON.stringify(data));
-
-    const sendStartedAt = Date.now();
-
-    writable = ch.sendToQueue(queue, payload, {
-      persistent: true,
-      contentType: "application/json",
-    });
-
-    sendTimeMs = Date.now() - sendStartedAt;
-
-    const confirmStartedAt = Date.now();
-
-    await ch.waitForConfirms();
-
-    confirmTimeMs = Date.now() - confirmStartedAt;
-
-    const totalTimeMs = Date.now() - startedAt;
-
-    if (totalTimeMs > 500 || !writable) {
-      console.warn("[RABBIT PUBLISH DIAGNOSTICS]", {
-        queue,
-        writable,
-        payloadBytes: payload.length,
-        sendTimeMs,
-        confirmTimeMs,
-        totalTimeMs,
-        publishInFlight,
-        maxPublishInFlight,
-        publisherBackpressureCount,
-      });
+  if (item.resolve) {
+    if (error) {
+      item.reject(error);
+    } else {
+      item.resolve();
     }
-  } finally {
-    publishInFlight--;
   }
 }
 
-async function publishConfirmed(queue, data, options = {}) {
-  const ch = await getPublisherChannel();
+/**
+ * Retry a message without changing pending-message accounting.
+ */
+function retryPublisherMessage(item) {
+  if (item.completed || item.queuedForRetry) return;
 
-  ch.sendToQueue(queue, Buffer.from(JSON.stringify(data)), {
-    persistent: true,
-    contentType: "application/json",
-    ...options,
+  item.queuedForRetry = true;
+  publisherQueue.unshift(item);
+
+  if (!publisherRetryTimer) {
+    publisherRetryTimer = setTimeout(() => {
+      publisherRetryTimer = null;
+      pumpPublisher();
+    }, PUBLISHER_RETRY_DELAY);
+  }
+}
+
+/**
+ * Handle messages that were sent but not confirmed before
+ * the publisher channel closed.
+ */
+function recoverPublisherMessages(ch) {
+  for (const item of publisherInFlight) {
+    if (item.channel !== ch) continue;
+
+    publisherInFlight.delete(item);
+
+    if (!item.completed) {
+      retryPublisherMessage(item);
+    }
+  }
+
+  publisherBlocked = false;
+}
+
+/**
+ * Admit a message into the bounded local publisher queue.
+ *
+ * Normal publishing resolves after local queue admission.
+ * Confirmed publishing resolves only after RabbitMQ confirms it.
+ */
+function enqueuePublisherMessage(
+  queue,
+  data,
+  options = {},
+  waitForConfirm = false,
+) {
+  const payload = Buffer.from(JSON.stringify(data));
+
+  if (
+    publisherPendingMessages >= MAX_PUBLISHER_PENDING_MESSAGES ||
+    publisherPendingBytes + payload.length > MAX_PUBLISHER_PENDING_BYTES
+  ) {
+    throw new Error(
+      `RabbitMQ publisher queue is full. Pending messages: ${publisherPendingMessages}, pending MB: ${(publisherPendingBytes / 1024 / 1024).toFixed(2)}`,
+    );
+  }
+
+  publisherPendingMessages++;
+  publisherPendingBytes += payload.length;
+
+  let resolveConfirmation;
+  let rejectConfirmation;
+
+  const confirmationPromise = waitForConfirm
+    ? new Promise((resolve, reject) => {
+        resolveConfirmation = resolve;
+        rejectConfirmation = reject;
+      })
+    : null;
+
+  const item = {
+    queue,
+    payload,
+    options: {
+      persistent: true,
+      contentType: "application/json",
+      ...options,
+    },
+    resolve: resolveConfirmation,
+    reject: rejectConfirmation,
+    completed: false,
+    queuedForRetry: false,
+    channel: null,
+  };
+
+  publisherQueue.push(item);
+
+  // Run publisher independently of the TCP packet handler.
+  setImmediate(() => {
+    pumpPublisher();
   });
 
-  await ch.waitForConfirms();
+  return confirmationPromise;
+}
+
+/**
+ * Send queued messages in the background.
+ *
+ * Each message uses its own confirmation callback.
+ * No global waitForConfirms() call is used here.
+ */
+async function pumpPublisher() {
+  if (publisherPumpRunning || publisherBlocked) return;
+
+  publisherPumpRunning = true;
+
+  try {
+    while (
+      publisherQueue.length > 0 &&
+      publisherInFlight.size < MAX_PUBLISHER_IN_FLIGHT &&
+      !publisherBlocked
+    ) {
+      const ch = await getPublisherChannel();
+
+      if (!ch || ch !== publisherChannel) {
+        break;
+      }
+
+      const item = publisherQueue.shift();
+
+      if (!item || item.completed) {
+        continue;
+      }
+
+      item.queuedForRetry = false;
+      item.channel = ch;
+      publisherInFlight.add(item);
+
+      maxPublishInFlight = Math.max(maxPublishInFlight, publisherInFlight.size);
+
+      let writable;
+
+      try {
+        writable = ch.sendToQueue(
+          item.queue,
+          item.payload,
+          item.options,
+          (error) => {
+            // Ignore callbacks for messages already recovered
+            // after a channel-close event.
+            if (!publisherInFlight.has(item)) return;
+
+            publisherInFlight.delete(item);
+
+            if (error) {
+              console.error(
+                `[RABBIT PUBLISH] Broker did not confirm ${item.queue}:`,
+                error.message,
+              );
+
+              retryPublisherMessage(item);
+              return;
+            }
+
+            completePublisherMessage(item);
+
+            // Continue publishing after each confirmation.
+            setImmediate(() => {
+              pumpPublisher();
+            });
+          },
+        );
+      } catch (error) {
+        publisherInFlight.delete(item);
+
+        console.error(
+          `[RABBIT PUBLISH] Send failed (${item.queue}):`,
+          error.message,
+        );
+
+        retryPublisherMessage(item);
+        break;
+      }
+
+      // Writable backpressure: wait for drain before sending more.
+      if (!writable) {
+        publisherBlocked = true;
+        publisherBackpressureCount++;
+
+        ch.once("drain", () => {
+          // Ignore a drain event from an obsolete channel.
+          if (publisherChannel !== ch) return;
+
+          publisherBlocked = false;
+          pumpPublisher();
+        });
+
+        break;
+      }
+    }
+  } catch (error) {
+    console.error("[RABBIT PUBLISHER] Pump failed:", error.message);
+
+    if (!publisherRetryTimer) {
+      publisherRetryTimer = setTimeout(() => {
+        publisherRetryTimer = null;
+        pumpPublisher();
+      }, PUBLISHER_RETRY_DELAY);
+    }
+  } finally {
+    publisherPumpRunning = false;
+  }
+}
+
+/**
+ * Normal publisher.
+ *
+ * Resolves when the bounded local queue accepts the message.
+ * Broker confirmation happens in the background.
+ */
+async function publish(queue, data) {
+  enqueuePublisherMessage(queue, data);
+}
+
+/**
+ * Confirmed publisher.
+ *
+ * Used by retry/dead-letter handling.
+ * Resolves only after RabbitMQ confirms the replacement message.
+ */
+async function publishConfirmed(queue, data, options = {}) {
+  return enqueuePublisherMessage(queue, data, options, true);
 }
 
 /**
