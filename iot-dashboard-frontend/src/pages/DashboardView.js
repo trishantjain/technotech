@@ -21,6 +21,11 @@ import PasswordPrompt from "../components/PasswordPrompt.jsx";
 import { useNavigate } from "react-router-dom";
 
 const STALE_THRESHOLD_MS = 30000; // 30 seconds
+const LIVE_LOG_LIMIT = 800;
+const OLD_READINGS_FETCH_INTERVAL = 5000;
+const DEVICE_STATUS_FETCH_INTERVAL = 5000;
+const READINGS_FETCH_INTERVAL = 5000;
+const SNAPSHOT_FETCH_INTERVAL = 240000;
 
 const LOG_STORAGE_KEY = "tt.logsByMac.v1";
 const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE } = LOG_CONSTANTS; // 1 hour
@@ -29,6 +34,8 @@ const { LOG_RESET_MS, MAX_LOGS_PER_DEVICE } = LOG_CONSTANTS; // 1 hour
 // const LOG_THROTTLE_MS = 5000; // log at most once per 5 seconds per device
 const EMPTY_LOGS = [];
 
+const USE_NEW_READING_LOGIC = true;
+
 const PAPI = "/api";
 // const PAPI = "/api/";
 
@@ -36,7 +43,9 @@ function DashboardView() {
   const navigate = useNavigate();
   const role = localStorage.getItem("role");
 
+  // NEW: Latest reading of the currently selected device
   const [readings, setReadings] = useState([]);
+  const [selectedReading, setSelectedReading] = useState(null);
 
   // eslint-disable-next-line
   const [devices, setDevices] = useState([]);
@@ -51,30 +60,41 @@ function DashboardView() {
 
   const [dashboardMode, setDashboardMode] = useState("monitoring");
 
-  const selectedMacRef = useRef("");
-  // const deviceStatusRef = useRef({});
-
-  const [deviceStatusMap, setDeviceStatusMap] = useState({});
-
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingDevices, setLoadingDevices] = useState(true);
-  const hasLoadedOnceRef = useRef(false);
   const [showOpenPasswordPrompt, setShowOpenPasswordPrompt] = useState(false);
+  const [deviceStatusMap, setDeviceStatusMap] = useState({});
 
   const [rackTimer, setRackTimer] = useState(0);
   const [logTimer, setLogTimer] = useState(0);
+
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [alarmToggle, setAlarmToggle] = useState(false);
+
+  // const deviceStatusRef = useRef({});
+  const selectedMacRef = useRef("");
+
+  // NEW: Prevent duplicate live logs
+  const lastLoggedReadingRef = useRef({});
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     selectedMacRef.current = selectedMac;
   }, [selectedMac]);
 
-  const [alarmToggle, setAlarmToggle] = useState(false);
-
   // LOGS
   const lastResetAtRef = useRef(Date.now());
   const lastAlarmLogAtByMacRef = useRef({});
   const latestReadingsByMacRef = useRef({});
+  const mapRef = useRef(null);
+  // const isFetchingRef = useRef(false); // TIMING TESTING
+
+  // const _viewportRef = useRef(null);
+  const lastScrollTopRef = useRef(0);
+  const bottomRef = useRef(null);
+  const persistTimerRef = useRef(null);
+  const prevReadingsRef = useRef([]);
 
   /**
    * Reads and parses logs from localStorage with age validation
@@ -94,10 +114,13 @@ function DashboardView() {
     try {
       // Reading from local storage
       const raw = window?.localStorage?.getItem(LOG_STORAGE_KEY);
+
       if (!raw) return {};
+
       // Parsing JSON
       const parsed = JSON.parse(raw);
       const lastResetAt = Number(parsed?.lastResetAt || 0);
+
       // Logs by ip
       const stored = parsed?.logsByMac;
 
@@ -133,7 +156,9 @@ function DashboardView() {
     }
   };
 
-  const [logsByMac, setLogsByMac] = useState(() => readLogsLocalStorage());
+  const [logsByMac, setLogsByMac] = useState(() =>
+    USE_NEW_READING_LOGIC ? {} : readLogsLocalStorage(),
+  );
 
   // STORING LOG OF SELECTED DEVICE
   const currentLogs = useMemo(
@@ -141,16 +166,8 @@ function DashboardView() {
     [logsByMac, selectedMac],
   );
 
-  // const _viewportRef = useRef(null);
-  const lastScrollTopRef = useRef(0);
-  const bottomRef = useRef(null);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const persistTimerRef = useRef(null);
-
   //Map and marker refs
-  const mapRef = useRef(null);
   // const markerRefs = useRef({});
-  const isFetchingRef = useRef(false); // TIMING TESTING
 
   // const latestReadingsByMac = {};
   // readings.forEach((r) => {
@@ -163,8 +180,10 @@ function DashboardView() {
   // In this code 'latestReadingsByMac' this only computed only when readings change
   const latestReadingsByMac = useMemo(() => {
     const map = {};
+
     for (const r of readings) {
       const existing = map[r.ip];
+
       if (!existing || new Date(r.timestamp) > new Date(existing.timestamp)) {
         map[r.ip] = r;
       }
@@ -210,18 +229,299 @@ function DashboardView() {
 
   // const selectedDeviceMeta = deviceMeta.find((d) => d.ip === selectedMac);
   // const latestReading = readings.find((r) => r.ip === selectedMac);
-  const latestReading = latestReadingsByMac[selectedMac];
+  const latestReading = USE_NEW_READING_LOGIC
+    ? selectedReading
+    : latestReadingsByMac[selectedMac];
 
-  // UseEffect for fetching Data
+  // FETCHING DATA EVERY 5 SECONDS
+  // useEffect(() => {
+  //   const interval = setInterval(fetchData, 5000);
+
+  //   fetchData();
+
+  //   return () => {
+  //     clearInterval(interval);
+  //   };
+  // }, []);
+
+  // LEGACY READINGS API - FALLBACK ONLY
   useEffect(() => {
-    const interval = setInterval(fetchData, 5000);
+    if (USE_NEW_READING_LOGIC) return;
 
-    fetchData();
+    let isFetching = false;
+
+    const fetchLegacyReadings = async () => {
+      if (isFetching) return;
+
+      isFetching = true;
+
+      try {
+        const response = await fetch(`${PAPI}/${API.readings}`);
+
+        if (!response.ok) return;
+
+        let readingsData = await response.json();
+
+        readingsData = Array.isArray(readingsData) ? readingsData : [];
+
+        const isSame =
+          prevReadingsRef.current.length === readingsData.length &&
+          readingsData.every((reading) => {
+            const previous = prevReadingsRef.current.find(
+              (item) => item.ip === reading.ip,
+            );
+
+            return previous && previous.timestamp === reading.timestamp;
+          });
+
+        if (isSame) return;
+
+        setReadings(readingsData);
+        setRackTimer(0);
+
+        prevReadingsRef.current = readingsData;
+
+        const ip = selectedMacRef.current;
+
+        if (ip) {
+          const reading = readingsData.find((item) => item.ip === ip);
+
+          if (reading) {
+            const alarmResult = alarmComputation(reading, thresholds);
+
+            const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
+
+            setLogsByMac((prev) => {
+              const previousLogs = prev[ip] || [];
+
+              return {
+                ...prev,
+                [ip]: [...previousLogs, entry].slice(-MAX_LOGS_PER_DEVICE),
+              };
+            });
+
+            setLogTimer(0);
+          }
+        }
+      } catch (error) {
+        console.error("Legacy readings error:", error);
+      } finally {
+        isFetching = false;
+      }
+    };
+
+    fetchLegacyReadings();
+
+    const interval = setInterval(
+      fetchLegacyReadings,
+      OLD_READINGS_FETCH_INTERVAL,
+    );
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // FETCH DEVICE METADATA ON COMPONENT MOUNT
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchDeviceMetadata = async () => {
+      try {
+        const response = await fetch(`${PAPI}/${API.deviceInfo}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Device metadata API failed: ${response.status}`);
+        }
+
+        const metadata = await response.json();
+
+        setDeviceMeta(Array.isArray(metadata) ? metadata : []);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Device metadata error:", error);
+        }
+      } finally {
+        if (!controller.signal.aborted && !hasLoadedOnceRef.current) {
+          setLoadingDevices(false);
+          hasLoadedOnceRef.current = true;
+        }
+      }
+    };
+
+    fetchDeviceMetadata();
+
+    return () => controller.abort();
+  }, []);
+
+  // FETCH DEVICE STATUS EVERY 5 SECONDS
+  useEffect(() => {
+    let isFetching = false;
+    let isActive = true;
+
+    const fetchDeviceStatus = async () => {
+      if (isFetching || !isActive) return;
+
+      isFetching = true;
+
+      try {
+        const response = await fetch(`${PAPI}/${API.deviceStatus}`);
+
+        if (!response.ok) {
+          throw new Error(`Device status API failed: ${response.status}`);
+        }
+
+        const statusPayload = await response.json();
+        const statusDevices = statusPayload?.data?.devices;
+
+        if (statusPayload?.success === true && Array.isArray(statusDevices)) {
+          const nextStatusMap = {};
+
+          for (const device of statusDevices) {
+            const ip = String(device.ip || "").trim();
+
+            if (!ip) continue;
+
+            nextStatusMap[ip] = device.dashboardStatus || "disconnected";
+          }
+
+          if (isActive) {
+            setDeviceStatusMap(nextStatusMap);
+          }
+        } else {
+          console.error("Invalid device status API response:", statusPayload);
+        }
+      } catch (error) {
+        if (isActive) {
+          console.error("Device status error:", error);
+        }
+      } finally {
+        isFetching = false;
+      }
+    };
+
+    fetchDeviceStatus();
+
+    const interval = setInterval(
+      fetchDeviceStatus,
+      DEVICE_STATUS_FETCH_INTERVAL,
+    );
 
     return () => {
+      isActive = false;
       clearInterval(interval);
     };
   }, []);
+
+  // NEW: FETCH ONLY THE SELECTED DEVICE'S LATEST READING
+  useEffect(() => {
+    if (!USE_NEW_READING_LOGIC) return;
+
+    if (!selectedMac) {
+      setSelectedReading(null);
+      return;
+    }
+
+    setSelectedReading(null);
+
+    const controller = new AbortController();
+    let isFetching = false;
+
+    const fetchSelectedReading = async () => {
+      if (isFetching) return;
+
+      isFetching = true;
+
+      try {
+        const ip = String(selectedMac).trim();
+
+        const response = await fetch(
+          `${PAPI}/device/${encodeURIComponent(ip)}`,
+          { signal: controller.signal },
+        );
+
+        if (response.status === 404) {
+          setSelectedReading(null);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch reading for ${ip}: ${response.status}`,
+          );
+        }
+
+        const readingData = await response.json();
+
+        // Validate that the response belongs to the selected device
+        if (
+          String(readingData?.ip || "")
+            .trim()
+            .toLowerCase() !== ip.toLowerCase()
+        ) {
+          return;
+        }
+
+        setSelectedReading(readingData);
+
+        // Use MongoDB ID where available; otherwise use timestamp
+        const readingKey = String(
+          readingData._id || readingData.timestamp || "",
+        );
+
+        // Do not generate duplicate logs for the same reading
+        if (!readingKey) {
+          console.warn("Reading has no ID or timestamp:", readingData);
+          return;
+        }
+
+        if (lastLoggedReadingRef.current[ip] === readingKey) {
+          return;
+        }
+
+        lastLoggedReadingRef.current[ip] = readingKey;
+
+        // Reset rack timer when a genuinely new reading arrives
+        setRackTimer(0);
+
+        // Generate alarm descriptions using existing function
+        const alarmResult = alarmComputation(readingData, thresholds);
+
+        const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join(
+          "| ",
+        )}`;
+
+        // Keep a maximum of 800 logs per device
+        setLogsByMac((prev) => {
+          const previousLogs = prev[ip] || [];
+
+          const nextLogs = [...previousLogs, entry].slice(-LIVE_LOG_LIMIT);
+
+          return {
+            ...prev,
+            [ip]: nextLogs,
+          };
+        });
+
+        setLogTimer(0);
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Selected device reading error:", error);
+        }
+      } finally {
+        isFetching = false;
+      }
+    };
+
+    fetchSelectedReading();
+
+    const interval = setInterval(fetchSelectedReading, READINGS_FETCH_INTERVAL);
+
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [selectedMac]);
 
   // 🔄 Auto-focus map on selected device
   useEffect(() => {
@@ -236,190 +536,258 @@ function DashboardView() {
     }
   }, [selectedMac, deviceMeta]);
 
-  function shallowEqualDevices(a, b) {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
+  // function shallowEqualDevices(a, b) {
+  //   if (a === b) return true;
+  //   if (!a || !b) return false;
+  //   if (a.length !== b.length) return false;
 
-    for (let i = 0; i < a.length; i++) {
-      if (a[i].ip !== b[i].ip) return false;
-    }
-    return true;
-  }
-
-  const prevReadingsRef = useRef([]);
+  //   for (let i = 0; i < a.length; i++) {
+  //     if (a[i].ip !== b[i].ip) return false;
+  //   }
+  //   return true;
+  // }
 
   // FETCH DATA
-  const fetchData = async () => {
-    if (isFetchingRef.current) {
-      console.warn("⚠️ Previous fetch still running");
-      return;
-    }
+  // const fetchData = async () => {
+  //   if (isFetchingRef.current) {
+  //     console.warn("⚠️ Previous fetch still running");
+  //     return;
+  //   }
 
-    isFetchingRef.current = true;
+  //   isFetchingRef.current = true;
 
-    try {
-      if (!hasLoadedOnceRef.current) {
-        setLoadingDevices(true);
-      }
+  //   try {
+  //     if (!hasLoadedOnceRef.current) {
+  //       setLoadingDevices(true);
+  //     }
 
-      const timedFetch = async (name, url) => {
-        const start = performance.now();
+  //     const timedFetch = async (name, url) => {
+  //       const start = performance.now();
 
-        const res = await fetch(url);
+  //       const res = await fetch(url);
 
-        console.log(`${name}: ${(performance.now() - start).toFixed(1)} ms`);
+  //       console.log(`${name}: ${(performance.now() - start).toFixed(1)} ms`);
 
-        return res;
-      };
+  //       return res;
+  //     };
 
-      // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled(
-      //   [
-      //     timedFetch("readings", `${PAPI}/${API.readings}`),
-      //     timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
-      //     timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
-      //   ],
-      // );
+  //     // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled(
+  //     //   [
+  //     //     timedFetch("readings", `${PAPI}/${API.readings}`),
+  //     //     timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
+  //     //     timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
+  //     //   ],
+  //     // );
 
-      const [readingsRes, devicesRes, deviceMetaRes, deviceStatusRes] =
-        await Promise.allSettled([
-          timedFetch("readings", `${PAPI}/${API.readings}`),
-          timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
-          timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
-          timedFetch("deviceStatus", `${PAPI}/nms/device-status`),
-        ]);
+  //     // const [readingsRes, devicesRes, deviceMetaRes, deviceStatusRes] =
+  //     //   await Promise.allSettled([
+  //     //     timedFetch("readings", `${PAPI}/${API.readings}`),
+  //     //     timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
+  //     //     timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
+  //     //     timedFetch("deviceStatus", `${PAPI}/${API.deviceStatus}`),
+  //     //   ]);
 
-      // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled([
-      //   fetch(`${PAPI}/${API.readings}`),
-      //   fetch(`${PAPI}/${API.allDevices}`),
-      //   fetch(`${PAPI}/${API.deviceInfo}`),
-      // ]);
+  //     const [devicesRes, deviceMetaRes, deviceStatusRes] =
+  //       await Promise.allSettled([
+  //         timedFetch("allDevices", `${PAPI}/${API.allDevices}`),
+  //         timedFetch("deviceInfo", `${PAPI}/${API.deviceInfo}`),
+  //         timedFetch("deviceStatus", `${PAPI}/${API.deviceStatus}`),
+  //       ]);
 
-      // if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
-      //   const readingsData = await readingsRes.value.json();
-      //   setReadings(Array.isArray(readingsData) ? readingsData : []);
-      // }
+  //     // const [readingsRes, devicesRes, deviceMetaRes] = await Promise.allSettled([
+  //     //   fetch(`${PAPI}/${API.readings}`),
+  //     //   fetch(`${PAPI}/${API.allDevices}`),
+  //     //   fetch(`${PAPI}/${API.deviceInfo}`),
+  //     // ]);
 
-      let readingsData = [];
+  //     // if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
+  //     //   const readingsData = await readingsRes.value.json();
+  //     //   setReadings(Array.isArray(readingsData) ? readingsData : []);
+  //     // }
 
-      if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
-        const data = await readingsRes.value.json();
-        readingsData = Array.isArray(data) ? data : [];
+  //     // OLD IMPLEMENTATION - KEEP AS FALLBACK
+  //     if (!USE_NEW_READING_LOGIC) {
+  //       const readingsRes = await timedFetch(
+  //         "readings",
+  //         `${PAPI}/${API.readings}`,
+  //       );
 
-        const isSame =
-          prevReadingsRef.current.length === readingsData.length &&
-          readingsData.every((r) => {
-            const prev = prevReadingsRef.current.find((p) => p.ip === r.ip);
-            return prev && prev.timestamp === r.timestamp;
-          });
+  //       let readingsData = [];
 
-        console.log("FETCH TIME:", new Date().toLocaleTimeString());
-        // console.log("IS SAME DATA:", isSame);
+  //       if (readingsRes.ok) {
+  //         readingsData = await readingsRes.json();
 
-        if (!isSame) {
-          // console.log("✅ NEW DATA ARRIVED");
+  //         readingsData = Array.isArray(readingsData) ? readingsData : [];
 
-          setReadings(readingsData);
-          setRackTimer(0);
-          prevReadingsRef.current = readingsData;
+  //         const isSame =
+  //           prevReadingsRef.current.length === readingsData.length &&
+  //           readingsData.every((r) => {
+  //             const prev = prevReadingsRef.current.find((p) => p.ip === r.ip);
 
-          // 🔥 ADD THIS BLOCK (LOGGING HERE)
-          const ip = selectedMacRef.current;
-          if (ip) {
-            const reading = readingsData.find((r) => r.ip === ip);
-            if (reading) {
-              const alarmResult = alarmComputation(reading, thresholds);
+  //             return prev && prev.timestamp === r.timestamp;
+  //           });
 
-              const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
+  //         if (!isSame) {
+  //           setReadings(readingsData);
+  //           setRackTimer(0);
 
-              setLogsByMac((prev) => {
-                const prevLogs = prev[ip] || [];
-                const nextLogs = [...prevLogs, entry].slice(
-                  -MAX_LOGS_PER_DEVICE,
-                );
+  //           prevReadingsRef.current = readingsData;
 
-                return {
-                  ...prev,
-                  [ip]: nextLogs,
-                };
-              });
+  //           // OLD LIVE LOG GENERATION
+  //           const ip = selectedMacRef.current;
 
-              setLogTimer(0);
-            }
-          }
-        } else {
-          console.log("❌ SAME DATA (NO UPDATE)");
-        }
+  //           if (ip) {
+  //             const reading = readingsData.find((r) => r.ip === ip);
 
-        // safe logging
-        // console.log("DATA:", readingsData.map(r => ({
-        //   ip: r.ip,
-        //   ts: r.timestamp,
-        //   temp: r.insideTemperature,
-        //   ip: r.ip,
-        //   fan1Status: r.fan1Status,
-        //   fan2Status: r.fan2Status,
-        //   fan3Status: r.fan3Status,
-        //   fan4Status: r.fan4Status,
-        //   fan5Status: r.fan5Status,
-        //   fan6Status: r.fan6Status,
-        //   fanLevel1Running: r.fanLevel1Running,
-        //   fanLevel2Running: r.fanLevel2Running,
-        //   fanLevel3Running: r.fanLevel3Running,
-        //   fanLevel4Running: r.fanLevel4Running
-        // })));
-      }
+  //             if (reading) {
+  //               const alarmResult = alarmComputation(reading, thresholds);
 
-      if (devicesRes.status === "fulfilled" && devicesRes.value.ok) {
-        const devicesData = await devicesRes.value.json();
-        setDevices(Array.isArray(devicesData) ? devicesData : []);
-      }
+  //               const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
 
-      if (deviceMetaRes.status === "fulfilled" && deviceMetaRes.value.ok) {
-        const metadata = await deviceMetaRes.value.json();
+  //               setLogsByMac((prev) => {
+  //                 const prevLogs = prev[ip] || [];
 
-        setDeviceMeta((prev) => {
-          const next = Array.isArray(metadata) ? metadata : [];
+  //                 const nextLogs = [...prevLogs, entry].slice(
+  //                   -MAX_LOGS_PER_DEVICE,
+  //                 );
 
-          if (shallowEqualDevices(prev, next)) {
-            return prev;
-          }
-          return next;
-        });
-      }
+  //                 return {
+  //                   ...prev,
+  //                   [ip]: nextLogs,
+  //                 };
+  //               });
 
-      if (deviceStatusRes.status === "fulfilled" && deviceStatusRes.value.ok) {
-        const statusPayload = await deviceStatusRes.value.json();
-        const statusDevices = statusPayload?.data?.devices;
+  //               setLogTimer(0);
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
 
-        if (Array.isArray(statusDevices)) {
-          const nextStatusMap = {};
+  //     let readingsData = [];
 
-          for (const device of statusDevices) {
-            if (!device.ip) continue;
+  //     // if (readingsRes.status === "fulfilled" && readingsRes.value.ok) {
+  //     //   const data = await readingsRes.value.json();
+  //     //   readingsData = Array.isArray(data) ? data : [];
 
-            nextStatusMap[device.ip] = device.dashboardStatus || "disconnected";
-          }
+  //     //   const isSame =
+  //     //     prevReadingsRef.current.length === readingsData.length &&
+  //     //     readingsData.every((r) => {
+  //     //       const prev = prevReadingsRef.current.find((p) => p.ip === r.ip);
+  //     //       return prev && prev.timestamp === r.timestamp;
+  //     //     });
 
-          setDeviceStatusMap(nextStatusMap);
-        }
-      } else {
-        console.error("Failed to fetch backend device status");
-      }
+  //     //   console.log("FETCH TIME:", new Date().toLocaleTimeString());
+  //     //   // console.log("IS SAME DATA:", isSame);
 
-      // setRackTimer(0);
-      // console.log("readingData", readingsData);
-    } catch (err) {
-      console.error("❌Error fetching data:", err);
-    } finally {
-      isFetchingRef.current = false;
+  //     //   if (!isSame) {
+  //     //     // console.log("✅ NEW DATA ARRIVED");
 
-      if (!hasLoadedOnceRef.current) {
-        setLoadingDevices(false);
-        hasLoadedOnceRef.current = true;
-      }
-    }
-  };
+  //     //     setReadings(readingsData);
+  //     //     setRackTimer(0);
+  //     //     prevReadingsRef.current = readingsData;
+
+  //     //     // 🔥 ADD THIS BLOCK (LOGGING HERE)
+  //     //     const ip = selectedMacRef.current;
+  //     //     if (ip) {
+  //     //       const reading = readingsData.find((r) => r.ip === ip);
+  //     //       if (reading) {
+  //     //         const alarmResult = alarmComputation(reading, thresholds);
+
+  //     //         const entry = `[${new Date().toLocaleTimeString()}] [${ip}] ${alarmResult.alarms.join("| ")}`;
+
+  //     //         setLogsByMac((prev) => {
+  //     //           const prevLogs = prev[ip] || [];
+  //     //           const nextLogs = [...prevLogs, entry].slice(
+  //     //             -MAX_LOGS_PER_DEVICE,
+  //     //           );
+
+  //     //           return {
+  //     //             ...prev,
+  //     //             [ip]: nextLogs,
+  //     //           };
+  //     //         });
+
+  //     //         setLogTimer(0);
+  //     //       }
+  //     //     }
+  //     //   } else {
+  //     //     console.log("❌ SAME DATA (NO UPDATE)");
+  //     //   }
+
+  //     //   // safe logging
+  //     //   // console.log("DATA:", readingsData.map(r => ({
+  //     //   //   ip: r.ip,
+  //     //   //   ts: r.timestamp,
+  //     //   //   temp: r.insideTemperature,
+  //     //   //   ip: r.ip,
+  //     //   //   fan1Status: r.fan1Status,
+  //     //   //   fan2Status: r.fan2Status,
+  //     //   //   fan3Status: r.fan3Status,
+  //     //   //   fan4Status: r.fan4Status,
+  //     //   //   fan5Status: r.fan5Status,
+  //     //   //   fan6Status: r.fan6Status,
+  //     //   //   fanLevel1Running: r.fanLevel1Running,
+  //     //   //   fanLevel2Running: r.fanLevel2Running,
+  //     //   //   fanLevel3Running: r.fanLevel3Running,
+  //     //   //   fanLevel4Running: r.fanLevel4Running
+  //     //   // })));
+  //     // }
+
+  //     if (devicesRes.status === "fulfilled" && devicesRes.value.ok) {
+  //       const devicesData = await devicesRes.value.json();
+  //       setDevices(Array.isArray(devicesData) ? devicesData : []);
+  //     }
+
+  //     if (deviceMetaRes.status === "fulfilled" && deviceMetaRes.value.ok) {
+  //       const metadata = await deviceMetaRes.value.json();
+
+  //       setDeviceMeta((prev) => {
+  //         const next = Array.isArray(metadata) ? metadata : [];
+
+  //         if (shallowEqualDevices(prev, next)) {
+  //           return prev;
+  //         }
+  //         return next;
+  //       });
+  //     }
+
+  //     if (deviceStatusRes.status === "fulfilled" && deviceStatusRes.value.ok) {
+  //       const statusPayload = await deviceStatusRes.value.json();
+  //       const statusDevices = statusPayload?.data?.devices;
+
+  //       if (statusPayload?.success === true && Array.isArray(statusDevices)) {
+  //         const nextStatusMap = {};
+
+  //         for (const device of statusDevices) {
+  //           const ip = String(device.ip || "").trim();
+
+  //           if (!ip) continue;
+
+  //           nextStatusMap[ip] = device.dashboardStatus || "disconnected";
+  //         }
+
+  //         setDeviceStatusMap(nextStatusMap);
+  //       } else {
+  //         console.error("Invalid device status API response:", statusPayload);
+  //       }
+  //     } else {
+  //       console.error("Failed to fetch backend device status");
+  //     }
+
+  //     // setRackTimer(0);
+  //     // console.log("readingData", readingsData);
+  //   } catch (err) {
+  //     console.error("❌Error fetching data:", err);
+  //   } finally {
+  //     isFetchingRef.current = false;
+
+  //     if (!hasLoadedOnceRef.current) {
+  //       setLoadingDevices(false);
+  //       hasLoadedOnceRef.current = true;
+  //     }
+  //   }
+  // };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -625,47 +993,6 @@ function DashboardView() {
     };
   }
 
-  // function computeColor(reading, staleThresholdMs) {
-  //   if (!reading?.timestamp) return "disconnected";
-
-  //   const age = Date.now() - new Date(reading.timestamp).getTime();
-
-  //   // IF READING NOT RECEIVED FOR MORE THAN STALE SECONDS THAN 'DISCONNECTED'
-  //   if (age > staleThresholdMs) {
-  //     return "disconnected";
-  //   }
-
-  //   // STATUS ALARMS
-  //   const hasStatusAlarm =
-  //     reading.fireAlarm ||
-  //     reading.waterLeakage ||
-  //     reading.waterLogging ||
-  //     reading.lockStatus === "OPEN" ||
-  //     reading.doorStatus === "OPEN" ||
-  //     [1, 2, 3].includes(reading.pwsFailCount) ||
-  //     reading.mainStatus === 0 ||
-  //     reading.rectStatus === 0 ||
-  //     reading.inveStatus === 0 ||
-  //     reading.overStatus === 0 ||
-  //     reading.mptStatus === 0 ||
-  //     reading.mosfStatus === 0;
-
-  //   if (hasStatusAlarm) return "status-alarm";
-
-  //   // GAUGE ALARMS
-  //   const hasGaugeAlarm =
-  //     reading.insideTemperatureAlarm ||
-  //     reading.outsideTemperatureAlarm ||
-  //     reading.humidityAlarm ||
-  //     reading.inputVoltageAlarm ||
-  //     reading.outputVoltageAlarm ||
-  //     reading.batteryBackupAlarm;
-
-  //   if (hasGaugeAlarm) return "gauge-alarm";
-
-  //   return "connected";
-  // }
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
@@ -773,6 +1100,8 @@ function DashboardView() {
 
   //* STOPPING LOGS FROM DELETING AT REFRESH
   useEffect(() => {
+    if (USE_NEW_READING_LOGIC) return;
+
     if (persistTimerRef.current) {
       clearTimeout(persistTimerRef.current);
     }
@@ -789,6 +1118,8 @@ function DashboardView() {
 
   // RESETTING LOGS AFTER EVERY 1 HOUR
   useEffect(() => {
+    if (USE_NEW_READING_LOGIC) return;
+
     // Reseting Logs after every 1 hour
     const logTimer = setInterval(() => {
       lastResetAtRef.current = Date.now();
@@ -839,57 +1170,7 @@ function DashboardView() {
     lastScrollTopRef.current = currentScrollTop;
   };
 
-  // const toggleFullscreen = () => {
-  //   const iframe = document.querySelector(".camera-iframe");
-  //   if (iframe.requestFullscreen) iframe.requestFullscreen();
-  //   else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
-  //   else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
-  // };
-
-  // const zoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 2));
-  // const zoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 1));
-  // const rotateFeed = () => setRotation((prev) => (prev + 90) % 360);
-
-  // const isAlarmActive = (reading) =>
-  //   reading.fireAlarm || reading.waterLeakage || reading.waterLogging || reading.lockStatus === "OPEN" || reading.doorStatus === "OPEN" || [1, 2, 3].includes(reading.password);
-
-  // const CHART_DELAY_MS = 2 * 60 * 1000; // 2 minutes
-  // const chartCutoffTime = Date.now() - CHART_DELAY_MS;
-  // const historicalData = readings
-
-  //   .filter((r) => r.ip === selectedMac && r.timestamp)
-  //   .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) // oldest to latest
-  //   .slice(-15)
-  //   .map((r) => {
-  //     const d = new Date(r.timestamp);
-
-  //     return {
-  //       time:
-  //         `${d.getHours().toString().padStart(2, "0")}:` +
-  //         `${d.getMinutes().toString().padStart(2, "0")}:` +
-  //         `${d.getSeconds().toString().padStart(2, "0")}.` +
-  //         `${d.getMilliseconds().toString().padStart(3, "0")}`, // tenths of a second,
-  //       insideTemperature: Number(r.insideTemperature.toFixed(2)),
-  //       outsideTemperature: Number(r.outsideTemperature.toFixed(2)),
-  //       humidity: Number(r.humidity.toFixed(2)),
-  //       inputVoltage: Number(r.inputVoltage.toFixed(2)),
-  //       outputVoltage: Number(r.outputVoltage.toFixed(2)),
-  //       batteryBackup: Number(r.batteryBackup.toFixed(2)),
-  //     }
-  //   });
-
-  // UPDATED FOR TIMING ISSUE TESTING
-  // const historicalData = useMemo(() => {
-  //   return readings
-  //     .filter(r =>
-  //       r.ip === selectedMac &&
-  //       r.timestamp &&
-  //       new Date(r.timestamp).getTime() <= chartCutoffTime
-  //     )
-  //     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-  //     .slice(-15);
-  // }, [readings, selectedMac, chartCutoffTime]);
-
+  // FUNCTION FOR FETCHING SNAPSHOTS BY "IP"
   const fetchSnapshots = async (selectedMac) => {
     try {
       if (!selectedMac) return;
@@ -907,7 +1188,9 @@ function DashboardView() {
     }
   };
 
+  // RUNNING SNAPSHOT FETCHING FUNCTION
   useEffect(() => {
+    // Fetching snapshot only when snapshot tab is active
     if (activeTab !== "snapshots" || !selectedMac) return;
 
     fetchSnapshots(selectedMac);
@@ -919,7 +1202,7 @@ function DashboardView() {
 
     const snapshotInterval = setInterval(() => {
       fetchSnapshots(selectedMac);
-    }, 240000); // ✅ Set up timer
+    }, SNAPSHOT_FETCH_INTERVAL); // ✅ Set up timer
 
     return () => clearInterval(snapshotInterval); // ✅ Cleanup
   }, [selectedMac]);
@@ -1566,8 +1849,18 @@ function DashboardView() {
             onScroll={handleScroll}
           >
             <div className="log-panel">
-              {Object.keys(logsByMac).length === 0 ? (
+              {/* {Object.keys(logsByMac).length === 0 ? (
                 <p>No logs in last 1 hour</p>
+              ) : (
+                currentLogs.map((line, i) => (
+                  <pre key={i} className="log-line">
+                    {line}
+                  </pre>
+                ))
+              )} */}
+
+              {currentLogs.length === 0 ? (
+                <p>No live logs available for this device</p>
               ) : (
                 currentLogs.map((line, i) => (
                   <pre key={i} className="log-line">

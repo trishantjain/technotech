@@ -14,16 +14,20 @@ const RegisteredDevices = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filter, setFilter] = useState("pending");
 
+    const DEVICE_FETCH_TIME = 30000;
+
+    // FETCHING DEVICE DATA EVERY 30 SECONDS
     useEffect(() => {
         fetchDevices(true);
 
         const interval = setInterval(() => {
             fetchDevices(false);
-        }, 30000);
+        }, DEVICE_FETCH_TIME);
 
         return () => clearInterval(interval);
     }, []);
 
+    // FETCHING DEVICES 
     const fetchDevices = async (showLoader = false) => {
         try {
             if (showLoader) setLoadingDevices(true);

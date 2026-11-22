@@ -6,5 +6,6 @@ export const API = {
     logCommand: 'log-command',
     sendCommandToDevice: 'command',
     historicalData: 'historical-data',
-    registerDevice: 'register-device'
+    registerDevice: 'register-device',
+    deviceStatus: "nms/device-status"
 };
