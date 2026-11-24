@@ -1468,7 +1468,7 @@ app.get("/api/alarm-history", async (req, res) => {
     }
 
     const macFolder = ip.replace(/[:. ]/g, "_");
-    const baseDir = `C:/CommandLogs/alarm/${macFolder}`;
+    const baseDir = path.join(alarmLogDir, macFolder);
 
     const cacheKey = `${ip}|${from}|${to}`;
 

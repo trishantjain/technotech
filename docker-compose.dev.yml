@@ -1,0 +1,102 @@
+services:
+  api:
+    build:
+      context: ./server
+    image: ems-backend:dev
+    command: node server_IP.js
+    env_file:
+      - ./.env.development
+    ports:
+      - "5000:5000"
+      - "4000:4000"
+    volumes:
+      - "C:/CommandLogs:/var/lib/ems"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  alarm-worker:
+    image: ems-backend:dev
+    build:
+      context: ./server
+    command: node workers/alarmLogWorker.js
+    env_file:
+      - ./.env.development
+    volumes:
+      - "C:/CommandLogs:/var/lib/ems"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  alarmcomputation-worker:
+    image: ems-backend:dev
+    build:
+      context: ./server
+    command: node workers/alarmComputationWorker.js
+    env_file:
+      - ./.env.development
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  snapshot-worker:
+    image: ems-backend:dev
+    build:
+      context: ./server
+    command: node workers/snapshotWorker.js
+    env_file:
+      - ./.env.development
+    volumes:
+      - "C:/CommandLogs:/var/lib/ems"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  log-worker:
+    image: ems-backend:dev
+    build:
+      context: ./server
+    command: node workers/IncLogWorker.js
+    env_file:
+      - ./.env.development
+    volumes:
+      - "C:/CommandLogs:/var/lib/ems"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  reading-worker:
+    image: ems-backend:dev
+    build:
+      context: ./server
+    command: node workers/readingWorker.js.js
+    env_file:
+      - ./.env.development
+    volumes:
+      - "C:/CommandLogs:/var/lib/ems"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ems-rabbitmq
+    ports:
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  rabbitmq-data:

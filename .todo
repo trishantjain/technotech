@@ -1,22 +1,25 @@
-- DONE - Ping Matrics is not included in the document
+✔ DONE - Ping Matrics is not included in the document @done(26-11-24 16:01)
 - PARTIALLY - Device availability API added but run hours to be fetched from the HUPS
-- Alarm and Device Status computation (yellow, red, orange) to be removed from frontend & existing backend API for NMS to be used.
-- DONE - NMS Device Status alarm issue: After device goes down device status alarm should be active
+✔ Alarm and Device Status computation (yellow, red, orange) to be removed from frontend & existing backend API for NMS to be used. @done(26-11-24 16:01)
+✔ DONE - NMS Device Status alarm issue: After device goes down device status alarm should be active @done(26-11-24 16:01)
 - Can change alarms according to threshold (diff. alarm if threshold is less than min and diff. alarm if threshold in greater than max)
 - Have to add HUPS values to the alarm service (Output voltage, UPS Output Volt, Inverter alarms to be added)
 - MongoDB EMS data backup
-- DONE - Redis and In-memory Cache - Device status, Current Alarms, Ping Records
-- DONE - Current alarms are not saving in the DB
-- DONE – RabbitMQ connection optimization using a shared connection promise.
-- DONE – Independent RabbitMQ channels for each consumer.
-- DONE – Sensor readings publishing to sensor_readings_queue from server_IP.js.
-- DONE – MongoDB reading persistence moved from the TCP server to a separate readingWorker.js.
-- DONE – Batch processing of sensor readings (1,000 readings per batch or 10-second flush interval).
-- DONE – MongoDB bulkWrite() implementation with duplicate prevention using reading \_id.
+✔ DONE - Redis and In-memory Cache - Device status, Current Alarms, Ping Records @done(26-11-24 16:01)
+✔ DONE - Current alarms are not saving in the DB @done(26-11-24 16:01)
+✔ DONE – RabbitMQ connection optimization using a shared connection promise. @done(26-11-24 16:01)
+✔ DONE – Independent RabbitMQ channels for each consumer. @done(26-11-24 16:01)
+✔ DONE – Sensor readings publishing to sensor_readings_queue from server_IP.js. @done(26-11-24 16:01)
+✔ DONE – MongoDB reading persistence moved from the TCP server to a separate readingWorker.js. @done(26-11-24 16:01)
+✔ DONE – Batch processing of sensor readings (1,000 readings per batch or 10-second flush interval). @done(26-11-24 16:01)
+✔ DONE – MongoDB bulkWrite() implementation with duplicate prevention using reading \_id. @done(26-11-24 16:01)
 - DONE – RabbitMQ publisher confirmation added for sensor readings.
 - DONE – Batch consumer acknowledgement updated to handle channel reconnections safely.
 - PENDING – Delayed retry mechanism and dead-letter queue for failed reading batches.
 - PENDING – Durable local outbox to protect sensor readings during RabbitMQ outages.
+☐ Adding seperate env and docker compose for production and development
+☐ docker setup with registry
+☐ check "api/alarm-history" as baseDir var updated
 
 FIRMWARE CHANGES:
 
