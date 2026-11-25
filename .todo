@@ -20,9 +20,16 @@
 ☐ Adding seperate env and docker compose for production and development
 ☐ docker setup with registry
 ☐ check "api/alarm-history" as baseDir var updated
+☐ reduce docker image size
 
 FIRMWARE CHANGES:
 
 1. Test mode - Lock relay off duration, Data from iMoni in every 5 seconds
 2. Debug Mode of all tests in TCP port so that easy to debug - Key
 3. Camera command - Take snapshot at any time from the EMS
+
+
+
+ERROR FACED WHILE SETIING UP DOCKER IMAGE: 
+    1. PORT in use: Port changed from 5672 to 5673. 
+

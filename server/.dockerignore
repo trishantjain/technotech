@@ -1,0 +1,25 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Git files
+.git/
+.gitignore
+
+# Test and coverage files
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+
+# OS files
+.DS_Store

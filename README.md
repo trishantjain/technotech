@@ -9,24 +9,45 @@ A full-stack IoT-based Entity Management System for real-time monitoring and con
 - [Commands](#commands)
 - [High-Level Design (HLD)](#high-level-design-hld)
   - [System Overview](#system-overview)
-  - [Architecture Diagram](#architecture-diagram)
   - [Component Summary](#component-summary)
   - [Technology Stack](#technology-stack)
   - [Data Flow](#data-flow)
   - [Deployment Architecture](#deployment-architecture)
-- [Low-Level Design (LLD)](#low-level-design-lld)
-  - [Backend Server](#backend-server)
-    - [TCP Server](#tcp-server)
-    - [REST API Endpoints](#rest-api-endpoints)
-    - [SSE (Server-Sent Events)](#sse-server-sent-events)
-  - [Threshold and Alarm Engine](#threshold-and-alarm-engine)
   - [Cleanup and Maintenance](#cleanup-and-maintenance)
 
 ---
 
 ## Commands
 
+DOCKERIMAGE NAME: ems-backend:dev
+
+builds the backend image once.
+
 - docker compose -f docker-compose.dev.yml up -d --build
+
+Docker creates all the containers using the same image.
+
+- docker compose -f docker-compose.dev.yml up -d --no-build
+
+On Windows:
+
+- docker build -t ems-backend:v1.0.0 ./server
+
+Export the image:
+
+- docker save -o ems-backend-v1.0.0.tar ems-backend:v1.0.0
+
+On Ubuntu:
+
+- docker load -i ems-backend-v1.0.0.tar
+
+Start the application:
+
+- docker compose -f docker-compose.prod.yml up -d
+
+Running CMD after making changes in file
+
+- docker compose --env-file ./server/.env.development -f docker-compose.dev.yml up -d --force-recreate
 
 ## High-Level Design (HLD)
 

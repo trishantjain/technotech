@@ -1,94 +1,98 @@
+name: ems-dev
+
 services:
   api:
     build:
       context: ./server
-    image: ems-backend:dev
+      dockerfile: Dockerfile
+    image: ${EMS_BACKEND_IMAGE:-ems-backend:dev}
     command: node server_IP.js
     env_file:
-      - ./.env.development
+      - ./server/.env.development
     ports:
       - "5000:5000"
       - "4000:4000"
     volumes:
       - "C:/CommandLogs:/var/lib/ems"
+      - "C:/Snaps:/var/lib/ems/snap"
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+    init: true
 
   alarm-worker:
-    image: ems-backend:dev
-    build:
-      context: ./server
+    image: ${EMS_BACKEND_IMAGE:-ems-backend:dev}
     command: node workers/alarmLogWorker.js
     env_file:
-      - ./.env.development
+      - ./server/.env.development
     volumes:
       - "C:/CommandLogs:/var/lib/ems"
+      - "C:/Snaps:/var/lib/ems/snap"
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+    init: true
 
   alarmcomputation-worker:
-    image: ems-backend:dev
-    build:
-      context: ./server
+    image: ${EMS_BACKEND_IMAGE:-ems-backend:dev}
     command: node workers/alarmComputationWorker.js
     env_file:
-      - ./.env.development
+      - ./server/.env.development
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+    init: true
 
   snapshot-worker:
-    image: ems-backend:dev
-    build:
-      context: ./server
+    image: ${EMS_BACKEND_IMAGE:-ems-backend:dev}
     command: node workers/snapshotWorker.js
     env_file:
-      - ./.env.development
+      - ./server/.env.development
     volumes:
       - "C:/CommandLogs:/var/lib/ems"
+      - "C:/Snaps:/var/lib/ems/snap"
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+    init: true
 
   log-worker:
-    image: ems-backend:dev
-    build:
-      context: ./server
+    image: ${EMS_BACKEND_IMAGE:-ems-backend:dev}
     command: node workers/IncLogWorker.js
     env_file:
-      - ./.env.development
+      - ./server/.env.development
     volumes:
       - "C:/CommandLogs:/var/lib/ems"
+      - "C:/Snaps:/var/lib/ems/snap"
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+    init: true
 
   reading-worker:
-    image: ems-backend:dev
-    build:
-      context: ./server
-    command: node workers/readingWorker.js.js
+    image: ${EMS_BACKEND_IMAGE:-ems-backend:dev}
+    command: node workers/readingWorker.js
     env_file:
-      - ./.env.development
+      - ./server/.env.development
     volumes:
       - "C:/CommandLogs:/var/lib/ems"
+      - "C:/Snaps:/var/lib/ems/snap"
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+    init: true
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: ems-rabbitmq
     ports:
-      - "15672:15672"
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:

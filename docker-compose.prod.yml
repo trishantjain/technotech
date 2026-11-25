@@ -1,101 +1,108 @@
-version: "3.8"
+name: ems-prod
 
 services:
   api:
-    build: ./server
-    container_name: ems-api
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
     command: node server_IP.js
     env_file:
-      - ./server/.env
+      - ./server/.env.production
     ports:
       - "5000:5000"
       - "4000:4000"
-    depends_on:
-      - rabbitmq
-      # - mongo
-    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /home/techno/ems:/var/lib/ems
-
-
-  alarm-worker:
-    build: ./server
-    container_name: ems-alarm-worker
-    command: node workers/alarmLogWorker.js
-    env_file:
-      - ./server/.env
-    depends_on:
-      - rabbitmq
-      # - mongo
-    restart: unless-stopped
-    volumes:
-      - /home/techno/ems:/var/lib/ems
-
-
-  alarmcomputation-worker:
-    build: ./server
-    container_name: ems-alarmcomputation-worker
-    command: node workers/alarmComputationWorker.js
-    env_file:
-      - ./server/.env
-    depends_on:
-      - rabbitmq
-
-
-  snapshot-worker:
-    build: ./server
-    container_name: ems-snapshot-worker
-    command: node workers/snapshotWorker.js
-    env_file:
-      - ./server/.env
-    depends_on:
-      - rabbitmq
-    restart: unless-stopped
-    volumes:
-      - /home/techno/ems:/var/lib/ems
-
-  log-worker:
-    build: ./server
-    container_name: ems-log-worker
-    command: node workers/IncLogWorker.js
-    env_file:
-      - ./server/.env
-    depends_on:
-      - rabbitmq
-    restart: unless-stopped
-    volumes:
-      - /home/techno/ems:/var/lib/ems
-
-  reading-worker:
-    image: ems-backend:dev
-    build:
-      context: ./server
-    command: node workers/readingWorker.js.js
-    env_file:
-      - ./.env.development
-    volumes:
-      - "C:/CommandLogs:/var/lib/ems"
     depends_on:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
-    
+    init: true
+
+  alarm-worker:
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    command: node workers/alarmLogWorker.js
+    env_file:
+      - ./server/.env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /home/techno/ems:/var/lib/ems
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+
+  alarmcomputation-worker:
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    command: node workers/alarmComputationWorker.js
+    env_file:
+      - ./server/.env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+
+  snapshot-worker:
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    command: node workers/snapshotWorker.js
+    env_file:
+      - ./server/.env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /home/techno/ems:/var/lib/ems
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+
+  log-worker:
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    command: node workers/IncLogWorker.js
+    env_file:
+      - ./server/.env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /home/techno/ems:/var/lib/ems
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+
+  reading-worker:
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    command: node workers/readingWorker.js
+    env_file:
+      - ./server/.env.production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /home/techno/ems:/var/lib/ems
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: ems-rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
-  # mongo:
-  #   image: mongo:6
-  #   container_name: ems-mongo
-  #   ports:
-  #     - "27017:27017"
-  #   volumes:
-  #     - mongo-data:/data/db
-
-# volumes:
-#   mongo-data:
+volumes:
+  rabbitmq-data:
