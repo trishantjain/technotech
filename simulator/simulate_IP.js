@@ -10,11 +10,14 @@ const args = process.argv;
 
 // const TOTAL_DEVICES = 156;
 // const TOTAL_DEVICES = process.env.TOTAL_DEVICES;
-const TOTAL_DEVICES = Number(args[2]) || 100;
+const TOTAL_DEVICES = Number(process.env.TOTAL_DEVICES || args[2]) || 100;
+
+let isCSVMode =
+  (process.env.SIMULATOR_MODE || "random").toLowerCase() === "csv";
 const devices = [];
 let csvData = [];
 let currentSecond = 0;
-let isCSVMode = false;
+// let isCSVMode = false;
 
 const simulatorState = {
   insideTemperature: 55,
@@ -39,7 +42,7 @@ const simulatorState = {
   fan5: false,
   fan6: false,
   // mode: "manual",
-  mode: "random"
+  mode: "random",
 };
 
 // 🔥 PRE-INDEXING: Fast lookup structure
@@ -49,8 +52,9 @@ let PADDING_BYTE = 0;
 
 const connectedDevices = new Map();
 
-const wss = new WebSocket.Server({ port: 8090 });
+const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
+const ws = new WebSocket(`${wsProtocol}//${window.location.host}/simulator-ws`);
 console.log("📡 WebSocket server started on ws://localhost:8090");
 
 wss.on("connection", (ws) => {
@@ -306,7 +310,10 @@ function startDevice(ip, index) {
   try {
     // const client = net.createConnection({ host: '98.88.250.83', port: 4000 });
     // const client = net.createConnection({ host: '172.16.113.225', port: 4000 });
-    const client = net.createConnection({ host: "localhost", port: 4000 });
+    const client = net.createConnection({
+      host: process.env.EMS_TCP_HOST,
+      port: Number(process.env.EMS_TCP_PORT) || 4000,
+    });
     console.log("Client connected", ip);
 
     // 🔧 NEW: Store this device in our connected devices map

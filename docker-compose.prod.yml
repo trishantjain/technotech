@@ -2,7 +2,7 @@ name: ems-prod
 
 services:
   api:
-    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE}
     command: node server_IP.js
     env_file:
       - ./server/.env.production
@@ -12,7 +12,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - /home/techno/ems:/var/lib/ems
+      - /opt/ems/logs:/var/lib/ems
+      - /opt/ems/snapshots:/var/lib/ems/snap
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -20,14 +21,15 @@ services:
     init: true
 
   alarm-worker:
-    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE}
     command: node workers/alarmLogWorker.js
     env_file:
       - ./server/.env.production
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - /home/techno/ems:/var/lib/ems
+      - /opt/ems/logs:/var/lib/ems
+      - /opt/ems/snapshots:/var/lib/ems/snap
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -35,7 +37,7 @@ services:
     init: true
 
   alarmcomputation-worker:
-    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE}
     command: node workers/alarmComputationWorker.js
     env_file:
       - ./server/.env.production
@@ -48,7 +50,7 @@ services:
     init: true
 
   snapshot-worker:
-    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE}
     command: node workers/snapshotWorker.js
     env_file:
       - ./server/.env.production
@@ -63,7 +65,7 @@ services:
     init: true
 
   log-worker:
-    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE}
     command: node workers/IncLogWorker.js
     env_file:
       - ./server/.env.production
@@ -78,7 +80,7 @@ services:
     init: true
 
   reading-worker:
-    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE in .env.production}
+    image: ${EMS_BACKEND_IMAGE:?Set EMS_BACKEND_IMAGE}
     command: node workers/readingWorker.js
     env_file:
       - ./server/.env.production

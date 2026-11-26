@@ -49,6 +49,15 @@ Running CMD after making changes in file
 
 - docker compose --env-file ./server/.env.development -f docker-compose.dev.yml up -d --force-recreate
 
+CMD to see the logs
+
+- docker compose -f docker-compose.dev.yml logs -f api
+
+Simulator build cmd: docker build -t ghcr.io/trishantjain/ems-simulator:v1.0.0
+UI build cmd: docker build --no-cache -t ghcr.io/trishantjain/ems-frontend:v1.0.0
+
+Image push cmd: docker push ghcr.io/trishantjain/<docker_image_name>
+
 ## High-Level Design (HLD)
 
 ### System Overview
@@ -57,29 +66,29 @@ The EMS platform monitors remote telecom/electrical shelters equipped with IoT s
 
 ### Component Summary
 
-| Component | Role |
-| --------- | ---- |
-
-| **IoT Sensor Board / Simulator**
-| **Node.js Backend**  
-| **React Frontend**  
-| **MongoDB**  
-| **RabbitMQ**  
-| **Workers (Alarm, Snapshot, Log)**
-| **Relay Server**
+| Component                      | Role |
+| ------------------------------ | ---- |
+| Simulator                      |
+| Node.js Backend                |
+| React Frontend                 |
+| MongoDB                        |
+| RabbitMQ                       |
+| Workers (Alarm, Snapshot, Log) |
+| Relay Server                   |
 
 ### Technology Stack
 
-| Layer            | Technology                                                   |
-| ---------------- | ------------------------------------------------------------ |
-| Frontend         | React 18, Tailwind CSS, Recharts, React-Leaflet, SweetAlert2 |
-| Backend          | Node.js, Express 5, Mongoose, JSON Web Tokens (JWT), bcrypt  |
-| Database         | MongoDB 6                                                    |
-| Message Broker   | RabbitMQ 3 (amqplib)                                         |
-| Real-Time        | Server-Sent Events (SSE), raw TCP sockets                    |
-| Containerization | Docker, Docker Compose                                       |
-| CI/CD            | GitHub Actions -> EC2 (SSH deploy), Nginx                    |
-| Simulator        | Node.js TCP client with WebSocket UI control                 |
+| Layer            | Technology                                                         |
+| ---------------- | ------------------------------------------------------------------ |
+| Frontend         | React 18, Tailwind CSS, Recharts, React-Leaflet, SweetAlert2       |
+| Backend          | Node.js, Express 5, Mongoose, JSON Web Tokens (JWT), bcrypt, Redis |
+| Database         | MongoDB 6                                                          |
+| Cache            | Redis                                                              |
+| Message Broker   | RabbitMQ 3 (amqplib)                                               |
+| Real-Time        | Server-Sent Events (SSE), raw TCP sockets                          |
+| Containerization | Docker, Docker Compose                                             |
+| CI/CD            | GitHub Actions -> EC2 (SSH deploy), Nginx                          |
+| Simulator        | Node.js TCP client with WebSocket UI control                       |
 
 ### Deployment Architecture
 
@@ -100,20 +109,20 @@ GitHub (master branch)
 +-------------------+
         |
         v
-+---------------------------+
-|  AWS EC2 Instance         |
-|  +---------------------+  |
-|  | Nginx (static files)|  |  <- serves React build
-|  +---------------------+  |
-|  | Docker Compose       |  |
-|  |  - ems-api           |  |  <- server_IP.js (ports 4000, 5000)
-|  |  - ems-alarm-worker  |  |
++-----------------------------+
+|  AWS EC2 Instance           |
+|  +-----------------------+  |
+|  | Nginx (static files)  |  |  <- serves React build
+|  +-----------------------+  |
+|  | Docker Compose        |  |
+|  |  - ems-api            |  |  <- server_IP.js (ports 4000, 5000)
+|  |  - ems-alarm-worker   |  |
 |  |  - ems-snapshot-worker|  |
-|  |  - ems-log-worker    |  |
-|  |  - ems-rabbitmq      |  |  <- ports 5672, 15672
-|  |  - ems-mongo         |  |  <- port 27017 (persistent volume)
-|  +---------------------+  |
-+---------------------------+
+|  |  - ems-log-worker     |  |
+|  |  - ems-rabbitmq       |  |  <- ports 5672, 15672
+|  |  - ems-mongo          |  |  <- port 27017 (persistent volume)
+|  +-----------------------+  |
++-----------------------------+
 ```
 
 ---
@@ -129,4 +138,5 @@ GitHub (master branch)
 **DashboardView (`pages/DashboardView.js`)**
 **AdminDashboard (`pages/AdminDashboard.js`)**
 **DeviceMap (`components/DeviceMap.jsx`)**
+**DeviceTile (`components/DeviceTile`)**
 **OfflinePrompt (`components/OfflinePrompt.js`)**

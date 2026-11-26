@@ -321,7 +321,7 @@ body {
 } */
 
 .power-btn::before {
-  background-image: url("../../iot-dashboard-frontend/src/pages/power-on-off.svg");
+  background-image: url("./pages/power-on-off.svg");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
