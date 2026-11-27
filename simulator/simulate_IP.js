@@ -4,7 +4,7 @@ const path = require("path");
 const csv = require("csv-parser");
 const fs = require("fs");
 // const { connected } = require('process');
-const WebSocket = require("ws");
+// const WebSocket = require("ws");
 
 const args = process.argv;
 
@@ -52,52 +52,52 @@ let PADDING_BYTE = 0;
 
 const connectedDevices = new Map();
 
-const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+// const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
-const ws = new WebSocket(`${wsProtocol}//${window.location.host}/simulator-ws`);
+// const ws = new WebSocket(`${wsProtocol}//${window.location.host}/simulator-ws`);
 console.log("📡 WebSocket server started on ws://localhost:8090");
 
-wss.on("connection", (ws) => {
-  console.log(" UI Client connected");
+// wss.on("connection", (ws) => {
+//   console.log(" UI Client connected");
 
-  // Sending current 'simulatorState' to UI
-  ws.send(JSON.stringify(simulatorState));
+//   // Sending current 'simulatorState' to UI
+//   ws.send(JSON.stringify(simulatorState));
 
-  ws.on("message", (message) => {
-    try {
-      const updatedData = JSON.parse(message.toString());
+//   ws.on("message", (message) => {
+//     try {
+//       const updatedData = JSON.parse(message.toString());
 
-      console.log("updated data: ", updatedData);
+//       console.log("updated data: ", updatedData);
 
-      // Normalize fan values coming from UI (supports legacy boolean and numeric)
-      for (const fanKey of ["fan1", "fan2", "fan3", "fan4", "fan5", "fan6"]) {
-        if (fanKey in updatedData) {
-          const v = updatedData[fanKey];
-          if (typeof v === "boolean") {
-            updatedData[fanKey] = v;
-          } else {
-            // Back-compat: numeric 2 means "true" (force fail)
-            const asNum = Number(v);
-            updatedData[fanKey] = Number.isFinite(asNum)
-              ? asNum === 2
-              : Boolean(v);
-          }
-        }
-      }
+//       // Normalize fan values coming from UI (supports legacy boolean and numeric)
+//       for (const fanKey of ["fan1", "fan2", "fan3", "fan4", "fan5", "fan6"]) {
+//         if (fanKey in updatedData) {
+//           const v = updatedData[fanKey];
+//           if (typeof v === "boolean") {
+//             updatedData[fanKey] = v;
+//           } else {
+//             // Back-compat: numeric 2 means "true" (force fail)
+//             const asNum = Number(v);
+//             updatedData[fanKey] = Number.isFinite(asNum)
+//               ? asNum === 2
+//               : Boolean(v);
+//           }
+//         }
+//       }
 
-      // Update only provided fields in simulatorState
-      Object.assign(simulatorState, updatedData);
+//       // Update only provided fields in simulatorState
+//       Object.assign(simulatorState, updatedData);
 
-      console.log("🔄 Updated simulator state from UI:", simulatorState);
-    } catch (error) {
-      console.error("Error parsing message:", error.stack);
-    }
-  });
+//       console.log("🔄 Updated simulator state from UI:", simulatorState);
+//     } catch (error) {
+//       console.error("Error parsing message:", error.stack);
+//     }
+//   });
 
-  ws.on("close", () => {
-    console.log(" UI Client disconnected");
-  });
-});
+//   ws.on("close", () => {
+//     console.log(" UI Client disconnected");
+//   });
+// });
 
 function startPaddingPulse() {
   console.log("🕒 Starting padding pulse (toggle every second)");
